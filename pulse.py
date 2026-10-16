@@ -58,7 +58,8 @@ def http(url, headers=None, data=None, timeout=30):
             raise
 
 def strip_html(s):
-    s = re.sub(r'<a\b(?![^>]*hashtag)[^>]*>.*?</a>', ' ', s or '', flags=re.S)        # links and @mentions, not #hashtags
+    s = re.sub(r'<(style|script)\b.*?</\1>', ' ', s or '', flags=re.S | re.I)
+    s = re.sub(r'<a\b(?![^>]*hashtag)[^>]*>.*?</a>', ' ', s, flags=re.S)        # links and @mentions, not #hashtags
     s = html.unescape(re.sub(r'<[^>]+>', '', re.sub(r'</p>|<br\s*/?>', ' ', s)))
     return re.sub(r'\s+', ' ', re.sub(r'https?://\S+', ' ', s)).replace('\u200b', '').strip()
 
@@ -352,6 +353,11 @@ def emerging_phrases(posts, known_labels, covered=None, min_authors=3, limit=30)
     return [ph for ph, _ in keep[:limit]]
 
 # ------------------------------------------------------------------ graph
+def shown(p):
+    """Display text: newsletters keep their body only for matching; the page shows the issue title."""
+    t = p['title'] or ''
+    return t.split(' — ', 1)[0] if p['net'] in DIGEST else t
+
 def build(posts, lex, hype_items):
     topics, fams, vrx, kw = compile_lexicon(lex, hype_items)
     by_id = {t['id']: t for t in topics}
@@ -422,10 +428,10 @@ def build(posts, lex, hype_items):
         for _, p, dt in n['samples']:
             if p['url'] in seen_u: continue
             seen_u.add(p['url'])
-            samples.append({'net': p['net'], 'title': (p['title'] or '')[:200], 'url': p['url'], 'date': iso(dt)[:10],
+            samples.append({'net': p['net'], 'title': shown(p)[:200], 'url': p['url'], 'date': iso(dt)[:10],
                             'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']})
             if len(samples) >= 8: break
-        spread = [{'net': net, 'at': iso(dt), 'author': p['author'], 'url': p['url'], 'title': (p['title'] or '')[:160], 'source': p['source']}
+        spread = [{'net': net, 'at': iso(dt), 'author': p['author'], 'url': p['url'], 'title': shown(p)[:160], 'source': p['source']}
                   for net, (dt, p) in sorted(n['origin'].items(), key=lambda x: x[1][0])]
         out_nodes.append({'id': n['id'], 'label': n['label'], 'kind': n['kind'], 'parent': n['parent'], 'w': W, 'rising': rising, 'spread': spread,
                           'first': (n['first'] or '')[:10], 'last': (n['last'] or '')[:10], 'samples': samples})
@@ -473,7 +479,7 @@ def main():
     out = {'generated_at': iso(NOW), 'windows': list(WINDOWS), 'sources': SOURCES, 'totals': totals,
            'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days',
            'coverage': ['Sampled feeds, not internet-wide totals: HN stories above 20 points, the Lobsters AI tag, nine Mastodon hashtags on mastodon.social, '
-                        'ten AI subreddits via the arctic-shift public archive, tracker papers and repos, and the static HYPE research dossier. '
+                        'ten AI subreddits via the arctic-shift public archive, eleven public AI newsletter feeds (the digest end point), tracker papers and repos, and the static HYPE research dossier. '
                         'Bluesky appears only when an app password is configured. X is not collected (no free route within its terms).',
                         'Topics come from a reviewable lexicon (topics_lexicon.json), automatic model-version names, and capitalised phrases used by at least three distinct authors (marked emerging).',
                         'A node is only as strong as the posts listed under it; open it to read them.'],

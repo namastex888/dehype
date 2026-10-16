@@ -24,7 +24,8 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
  │                                     ▼                                                │
  │                     web/data.json   papers + repos, 7 windows × 7 paradigms          │
  │                                     │                                                │
- │   pulse.py ── HN · Reddit (arctic-shift) · Mastodon · Lobsters · [Bluesky*] ──►      │
+ │   pulse.py ── HN · Reddit (arctic-shift) · Mastodon · Lobsters · 11 newsletters      │
+ │               (RSS) · [Bluesky*] ──►                                                │
  │      history/signals.sqlite (45 days) + topics_lexicon.json ──► web/pulse.json       │
  │      (topic nodes: voices × network spread, rising, co-mention edges, evidence posts)│
  │   scripts/embed/embed.mjs ──► web/search-index.json + search-vectors.bin             │

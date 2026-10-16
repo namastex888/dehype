@@ -34,7 +34,7 @@ Status 2026-10-16: **design, partly built.** Pulse already records, per topic, t
 | Audience view | toggle on the map: size by audience reached (sum of followers of distinct authors, labelled "potential reach, not views") | from the two rows above | next |
 | People graph | who mentions / replies to / quotes whom among curated people | Bluesky + Mastodon free; X needs API | after `people.json` |
 | Cascade detection | per topic: origin → curated amplifiers → network crossings → newsletter; flag "starting to spread" when a topic crosses its second network or a curated high-audience account picks it up | all of the above | after people graph |
-| Newsletter source | items from the owner's daily newsletter as the "reached the digest" end point | see decision 2 | owner decision |
+| Newsletter source | items from AI newsletters as the "reached the digest" end point | 11 public RSS feeds in `newsletters.json` (Rundown, Neuron, AINews/Latent Space, TLDR AI, Decoder, Techmeme, AlphaSignal, Zvi, Simon Willison, Import AI, Interconnects) | **built**; email-only newsletters (Superhuman AI, Turing Post, AI Breakfast, Axios AI+) need the dedicated inbox in decision 2 |
 | X | the network where most AI gossip starts | see decision 1 | owner decision |
 
 ## Owner decisions

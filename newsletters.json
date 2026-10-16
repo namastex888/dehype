@@ -1,0 +1,16 @@
+{
+  "_doc": "Public RSS/Atom feeds of AI newsletters read by pulse.py (verified 2026-10-16). Each issue or item is one post on the 'Newsletter' network: the end point of a topic's spread trace. Only title, date and public link are published. Newsletters without a feed need email ingestion (see docs/SIGNALS_PLAN.md).",
+  "feeds": [
+    {"name": "The Rundown AI", "url": "https://rss.beehiiv.com/feeds/2R3C6Bt5wj.xml", "cadence": "daily"},
+    {"name": "The Neuron", "url": "https://rss.beehiiv.com/feeds/N4eCstxvgX.xml", "cadence": "daily"},
+    {"name": "Latent Space / AINews", "url": "https://www.latent.space/feed", "cadence": "daily"},
+    {"name": "TLDR AI", "url": "https://tldr.tech/api/rss/ai", "cadence": "daily"},
+    {"name": "The Decoder", "url": "https://the-decoder.com/feed/", "cadence": "many per day"},
+    {"name": "Techmeme", "url": "https://www.techmeme.com/feed.xml", "cadence": "many per day"},
+    {"name": "AlphaSignal", "url": "https://alphasignal.ai/feed.xml", "cadence": "many per day"},
+    {"name": "Don't Worry About the Vase (Zvi)", "url": "https://thezvi.substack.com/feed", "cadence": "near daily"},
+    {"name": "Simon Willison", "url": "https://simonwillison.net/atom/everything/", "cadence": "many per day"},
+    {"name": "Import AI", "url": "https://importai.substack.com/feed", "cadence": "weekly"},
+    {"name": "Interconnects", "url": "https://www.interconnects.ai/feed", "cadence": "every few days"}
+  ]
+}
