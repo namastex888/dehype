@@ -20,7 +20,7 @@ Owner of sequencing since 2026-10-16: the delivery agent, by delegation from the
 | P1 | Console UI: charts, filters, smart + semantic search, detail drawer | layer 0 | this change |
 | P2 | Hosting + daily self-update + CI gate | P1 | this change; needs Cloudflare secrets |
 | P3 | Richer search corpus: embed abstracts (the pipeline stores titles only today) and README excerpts; optional LLM answer card over the top results via Workers AI with a hard daily cap | P2 | planned |
-| P4 | Durable history: copy `history/` to R2 after each run so momentum survives cache eviction; weekly snapshot artifact | P2 | planned |
+| P4 | Durable history: copy `history/` to R2 after each run so momentum survives cache eviction; publish daily `data.json` to R2 and commit only weekly snapshots to git to cap repository growth | P2 | planned |
 | P5 | Trend-over-time charts per item (needs ≥ 14 daily snapshots from P2/P4) | P4 | planned |
 | P6 | Link the frontier-economics investigation explorer (`web/prototypes/`, #8's chosen direction) from the console | #6, #8 | planned |
 | P7 | Continue #7 → #9 → #12 (read model, relationship lens/inspector, first published investigation) | owner prerequisites | blocked |

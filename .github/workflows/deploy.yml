@@ -29,7 +29,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "::notice::CLOUDFLARE_API_TOKEN not set; skipping deploy (see docs/ARCHITECTURE.md#publishing)"
+            echo "::notice::CLOUDFLARE_API_TOKEN not set; skipping deploy (see docs/ARCHITECTURE.md#3-publishing)"
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
             echo "ok=true" >> "$GITHUB_OUTPUT"
@@ -48,4 +48,4 @@ jobs:
           npm ci --prefix scripts/embed --no-audit --no-fund && node scripts/embed/embed.mjs web
           node scripts/check_page.mjs
           npx --yes wrangler@4.143.0 pages project create "$PROJECT" --production-branch dev 2>/dev/null || true
-          npx --yes wrangler@4.143.0 pages deploy web --project-name "$PROJECT" --branch dev --commit-hash "$GITHUB_SHA" --commit-dirty=true
+          npx --yes wrangler@4.143.0 pages deploy web --project-name "$PROJECT" --branch dev --commit-hash "$(git rev-parse HEAD)" --commit-dirty=true

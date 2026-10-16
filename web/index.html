@@ -211,7 +211,7 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between}
   <h1 id="h1"></h1><p id="lede"></p>
   <div class="ask">
    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/><path d="M11 7.5v.01M8.2 9.2l.01 0" opacity=".6"/></svg>
-   <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Ask: “agent repos over 1k stars this month”, “jepa papers from meta”, “new world models”…" aria-label="Search">
+   <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Ask: “agent repos over 1k stars this month”, “browser automation”, “robots learning from video”…" aria-label="Search">
    <button class="sem" id="sem" title="semantic search: ranks by meaning with a small embedding model that runs in your browser (downloads ~23 MB once)">✦ semantic</button>
    <kbd>⌘K</kbd>
   </div>
@@ -267,6 +267,8 @@ const tag=t=>t?`<span class=tag><i style="background:${tagc(t)}"></i>${esc(t)}</
 // ------------------------------------------------------------------ honesty vocabulary (ported unchanged)
 const KIND={'rate-proxy':'rate proxy: per-day-since-release average (no earlier snapshot), counts as half evidence','since-release':'rate since release (younger than the momentum horizon)','measured':'real delta from snapshots / stargazer timestamps','blended':'real snapshot delta blended with the since-release rate (our history is shorter than the window)'};
 const FLAG={'stars>activity':'star growth capped: not matched by issue/PR/commit activity','solo':'stars but ≤1 contributor (no outside contributors)','spike':'one-off spike: star rate not sustained across 7/30/90d','single-post':'HN attention is a single post','few-votes':'fewer than 10 upvotes: small sample, counts as part of a signal','single-platform':'all sampled attention on one platform','few-voices':'only a few unique authors in the sample'};
+const GSRC={'snapshots':'measured between two of our own snapshots','born-in-window':'repository created inside the window: all its stars count as gained since creation','stargazers':'from GitHub stargazer timestamps','stars/age':'rate proxy: total stars divided by age (no earlier observation)'};
+const GABBR={'born-in-window':'new','stargazers':'ts','stars/age':'~'};
 const UNQ='verification: unqualified · freshness: unknown · source independence: unqualified';
 function flags(f){return (f||[]).map(x=>`<span class=fl title="${esc(FLAG[x]||x)}">${esc(x)}</span>`).join('')}
 function mv(r){const m=r.mv;
@@ -287,30 +289,30 @@ function since(iso){if(!iso)return null;return Math.max(0,Math.floor((Date.now()
 const SYN={'jepa':'JEPA','jev':'JEV','world model':'world/action models','world models':'world/action models','world-model':'world/action models','action model':'world/action models','robot':'world/action models','robotics':'world/action models','vla':'world/action models',
  'harness':'harness/context','harnesses':'harness/context','context':'harness/context','memory':'harness/context','mcp':'harness/context','agent':'agents','agents':'agents','agentic':'agents'};
 const WINW={'today':'1d','24h':'1d','day':'1d','this week':'7d','week':'7d','weekly':'7d','this month':'30d','month':'30d','quarter':'90d','this year':'1y','year':'1y','all time':'overall','ever':'overall'};
-const FIELDS={star:'stars',stars:'stars',score:'score',coverage:'coverage',cov:'coverage',upvote:'upvotes',upvotes:'upvotes',votes:'upvotes',hf:'upvotes',gained:'gained',gain:'gained',contributors:'contributors',commits:'commits',mentions:'mentions',days:'days',age:'days',attention:'score',discovery:'discovery',gap:'gap'};
+const FIELDS={star:'stars',stars:'stars',score:'score',coverage:'coverage',cov:'coverage',upvote:'upvotes',upvotes:'upvotes',votes:'upvotes',hf:'upvotes',gained:'gained',gain:'gained',contributors:'contributors',commits:'commits',mentions:'mentions',days:'days',age:'days',attention:'attention',discovery:'discovery',gap:'gap'};
 const STOP=new Set('a an the of on in for with and or to me show find list papers paper repos repo github hype projects project about that are is top best new rising trending recent latest from by over under more less than at least most fewest sort what which'.split(' '));
-function nval(n,u){n=parseFloat(n);u=(u||'').toLowerCase();return u=='k'?n*1e3:u=='m'?n*1e6:u=='%'?n/100:n}
+function nval(n,u,f){n=parseFloat(n);u=(u||'').toLowerCase();n=u=='k'?n*1e3:u=='m'?n*1e6:u=='%'?n/100:n;if(f=='coverage'&&n>1)n/=100;return n}
 function parseQuery(raw,opt={}){
  const P={raw,label:null,tab:null,win:null,tag:null,nums:[],who:null,terms:[],isNew:false,rising:false,sort:null};
  let s=' '+raw.toLowerCase().replace(/[“”"]/g,' ')+' ';
  const take=(re,fn)=>{s=s.replace(re,(...m)=>{fn(...m);return ' '})};
  take(/\b(attention|hype)\s+(?:runs?\s+)?ahead\b/g,()=>{P.label='attention_ahead';P.tab='hype'});take(/\b(discovery|evidence)\s+ahead\b/g,()=>{P.label='evidence_ahead';P.tab='hype'});take(/\b(insufficient|low coverage)\b/g,()=>P.label='insufficient');
- take(/\b(papers?|arxiv)\b/g,()=>P.tab='papers');take(/\b(repos?|github|repositor(?:y|ies)|code)\b/g,()=>P.tab=P.tab||'repos');take(/\b(hype|attention|buzz)\b(?!\s*(?:>|<|=))/g,()=>P.tab='hype');
  take(/\b(1d|7d|30d|90d|180d|1y|overall)\b/g,(m,w)=>P.win=w);
  for(const k of Object.keys(WINW).sort((a,b)=>b.length-a.length))take(new RegExp('\\b(?:this |last |past )?'+k.replace(/ /g,'\\s+')+'\\b','g'),()=>P.win=WINW[k]);
  take(/\b(?:last|past)\s+(\d+)\s+days?\b/g,(m,n)=>{n=+n;P.win=n<=1?'1d':n<=7?'7d':n<=30?'30d':n<=90?'90d':n<=180?'180d':'1y'});
  const F='(stars?|score|coverage|cov|upvotes?|votes|hf|gained|gain|contributors|commits|mentions|days|age|attention|discovery|gap)';
  const OP={'>':'>','>=':'>=','<':'<','<=':'<=','=':'=',over:'>',above:'>','more than':'>','at least':'>=',under:'<',below:'<','less than':'<','fewer than':'<','at most':'<='};
- take(new RegExp('\\b'+F+'\\s*(>=|<=|>|<|=)\\s*(\\d+(?:\\.\\d+)?)\\s*(k|m|%)?','g'),(m,f,o,n,u)=>P.nums.push({f:FIELDS[f],op:o,v:nval(n,u)}));
- take(new RegExp('(>=|<=|>|<|over|above|more than|at least|under|below|less than|fewer than|at most)\\s*(\\d+(?:\\.\\d+)?)\\s*(k|m|%)?\\s*'+F+'\\b','g'),(m,o,n,u,f)=>P.nums.push({f:FIELDS[f],op:OP[o],v:nval(n,u)}));
+ take(new RegExp('\\b'+F+'\\s*(>=|<=|>|<|=)\\s*(\\d+(?:\\.\\d+)?)\\s*(k|m|%)?','g'),(m,f,o,n,u)=>P.nums.push({f:FIELDS[f],op:o,v:nval(n,u,FIELDS[f])}));
+ take(new RegExp('(>=|<=|>|<|over|above|more than|at least|under|below|less than|fewer than|at most)\\s*(\\d+(?:\\.\\d+)?)\\s*(k|m|%)?\\s*'+F+'\\b','g'),(m,o,n,u,f)=>P.nums.push({f:FIELDS[f],op:OP[o],v:nval(n,u,FIELDS[f])}));
+ take(/\b(papers?|arxiv)\b/g,()=>P.tab='papers');take(/\b(repos?|github|repositor(?:y|ies)|code)\b/g,()=>P.tab=P.tab||'repos');take(/\b(hype|attention|buzz)\b/g,()=>P.tab='hype');
  take(/\b(most|top)\s+(starred|stars|upvoted|gained|contributors|commits)\b/g,(m,a,b)=>P.sort={stars:'stars',starred:'stars',upvoted:'upvotes',gained:'gained',contributors:'contributors',commits:'commits'}[b]);
  take(/\b(?:from|by)\s+([a-z0-9][\w.\-@]*(?:\s+(?!with\b|in\b|over\b|under\b|and\b|this\b|last\b|more\b|less\b)[a-z0-9][\w.\-]*){0,2})/g,(m,w)=>{w=w.trim();
   // only a known lab/owner/author becomes a filter; otherwise the words stay as search text
   while(w&&!opt.noWho&&!knownWho(w))w=w.split(' ').slice(0,-1).join(' ');if(w&&!opt.noWho)P.who=w;else P._back=(P._back||'')+' '+m.replace(/^\s*(from|by)\s+/,'')+' '});
  take(/\b(new|newly|fresh|just appeared)\b/g,()=>P.isNew=true);
- take(/\b(rising|risers|climbing|movers|gainers|up)\b/g,()=>P.rising=true);
+ take(/\b(rising|risers|climbing|movers|gainers)\b/g,()=>P.rising=true);
  for(const k of Object.keys(SYN).sort((a,b)=>b.length-a.length))take(new RegExp('\\b'+k.replace(/[-/]/g,'\\$&').replace(/ /g,'\\s+')+'\\b','g'),()=>P.tag=P.tag||SYN[k]);
- if(P.nums.some(n=>['gap','discovery'].includes(n.f))&&!P.tab)P.tab='hype';
+ if(P.nums.some(n=>['gap','discovery','attention'].includes(n.f)))P.tab='hype';
  if(P._back)s+=P._back;
  P.terms=s.split(/[^a-z0-9.+#\-_/]+/).filter(w=>w&&w.length>1&&!STOP.has(w));
  return P}
@@ -325,7 +327,7 @@ function hay(r){const k=S.tab+'|'+r.id;let h=HAY.get(k);if(h)return h;
  const t=[r.id,r.title,r.name,r.desc,r.owner,r.lab,(r.authors||[]).join(' '),r.tag,r.category,r.summary,r.paper_title].filter(Boolean).join(' ').toLowerCase();
  h={t,w:t.split(/[^a-z0-9.+#\-_]+/).filter(x=>x.length>3)};HAY.set(k,h);return h}
 function termHit(r,term){const h=hay(r);if(h.t.includes(term))return 2;if(term.length>=5&&h.w.some(w=>lev1(w,term)||(w.length>term.length&&lev1(w.slice(0,term.length),term))))return 1;return 0}
-function getF(r,f){if(f=='discovery')return r._disc;return r[f]}
+function getF(r,f){if(f=='discovery')return r._disc;if(f=='attention')return r.score;return r[f]}
 function cmp(a,op,b){return a==null?false:op=='>'?a>b:op=='>='?a>=b:op=='<'?a<b:op=='<='?a<=b:a==b}
 
 // ------------------------------------------------------------------ semantic search: same model as scripts/embed/embed.mjs, query embedded locally
@@ -356,7 +358,7 @@ function rowsFor(tab,win,view){
  return {candidates:cur.candidates,rows:cur.rows.map(v=>({...D[tab].items[v.id],...v}))}}
 function applyFilters(rows,P){
  let out=rows;
- if(S.mincov)out=out.filter(r=>(r.coverage??0)>=S.mincov);
+ if(S.mincov)out=out.filter(r=>(r.coverage??0)>=S.mincov&&(S.tab!='hype'||(r._dcov??0)>=S.mincov));
  if(S.onlyNew||P.isNew)out=out.filter(isNew);
  if(S.noFlag)out=out.filter(r=>!(r.flags&&r.flags.length));
  for(const c of P.nums)out=out.filter(r=>cmp(getF(r,c.f),c.op,c.v));
@@ -386,16 +388,18 @@ const C={
   {k:'id',l:'Repository',v:r=>r.id,h:r=>`<div class=ttl>${r.fav?'<span class=fav>★</span> ':''}${esc(r.id)}</div><div class=desc>${esc(r.desc||'')}</div>${flags(r.flags)}`},
   {k:'score',l:'Score',n:1,v:r=>r.score,h:r=>sc(r.score,r,D.priors?.repos)},
   {k:'coverage',l:'Coverage',n:1,v:r=>r.coverage,h:r=>cov(r.coverage),hs:1},
-  {k:'gained',l:'★ gained',n:1,v:r=>r.gained,h:r=>r.gained==null?`<span class=dim title="${r.kind=='rate-proxy'?'no stargazer timestamps or earlier snapshot: score uses stars/age as a rate proxy':'no growth history yet'}">—</span>`:`<span title="${esc((r.src||'')+(r.gspan?` over ${r.gspan} days`:''))}">${r.gained>=0?'+':''}${num(r.gained)}</span>`},
+  {k:'gained',l:'★ gained',n:1,v:r=>r.gained,h:r=>r.gained==null?`<span class=dim title="${r.kind=='rate-proxy'?'no stargazer timestamps or earlier snapshot: score uses stars/age as a rate proxy':'no growth history yet'}">—</span>`:`<span title="${esc(GSRC[r.src]||r.src||'')}${r.gspan?` · over ${r.gspan} days`:''}">${r.gained>=0?'+':''}${num(r.gained)}</span>${r.src=='snapshots'&&r.gspan?` <span class=dim>/${r.gspan}d</span>`:r.src&&r.src!='snapshots'?` <span class=dim title="${esc(GSRC[r.src]||r.src)}">${esc(GABBR[r.src]||'')}</span>`:''}`},
   {k:'stars',l:'Stars',n:1,v:r=>r.stars,h:r=>num(r.stars),hs:1},
   {k:'contributors',l:'Contrib.',n:1,v:r=>r.contributors,h:r=>num(r.contributors),hs:1},
-  {k:'pushed',l:'Push',n:1,v:r=>r.pushed?-Date.parse(r.pushed):null,h:r=>ago(r.pushed),hs:1},
+  {k:'pushed',l:'Push',n:1,v:r=>r.pushed?Date.parse(r.pushed):null,h:r=>ago(r.pushed),hs:1},
   {k:'tag',l:'Paradigm',v:r=>r.tag,h:r=>tag(r.tag),hs:1}],
  hype:[
   {k:'rank',l:'#',n:1,v:r=>r.rank,h:r=>`<span class=rk>${mv(r)}<b>${r.rank}</b></span>`},
   {k:'name',l:'Project',v:r=>r.name,h:r=>{const it=H.items[r.id];return `<div class=ttl>${esc(it.name)}${it.coord.disclosed?'<span class=ad title="disclosed sponsored content — see details">sponsored</span>':''}</div><div class=desc>${esc(it.category||'')}</div>${flags(r.flags)}`}},
   {k:'score',l:'Attention',n:1,v:r=>r.score,h:r=>sc(r.score,r,50)},
+  {k:'coverage',l:'Att. cov.',n:1,v:r=>r.coverage,h:r=>cov(r.coverage),hs:1},
   {k:'_disc',l:'Discovery',n:1,v:r=>r._disc,h:r=>{const d=H.items[r.id].discovery;return sc(d.score,d,50)}},
+  {k:'_dcov',l:'Disc. cov.',n:1,v:r=>r._dcov,h:r=>cov(r._dcov),hs:1},
   {k:'gap',l:'Gap',n:1,v:r=>r.gap,h:r=>gapb(r)},
   {k:'mentions',l:'Sampled posts',n:1,v:r=>r.mentions,h:r=>`<span title="sampled posts in window (not a global count)">${nv(r.mentions)}</span>`,hs:1},
   {k:'voices',l:'Voices',n:1,v:r=>r.voices,h:r=>nv(r.voices),hs:1},
@@ -445,7 +449,7 @@ function domainOf(vals,lo=0,hi=100,padv=4){vals=vals.filter(v=>v!=null);if(!vals
 // ------------------------------------------------------------------ render
 const TABS=[['papers','Papers'],['repos','Repos'],['hype','Hype'],['methodology','Method']];
 function writeHash(){const h=S.tab=='methodology'?'#methodology'+(S.msec?'/'+S.msec:''):'#'+S.tab+'/'+S.win+'/'+encodeURIComponent(S.view);const u=new URL(location.href);u.hash=h;if(S.q)u.searchParams.set('q',S.q);else u.searchParams.delete('q');if(S.sel)u.searchParams.set('open',S.sel);else u.searchParams.delete('open');history.replaceState(null,'',u)}
-function readHash(){const h=decodeURIComponent(location.hash.slice(1)).split('/');
+function readHash(){let h;try{h=decodeURIComponent(location.hash.slice(1)).split('/')}catch(e){h=[]}
  if(h[0]=='methodology'){S.tab='methodology';S.msec=h[1]||'';return}
  if(['papers','repos','hype'].includes(h[0]))S.tab=h[0];if(h[1])S.win=h[1];if(h[2])S.view=h.slice(2).join('/')}
 function setTab(t){if(S.tab==t)return;S.tab=t;S.sort=null;S.msec='';closeDetail();render();window.scrollTo({top:0})}
@@ -456,17 +460,18 @@ function render(){
  for(const id of ['hero','controls','note','kpis','charts','tablecard'])$(id).style.display=isM?'none':'';
  $('md').style.display=isM?'grid':'none';
  if(isM){writeHash();renderSources();$('upd').textContent='updated '+(D.generated_local||'').replace(/\s*\(.*\)/,'');return renderMethod()}
- if(S.tab=='hype'&&!H){$('tb').innerHTML='<tr><td class=empty>Loading HYPE data…</td></tr>';loadHype().then(render);return}
+ if(S.tab=='hype'&&!H){$('tb').innerHTML='<tr><td class=empty>Loading HYPE data…</td></tr>';loadHype().then(render,()=>{});return}
  let P=parseQuery(S.q);
- if(P.tab&&P.tab!=S.tab){S.tab=P.tab;S.sort=null;return render()}
+ const fresh=S.q!==S.qApplied;S.qApplied=S.q;
+ if(fresh&&P.tab&&P.tab!=S.tab){S.tab=P.tab;S.sort=null;return render()}
  const meta=S.tab=='hype'?H:D;
  const wins=S.tab=='hype'?WN.filter(w=>H.windows[w]):D.windows;
- if(P.win&&wins.includes(P.win)&&(S.tab!='hype'||H.windows[P.win].enabled))S.win=P.win;
+ if(fresh&&P.win&&wins.includes(P.win)&&(S.tab!='hype'||H.windows[P.win].enabled))S.win=P.win;
  if(!wins.includes(S.win)||(S.tab=='hype'&&!H.windows[S.win].enabled))S.win=S.tab=='hype'?'overall':'7d';
  if(!meta.views.includes(S.view))S.view='all';
  writeHash();
  // header copy
- const H1={papers:'Which AI papers are gaining real momentum?',repos:'Which AI repositories show activity, not just stars?',hype:'Where does attention run ahead of evidence?'};
+ const H1={papers:'Which AI papers are gaining attention?',repos:'Which AI repositories show activity, not just stars?',hype:'Where does attention run ahead of evidence?'};
  const LEDE={papers:`${num(D.tracked.papers)} papers tracked across arXiv and Hugging Face. Ranked by upvote momentum, linked-code activity and HN mentions, shrunk toward the prior when evidence is thin.`,
   repos:`${num(D.tracked.repos)} repositories tracked. The activity discovery index rewards star growth only when issues, PRs, commits and contributors move with it.`,
   hype:`${H?.n_projects} researched projects. Sampled attention is compared with available discovery proxies; the gap is a lead to investigate, not a verdict.`};
@@ -480,15 +485,17 @@ function render(){
  $('views').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.view=b.dataset.v;render()});
  $('onlynew').classList.toggle('on',S.onlyNew);$('noflag').classList.toggle('on',S.noFlag);$('mincov').value=String(S.mincov);
  // notice
- $('note').innerHTML=S.tab=='hype'?'<b>Read as leads, not verdicts.</b> Sampled attention and discovery proxies are not capability, adoption or economic validation. Usage operations, users and customers stay separate. Coverage is completeness, not truth confidence.'
-  :D.archive_note?`<b>Historical scoring v${esc(D.scoring_version)} archive.</b> ${esc(D.archive_note)}`:`<b>Scoring v${esc(D.scoring_version)} · ${esc(D.movement_note||(D.previous_run?'movement vs run of '+D.previous_run.replace('T',' '):'first run in this history: every entry is new and growth needs a second snapshot'))}.</b> Coverage is completeness, not truth confidence; verification, freshness and source independence are unqualified.`;
+ const COMMON='Scores are 0–100 discovery proxies, never star totals or validated capability; component weights are in <a href="#methodology">Method</a>. Arrows compare ranks only among items present in both runs. Coverage is completeness, not truth confidence; verification, freshness and source independence are unqualified.';
+ $('note').innerHTML=S.tab=='hype'?`<div><b>Read as leads, not verdicts.</b> Sampled attention and discovery proxies are not capability, adoption or economic validation. Usage operations, users and customers stay separate. Gap labels appear only when both coverages reach ${Math.round(100*H.gap_min_coverage)}%. Coverage is completeness, not truth confidence; verification, freshness and independence are unqualified.${H.movement_note?` <b>${esc(H.movement_note)}</b>`:''}${H.gap_note?`<div class=dim style="margin-top:4px">Research gap note: ${esc(H.gap_note)}</div>`:''}</div>`
+  :D.archive_note?`<div><b>Historical scoring v${esc(D.scoring_version)} archive.</b> ${esc(D.archive_note)} ${COMMON}</div>`:`<div><b>Scoring v${esc(D.scoring_version)} · ${esc(D.movement_note||(D.previous_run?'movement vs run of '+D.previous_run.replace('T',' '):'first run in this history: every entry is new and growth needs a second snapshot'))}.</b> ${COMMON}</div>`;
  // rows
- const vw=P.tag&&S.view=='all'&&meta.views.includes(P.tag)?P.tag:S.view;
+ const vw=P.tag&&S.view=='all'&&meta.views.includes(P.tag)?P.tag:S.view;S.vw=vw;
  const base=rowsFor(S.tab,S.win,vw);
  let rows=applyFilters(base.rows,P);
  // ambiguous "from X": if the lab/author reading finds nothing, read the words as text instead
  if(!rows.length&&P.who){const P2=parseQuery(S.q,{noWho:true});const r2=applyFilters(base.rows,P2);if(r2.length){P=P2;rows=r2}}
- const sortKey=S.sort?.k||(P.sort)||(P.terms.length?'_rel':P.rising?'_mv':null);
+ const pSort=P.sort&&C[S.tab].some(c=>c.k==P.sort)?P.sort:null;if(P.sort&&!pSort)P.sort=null;
+ const sortKey=S.sort?.k||pSort||(P.terms.length?'_rel':P.rising?'_mv':null);
  if(sortKey){const col=C[S.tab].find(c=>c.k==sortKey);const val=sortKey=='_rel'?r=>r._rel:sortKey=='_mv'?r=>isNew(r)?-1:mvDelta(r):col?col.v:r=>r[sortKey];
   const dir=S.sort?.d??(sortKey=='rank'||sortKey=='days'?1:-1);
   rows=rows.slice().sort((a,b)=>{const x=val(a),y=val(b);if(x==null&&y==null)return a.rank-b.rank;if(x==null)return 1;if(y==null)return -1;return (typeof x=='string'?x.localeCompare(y):x-y)*dir||a.rank-b.rank})}
@@ -508,8 +515,8 @@ function renderParsed(P,n,tot,other){
  for(const x of P.nums)c.push([x.f,x.op+' '+(x.f=='coverage'?Math.round(x.v*100)+'%':x.v.toLocaleString('en-US'))]);
  if(P.who)c.push(['from',P.who]);if(P.label)c.push(['gap',P.label.replace('_',' ')]);if(P.isNew)c.push(['only','new entries']);if(P.rising)c.push(['only','rising']);if(P.sort)c.push(['sort','most '+P.sort]);
  if(P.terms.length)c.push([P.semantic?'meaning':'text',semText(P)]);
- if(!S.q){const ex={papers:['agent papers this week','jepa from meta','world models upvotes > 100','new harness papers'],repos:['agent repos over 1k stars this month','most gained world models','rising harness 30d','browser'],hype:['attention ahead','gap > 20','coding agents','overall discovery > 60']}[S.tab];
-  $('parsed').innerHTML=`<span class=lbl>try</span><span class=examples>${ex.map(e=>`<button data-ex="${esc(e)}">${esc(e)}</button>`).join(' ')}</span><span class="dim hint" style="margin-left:auto;font-size:11px">smart search parses your question into filters · runs in your browser · no LLM</span>`;
+ if(!S.q){const ex={papers:['agent papers this week','robots learning from human videos','world models upvotes > 100','new harness papers'],repos:['agent repos over 1k stars this month','most gained world models','rising harness 30d','browser'],hype:['attention ahead','gap > 20','image generation','discovery > 60 overall']}[S.tab];
+  $('parsed').innerHTML=`<span class=lbl>try</span><span class=examples>${ex.map(e=>`<button data-ex="${esc(e)}">${esc(e)}</button>`).join(' ')}</span><span class="dim hint" style="margin-left:auto;font-size:11px">filters are parsed from your words; the rest is ranked by meaning · all in your browser, no server, no paid API</span>`;
   $('parsed').querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{$('q').value=b.dataset.ex;S.q=b.dataset.ex;render()});return}
  $('parsed').innerHTML=`<span class=lbl>understood</span>${c.map(([k,v])=>`<span class="pchip${k=='text'?' t':''}">${esc(k)}: ${esc(v)}</span>`).join('')||'<span class=dim>nothing to filter on</span>'}<span class=dim style="margin-left:6px">→ ${n} of ${tot} rows${P.semantic?' · ranked by meaning':S.sem&&P.terms.length&&SEM.state=='loading'?' · loading semantic model…':''}</span>${other&&other.length?`<span class=lbl style="margin-left:10px">found in</span>${other.map(([t,w,k])=>`<button class=chip data-go="${t}|${w}">${k} in ${t} · ${w} →</button>`).join('')}`:''}`;
  $('parsed').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const [t,w]=b.dataset.go.split('|');S.tab=t;S.win=w;S.sort=null;render()})}
@@ -518,9 +525,9 @@ function renderKpis(base,rows){
  const R=base.rows,nNew=R.filter(isNew).length,mc=median(R.map(r=>r.coverage)),ms=median(R.map(r=>r.score));
  let h;
  if(S.tab=='hype'){const lab=k=>R.filter(r=>r.label==k).length;
-  h=kpi('Projects in window',num(R.length),`of ${H.n_projects} researched · ${S.win}`)+kpi('Attention ahead',num(lab('attention_ahead')),'attention percentile leads discovery')+kpi('Discovery ahead',num(lab('evidence_ahead')),'discovery percentile leads attention')+kpi('Insufficient',num(lab('insufficient')+R.filter(r=>r.gap==null).length),`coverage < ${Math.round(100*H.gap_min_coverage)}% or no proxy · not low value`)}
- else{const third=S.tab=='repos'?(()=>{const g=R.filter(r=>r.gained!=null);return kpi('Stars gained',g.length?'+'+num(g.reduce((a,r)=>a+r.gained,0)):'—',`sum over ${g.length} of ${R.length} with observed growth`)})()
-   :(()=>{const u=R.filter(r=>r.upvotes!=null);return kpi('HF upvotes',num(u.reduce((a,r)=>a+r.upvotes,0)),`sum over ${u.length} papers in view`)})();
+  h=kpi('Projects in window',num(R.length),`of ${H.n_projects} researched · ${S.win}`)+kpi('Attention ahead',num(lab('attention_ahead')),'attention percentile leads discovery')+kpi('Discovery ahead',num(lab('evidence_ahead')),'discovery percentile leads attention')+kpi('Insufficient',num(R.filter(r=>r.label=='insufficient'||r.gap==null).length),`coverage < ${Math.round(100*H.gap_min_coverage)}% or no proxy · not low value`)}
+ else{const third=S.tab=='repos'?(()=>{const g=R.filter(r=>r.gained!=null),sn=g.filter(r=>r.src=='snapshots'),sp=median(sn.map(r=>r.gspan));return kpi('Observed star growth',g.length?num(g.length)+' repos':'—',g.length?`${sn.length} from our snapshots${sp!=null?' (median span '+sp.toFixed(1)+'d)':''} · ${g.length-sn.length} other sources · spans differ, not summed`:'no growth history yet')})()
+   :(()=>{const u=R.filter(r=>r.upvotes!=null);return kpi('HF upvotes',u.length?num(u.reduce((a,r)=>a+r.upvotes,0)):'—',u.length?`sum over ${u.length} of ${R.length} papers with observed upvotes`:'no upvotes observed in view')})();
   h=kpi('Ranked in view',num(R.length),`top of ${num(base.candidates)} candidates · ${S.win}`)+kpi('Median score',ms==null?'—':ms.toFixed(1),`prior ${D.priors?.[S.tab]??'—'} · shrunk by coverage`)+third+kpi('New this run',num(nNew),`median coverage ${mc==null?'—':pct(mc)+'%'}`)}
  $('kpis').innerHTML=h}
 function renderCharts(all,shown){
@@ -546,7 +553,7 @@ function renderCharts(all,shown){
  // 3. leaders
  let lead,title,sub,fmt=v=>v.toLocaleString('en-US');
  const src=shown.length?shown:all;
- if(S.tab=='repos'){lead=src.filter(r=>r.gained!=null&&r.gained>0).sort((a,b)=>b.gained-a.gained).slice(0,8).map(r=>({id:r.id,label:r.id.split('/')[1]||r.id,v:r.gained,c:'var(--series-1)',tip:`<b>${esc(r.id)}</b><div class=m>+${num(r.gained)} stars${r.gspan?` over ${r.gspan}d`:''} · ${esc(r.src||'')}</div>`}));title='Star growth leaders';sub='observed gains from our own snapshots';fmt=v=>'+'+v.toLocaleString('en-US')}
+ if(S.tab=='repos'){lead=src.filter(r=>r.gained!=null&&r.gained>0).sort((a,b)=>b.gained-a.gained).slice(0,8).map(r=>({id:r.id,label:r.id.split('/')[1]||r.id,v:r.gained,c:'var(--series-1)',tip:`<b>${esc(r.id)}</b><div class=m>+${num(r.gained)} stars${r.gspan?` over ${r.gspan}d`:''}</div><div class=m>${esc(GSRC[r.src]||r.src||'')}</div>`}));title='Star growth leaders';sub='stars gained in window · span and source per bar (hover)';fmt=v=>'+'+v.toLocaleString('en-US')}
  else if(S.tab=='papers'){lead=src.filter(r=>r.upvotes).sort((a,b)=>b.upvotes-a.upvotes).slice(0,8).map(r=>({id:r.id,label:r.title,v:r.upvotes,c:'var(--series-1)',tip:`<b>${esc(r.title)}</b><div class=m>${num(r.upvotes)} HF upvotes · ${esc(r.id)}</div>`}));title='Most upvoted';sub='Hugging Face upvotes in view'}
  else{lead=src.filter(r=>r.mentions).sort((a,b)=>b.mentions-a.mentions).slice(0,8).map(r=>({id:r.id,label:r.name,v:r.mentions,c:'var(--series-1)',tip:`<b>${esc(r.name)}</b><div class=m>${num(r.mentions)} sampled posts · ${nv(r.voices)} voices</div>`}));title='Most sampled posts';sub='sampled, not platform-wide totals'}
  const b3=lead.length?barsH(lead,{fmt}):{svg:'<div class=empty>no observed values</div>',map:{}};maps.push(b3.map);
@@ -566,7 +573,7 @@ function renderTable(rows,base,sortKey){
 // ------------------------------------------------------------------ detail drawer
 function closeDetail(){S.sel=null;if(D)writeHash();$('drawer').classList.remove('on');$('scrim').classList.remove('on');document.querySelectorAll('tr.sel').forEach(t=>t.classList.remove('sel'))}
 function openDetail(id,quiet){
- const r=rowsFor(S.tab,S.win,S.view).rows.find(x=>x.id==id)||(S.tab!='hype'&&D[S.tab].items[id]?{...D[S.tab].items[id],id}:null);
+ const r=rowsFor(S.tab,S.win,S.vw||S.view).rows.find(x=>x.id==id)||rowsFor(S.tab,S.win,S.view).rows.find(x=>x.id==id)||(S.tab!='hype'&&D[S.tab].items[id]?{...D[S.tab].items[id],id}:null);
  if(!r){closeDetail();return}
  S.sel=id;document.querySelectorAll('#tb tr').forEach(t=>t.classList.toggle('sel',t.dataset.id==id));
  let head,body;
@@ -609,6 +616,7 @@ function hypeCard(r,it){const v=it.viral,c=it.coord,ri=it.evidence_in,d=it.disco
  const usage=d.metrics.map(s=>`<li><b>${esc(s.metric_family||'unknown family')}</b>: ${nv(s.value)} ${esc(s.unit||'unit unknown')} · ${esc(s.type)} ${A(s.url,'source')}<div class=dim>Period ${esc(s.period?.start||'—')} → ${esc(s.period?.end||'—')}; scope ${esc(s.scope||'—')}; compatible-cohort unit ${nv(s.normalized)}${s.cohort?'':' (unqualified cohort)'}${s.vendor?' · vendor claim':''}</div></li>`).join('')||'<li class=dim>— unobserved; not zero users or customers</li>';
  return `<div class=sec>${esc(it.category||'')}</div><p>${links||''}</p>
  <div class=kv><div><span>attention</span><b>${r.score??'—'}</b></div><div><span>discovery</span><b>${d.score??'—'}</b></div><div><span>gap</span><b>${r.gap==null?'—':(r.gap>0?'+':'')+r.gap}</b></div>
+ <div><span>attention cov.</span><b>${r.coverage==null?'—':pct(r.coverage)+'%'}</b></div><div><span>discovery cov.</span><b>${d.coverage==null?'—':pct(d.coverage)+'%'}</b></div><div><span>gap label</span><b style="font-size:12px">${esc((r.label||'—').replace('_',' '))}</b></div>
  <div><span>sampled posts</span><b>${nv(m.mentions)}</b></div><div><span>voices</span><b>${nv(m.voices)}</b></div><div><span>platforms</span><b>${m.platforms?m.platforms.length:'—'}</b></div></div>
  <h4>Summary</h4>${esc(it.summary||'—')} <span class=dim>${srcs(it.summary_urls)}</span>
  <h4>Timeline</h4><ul><li><b>First seen</b>: ${it.first_seen?esc(day(it.first_seen))+' '+A(it.first_seen_url,'source'):'—'} <span class=dim>(${esc(it.first_seen_meaning||'')})</span></li>
@@ -685,7 +693,7 @@ const TH_KEY='trend-theme';
 function setTheme(t){document.documentElement.dataset.theme=t;try{localStorage.setItem(TH_KEY,t)}catch(e){}}
 try{const t=localStorage.getItem(TH_KEY);if(t)document.documentElement.dataset.theme=t}catch(e){}
 $('theme').onclick=()=>setTheme(document.documentElement.dataset.theme=='light'?'dark':'light');
-addEventListener('hashchange',()=>{const b=S.tab+'|'+S.msec+'|'+S.win+'|'+S.view;readHash();if(S.tab+'|'+S.msec+'|'+S.win+'|'+S.view!=b)render()});
+addEventListener('hashchange',()=>{const t0=S.tab,b=S.tab+'|'+S.msec+'|'+S.win+'|'+S.view;readHash();if(S.tab!=t0)closeDetail();if(S.tab+'|'+S.msec+'|'+S.win+'|'+S.view!=b)render()});
 async function loadHype(){try{const r=await fetch('hype.json?'+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);H=await r.json()}catch(e){H=null;$('tb').innerHTML=`<tr><td class=empty>No HYPE data (hype.json): ${esc(e.message)}</td></tr>`;throw e}}
 async function load(){const r=await fetch('data.json?'+Date.now());D=await r.json();HAY.clear();buildWho();render()}
 readHash();{const u=new URLSearchParams(location.search);if(u.get('q')){S.q=u.get('q');$('q').value=S.q}if(u.get('open'))S.sel=u.get('open').split(',')[0]}

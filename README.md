@@ -30,11 +30,11 @@ python -m http.server 8765 -d web   # open http://localhost:8765 to browse the c
 
 An optional network refresh is `python run.py`; it calls external source APIs and is separate from browsing or fixture evaluation. Install [requirements.txt](requirements.txt) first if needed (`tzdata` on Windows); `gh auth login` or a `GH_TOKEN` variable raises GitHub API limits.
 
-**Hosting and updates.** `.github/workflows/refresh.yml` runs `run.py` daily in GitHub Actions, commits `web/data.json` to `dev` and deploys `web/` to Cloudflare Pages through `deploy.yml`; `ci.yml` gates every pull request. Deploys need two repository secrets; setup steps are in [ARCHITECTURE.md](docs/ARCHITECTURE.md#3-publishing).
+**Hosting and updates.** `.github/workflows/refresh.yml` runs `run.py` daily in GitHub Actions, commits `web/data.json` to `dev` and deploys `web/` to Cloudflare Pages through `deploy.yml`; `ci.yml` runs on every pull request (mark it as a required check under branch protection to block merges). Deploys need two repository secrets; setup steps are in [ARCHITECTURE.md](docs/ARCHITECTURE.md#3-publishing).
 
 ## The page
 
-Search box: type a question such as `agent repos over 1k stars this month`, `jepa papers from meta` or `attention ahead`. It is parsed into filters in the browser (tab, window, paradigm, numeric thresholds, author/lab, new, rising), and the remaining words are ranked by meaning with a small open embedding model that runs in the browser (vectors are built at refresh time by `scripts/embed`). No server or paid API is involved; toggle `✦ semantic` off for plain keyword matching. Click any row or chart point for its score anatomy and sources.
+Search box: type a question such as `agent repos over 1k stars this month`, `browser automation` or `attention ahead`. It is parsed into filters in the browser (tab, window, paradigm, numeric thresholds, author/lab, new, rising), and the remaining words are ranked by meaning with a small open embedding model that runs in the browser (vectors are built at refresh time by `scripts/embed`). No server or paid API is involved; toggle `✦ semantic` off for plain keyword matching. Click any row or chart point for its score anatomy and sources.
 
 | Tab | What it ranks | Score |
 |---|---|---|

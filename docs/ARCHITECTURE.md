@@ -63,8 +63,8 @@ What each piece guarantees:
 |---|---|---|
 | `run.py` | every value comes from a named public source; failure is recorded per source, never filled in | `note()` → `data.json.sources`, shown in the header's source-health popover |
 | `scoring.py` | unknown stays `null`; coverage is completeness, not confidence; thin evidence shrinks toward the prior | unit tests, `eval.py`, METHODOLOGY.md |
-| `check_page.mjs` | the page script parses, every field it reads exists in the data, the search vectors match the index (stale index = warning) | `ci.yml`, `refresh.yml`, `deploy.yml` |
-| `index.html` | `—` for unknown, gap labels only when both coverages ≥ 50%, sampled counts called samples | ported verbatim from the previous page |
+| `check_page.mjs` | the page script parses; the top-level data fields and per-row item references it relies on exist; the search vectors match the index (stale index = warning) | `ci.yml`, `refresh.yml`, `deploy.yml` |
+| `index.html` | `—` for unknown, gap labels only when both coverages ≥ 50%, sampled counts called samples, star-growth source and span shown per row | carried over from the previous page and checked by an independent review |
 
 ## 2. How it updates itself
 
@@ -74,9 +74,11 @@ What each piece guarantees:
  any PR ─► ci.yml (tests, fixture eval, scoring smoke, page check)   — never deploys, never fetches
 ```
 
-Momentum needs earlier snapshots. They live in `history/trending.db`, which is kept between runs in the Actions cache. The first automated run starts a new history: every entry shows as new and star growth shows `—` until the second daily snapshot exists; 7-day momentum becomes measured after a week. If the cache is ever evicted (7 days without a run), the same reset happens and the page says so. Nothing is back-filled or invented.
+Momentum needs earlier snapshots. They live in `history/trending.db`, which is kept between runs in the Actions cache. The first automated run starts a new history: every entry shows as new, and snapshot-based star growth needs a second daily run (repositories created inside the window and GitHub stargazer timestamps can still give values on day one); 7-day momentum becomes snapshot-measured after a week. If the cache is ever evicted (7 days without a run), the same reset happens and the page says so. Nothing is back-filled or invented.
 
 GitHub limits: with only the job token the GitHub API allows about 1,000 requests per hour, so some activity lookups may be partial (recorded as `partial` in sources). Adding a read-only fine-grained token as the `TRENDING_GH_TOKEN` secret raises that to 5,000.
+
+**Repository size.** Each refresh commits a ~4 MB `data.json` (plus a 0.7 MB vector file). Git stores them compressed, but history still grows by roughly 0.5–1 MB a day. ROADMAP step P4 moves daily snapshots to object storage (R2) and keeps only weekly snapshots in git.
 
 **Retire the old refresher.** Until 2026-10-16 the daily data commits came from a job outside this repository that pushes to `main`. The default branch is now `dev`, and git does not redirect pushes to a renamed branch, so that job would create a new `main` that nothing deploys. Disable it; `refresh.yml` replaces it.
 
