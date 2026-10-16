@@ -21,3 +21,18 @@ jobs:
         run: python eval.py --issue11-smoke --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json --compare-v2
       - name: Page data and script check
         run: node scripts/check_page.mjs
+  search-index:
+    # Proves the semantic index builds on a clean Linux runner (same step refresh.yml and deploy.yml run).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Build index into a scratch copy and check it
+        run: |
+          mkdir -p "$RUNNER_TEMP/web" && cp web/*.json web/index.html "$RUNNER_TEMP/web/"
+          npm ci --prefix scripts/embed --no-audit --no-fund
+          node scripts/embed/embed.mjs "$RUNNER_TEMP/web"
+          node scripts/check_page.mjs "$RUNNER_TEMP/web"
