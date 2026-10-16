@@ -1,0 +1,50 @@
+name: deploy
+# Publishes web/ to Cloudflare Pages. Runs on pushes to dev that touch the site, on demand,
+# and as the last job of the daily refresh (pushes made with GITHUB_TOKEN do not trigger workflows).
+# Needs repository secrets CLOUDFLARE_API_TOKEN (Pages:Edit) and CLOUDFLARE_ACCOUNT_ID; without them it skips.
+on:
+  push:
+    branches: [dev]
+    paths: ['web/**', 'METHODOLOGY.md', '.github/workflows/deploy.yml']
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+env:
+  PROJECT: ${{ vars.CF_PAGES_PROJECT || 'trend-observatory' }}
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: dev
+      - name: Check credentials
+        id: creds
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::notice::CLOUDFLARE_API_TOKEN not set; skipping deploy (see docs/ARCHITECTURE.md#publishing)"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.creds.outputs.ok == 'true'
+        with:
+          node-version: '22'
+      - name: Sync methodology and deploy
+        if: steps.creds.outputs.ok == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          cp METHODOLOGY.md web/METHODOLOGY.md
+          node scripts/check_page.mjs
+          npx --yes wrangler@4.143.0 pages project create "$PROJECT" --production-branch dev 2>/dev/null || true
+          npx --yes wrangler@4.143.0 pages deploy web --project-name "$PROJECT" --branch dev --commit-hash "$GITHUB_SHA" --commit-dirty=true

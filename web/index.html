@@ -135,8 +135,8 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap}
 .gap.g-attention_ahead{color:#ffb08a;border-color:#d9592666}.gap.g-evidence_ahead{color:#8fc1ff;border-color:#3987e566}.gap.g-similar{color:var(--text-secondary)}.gap.g-insufficient{color:var(--text-muted);border-style:dashed}
 .ad{font:10px var(--mono);color:var(--warning);border:1px solid #fab21955;border-radius:4px;padding:0 4px;margin-left:6px}
 /* drawer */
-.drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,100vw);background:var(--surface-1);border-left:1px solid var(--line-2);z-index:50;transform:translateX(100%);transition:transform .22s ease;overflow:auto;box-shadow:-20px 0 60px #0008}
-.drawer.on{transform:none}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,100vw);background:var(--surface-1);border-left:1px solid var(--line-2);z-index:50;transform:translateX(100%);transition:transform .22s ease;overflow:auto}
+.drawer.on{transform:none;box-shadow:-20px 0 60px #0008}
 .drawer .dh{position:sticky;top:0;background:var(--surface-1);padding:16px 20px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start;z-index:2}
 .drawer .dh h2{margin:0;font:600 17px/1.3 var(--sans);flex:1}
 .drawer .db{padding:16px 20px 40px;font-size:13px}
@@ -167,6 +167,7 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap}
 #md article h1,#md article h2,#md article h3{font-family:var(--sans);letter-spacing:-.01em;scroll-margin-top:80px}
 #md article h2{border-top:1px solid var(--line);padding-top:22px;margin-top:34px}
 #md article code{background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12.5px}
+#md article pre code{background:none;border:0;padding:0;font-size:12.5px}
 #md article pre{background:var(--surface-1);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto}
 #md article table{border-collapse:collapse;font-size:13px;display:block;overflow:auto}
 #md article td,#md article th{border:1px solid var(--line);padding:6px 8px;vertical-align:top}
@@ -408,7 +409,7 @@ function domainOf(vals,lo=0,hi=100,padv=4){vals=vals.filter(v=>v!=null);if(!vals
 
 // ------------------------------------------------------------------ render
 const TABS=[['papers','Papers'],['repos','Repos'],['hype','Hype'],['methodology','Method']];
-function writeHash(){const h=S.tab=='methodology'?'#methodology'+(S.msec?'/'+S.msec:''):'#'+S.tab+'/'+S.win+'/'+encodeURIComponent(S.view);const u=new URL(location.href);u.hash=h;if(S.q)u.searchParams.set('q',S.q);else u.searchParams.delete('q');history.replaceState(null,'',u)}
+function writeHash(){const h=S.tab=='methodology'?'#methodology'+(S.msec?'/'+S.msec:''):'#'+S.tab+'/'+S.win+'/'+encodeURIComponent(S.view);const u=new URL(location.href);u.hash=h;if(S.q)u.searchParams.set('q',S.q);else u.searchParams.delete('q');if(S.sel)u.searchParams.set('open',S.sel);else u.searchParams.delete('open');history.replaceState(null,'',u)}
 function readHash(){const h=decodeURIComponent(location.hash.slice(1)).split('/');
  if(h[0]=='methodology'){S.tab='methodology';S.msec=h[1]||'';return}
  if(['papers','repos','hype'].includes(h[0]))S.tab=h[0];if(h[1])S.win=h[1];if(h[2])S.view=h.slice(2).join('/')}
@@ -419,7 +420,7 @@ function render(){
  const isM=S.tab=='methodology';
  for(const id of ['hero','controls','note','kpis','charts','tablecard'])$(id).style.display=isM?'none':'';
  $('md').style.display=isM?'grid':'none';
- if(isM){writeHash();return renderMethod()}
+ if(isM){writeHash();renderSources();$('upd').textContent='updated '+(D.generated_local||'').replace(/\s*\(.*\)/,'');return renderMethod()}
  if(S.tab=='hype'&&!H){$('tb').innerHTML='<tr><td class=empty>Loading HYPE data…</td></tr>';loadHype().then(render);return}
  const P=parseQuery(S.q);
  if(P.tab&&P.tab!=S.tab){S.tab=P.tab;S.sort=null;return render()}
@@ -445,7 +446,7 @@ function render(){
  $('onlynew').classList.toggle('on',S.onlyNew);$('noflag').classList.toggle('on',S.noFlag);$('mincov').value=String(S.mincov);
  // notice
  $('note').innerHTML=S.tab=='hype'?'<b>Read as leads, not verdicts.</b> Sampled attention and discovery proxies are not capability, adoption or economic validation. Usage operations, users and customers stay separate. Coverage is completeness, not truth confidence.'
-  :`<b>Historical scoring v${esc(D.scoring_version)} archive.</b> ${esc(D.archive_note||'')}`;
+  :D.archive_note?`<b>Historical scoring v${esc(D.scoring_version)} archive.</b> ${esc(D.archive_note)}`:`<b>Scoring v${esc(D.scoring_version)} · ${esc(D.movement_note||(D.previous_run?'movement vs run of '+D.previous_run.replace('T',' '):'first run in this history: every entry is new and growth needs a second snapshot'))}.</b> Coverage is completeness, not truth confidence; verification, freshness and source independence are unqualified.`;
  // rows
  const vw=P.tag&&S.view=='all'&&meta.views.includes(P.tag)?P.tag:S.view;
  const base=rowsFor(S.tab,S.win,vw);
@@ -525,7 +526,7 @@ function renderTable(rows,base,sortKey){
  $('tb').querySelectorAll('tr[data-id]').forEach(tr=>tr.onclick=e=>{if(e.target.closest('a'))return;openDetail(tr.dataset.id)})}
 
 // ------------------------------------------------------------------ detail drawer
-function closeDetail(){S.sel=null;$('drawer').classList.remove('on');$('scrim').classList.remove('on');document.querySelectorAll('tr.sel').forEach(t=>t.classList.remove('sel'))}
+function closeDetail(){S.sel=null;if(D)writeHash();$('drawer').classList.remove('on');$('scrim').classList.remove('on');document.querySelectorAll('tr.sel').forEach(t=>t.classList.remove('sel'))}
 function openDetail(id,quiet){
  const r=rowsFor(S.tab,S.win,S.view).rows.find(x=>x.id==id)||(S.tab!='hype'&&D[S.tab].items[id]?{...D[S.tab].items[id],id}:null);
  if(!r){closeDetail();return}
@@ -551,7 +552,7 @@ function openDetail(id,quiet){
   ${(r.flags||[]).map(f=>`<li><span class=fl>${esc(f)}</span> ${esc(FLAG[f]||'')}</li>`).join('')}<li class=dim>${UNQ}. <a href="#methodology/repo-trust-index">Formula</a></li></ul>`}
  else{const it=H.items[id];head=esc(it.name);body=hypeCard(r,it)}
  $('drawer').innerHTML=`<div class=dh><h2>${head}</h2><button class=iconbtn id=dclose aria-label="Close">esc ✕</button></div><div class=db>${body}</div>`;
- $('dclose').onclick=closeDetail;$('drawer').classList.add('on');$('scrim').classList.add('on');
+ $('dclose').onclick=closeDetail;writeHash();$('drawer').classList.add('on');$('scrim').classList.add('on');
  if(!quiet)$('drawer').scrollTop=0}
 function hypeCard(r,it){const v=it.viral,c=it.coord,ri=it.evidence_in,d=it.discovery,m=it.win[S.win]||{};
  const z=x=>x==null?'<span class=dim>missing</span>':x.toFixed(2);
@@ -647,7 +648,7 @@ $('theme').onclick=()=>setTheme(document.documentElement.dataset.theme=='light'?
 addEventListener('hashchange',()=>{const b=S.tab+'|'+S.msec+'|'+S.win+'|'+S.view;readHash();if(S.tab+'|'+S.msec+'|'+S.win+'|'+S.view!=b)render()});
 async function loadHype(){try{const r=await fetch('hype.json?'+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);H=await r.json()}catch(e){H=null;$('tb').innerHTML=`<tr><td class=empty>No HYPE data (hype.json): ${esc(e.message)}</td></tr>`;throw e}}
 async function load(){const r=await fetch('data.json?'+Date.now());D=await r.json();HAY.clear();render()}
-readHash();{const u=new URLSearchParams(location.search);if(u.get('q')){S.q=u.get('q');$('q').value=S.q}}
+readHash();{const u=new URLSearchParams(location.search);if(u.get('q')){S.q=u.get('q');$('q').value=S.q}if(u.get('open'))S.sel=u.get('open').split(',')[0]}
 load().catch(e=>{$('tb').innerHTML=`<tr><td class=empty>Could not load data.json: ${esc(e.message)}</td></tr>`});
 setInterval(()=>{if(S.tab!='methodology'&&!document.hidden){H=S.tab=='hype'?H:null;load()}},5*60*1000);
 </script>

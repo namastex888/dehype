@@ -5,7 +5,9 @@
 
 An evolving, open AI intelligence observatory. Its current executable tracker ranks **papers** and **GitHub repos** on AI agents, harnesses and context layers, JEPA, JEV (decision models), and world and action models. A third view compares sampled **Attention** with **Discovery** proxies across AI projects. These scores help find leads for investigation; they do not establish capability, adoption, economic value or truth.
 
-![Historical HYPE tab screenshot from the earlier scoring method](docs/screenshot.png)
+![Observatory console: papers view with paradigm mix, score × coverage scatter and leaders](docs/console.png)
+
+How it fits together, in plain diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Current sequencing and decisions: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Research and roadmap state
 
@@ -15,7 +17,7 @@ The **2026-10-15 measured research checkpoint** confirms 2,429 stored records fr
 
 The [observatory roadmap](.genie/wishes/open-intelligence-observatory/WISH.md) is **in progress**, with [tracking issue #1](https://github.com/namastex888/trending-research/issues/1), 20 child issues (#2–#21), five milestones, 80 original criteria and 41 dependencies. Six issues (#2, #3, #5, #6, #8 and #11) have historical local acceptance for their original and quality gates; 14 remain unaccepted, and none of the five milestone exits is accepted. Local acceptance does not make the whole observatory complete or a public product release.
 
-Work is aggregated in [PR #22](https://github.com/namastex888/trending-research/pull/22), targeting `main`. The rebased comparison baseline is `aa932ad3c29af7f5a67c3060344af97bc8d87c75`; the [continuation runbook](.genie/wishes/open-intelligence-observatory/checkpoints/2026-10-14/CONTINUE.md), [checkpoint](.genie/wishes/open-intelligence-observatory/checkpoints/2026-10-14/checkpoint.json) and [rebase record](.genie/wishes/open-intelligence-observatory/checkpoints/2026-10-14/REBASE.md) explain the handoff and remaining gates. The checkpoint JSON predates the rebase, so its `current_head` is historical. PR #22 had no CI checks in the latest verified snapshot; this README does not claim a CI pass.
+Roadmap work through 2026-10-16 was aggregated in [PR #22](https://github.com/namastex888/trending-research/pull/22), now merged. The default branch is `dev`; changes land through pull requests against it. The rebased comparison baseline is `aa932ad3c29af7f5a67c3060344af97bc8d87c75`; the [continuation runbook](.genie/wishes/open-intelligence-observatory/checkpoints/2026-10-14/CONTINUE.md), [checkpoint](.genie/wishes/open-intelligence-observatory/checkpoints/2026-10-14/checkpoint.json) and [rebase record](.genie/wishes/open-intelligence-observatory/checkpoints/2026-10-14/REBASE.md) explain the earlier handoff and remaining gates.
 
 ## Quickstart
 
@@ -26,9 +28,13 @@ python -m http.server 8765 -d web   # open http://localhost:8765 to browse the c
 
 `web/` is a static page (`index.html` plus `data.json` and `hype.json`), so any static host can serve the snapshot offline. To check the current scoring code against bundled fixtures without refreshing data, run `python eval.py --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json`.
 
-An optional network refresh is `python run.py`; it calls external source APIs and is separate from browsing or fixture evaluation. Install [requirements.txt](requirements.txt) first if needed (`tzdata` on Windows); `gh auth login` can raise GitHub API limits. There is no hosted copy yet.
+An optional network refresh is `python run.py`; it calls external source APIs and is separate from browsing or fixture evaluation. Install [requirements.txt](requirements.txt) first if needed (`tzdata` on Windows); `gh auth login` or a `GH_TOKEN` variable raises GitHub API limits.
+
+**Hosting and updates.** `.github/workflows/refresh.yml` runs `run.py` daily in GitHub Actions, commits `web/data.json` to `dev` and deploys `web/` to Cloudflare Pages through `deploy.yml`; `ci.yml` gates every pull request. Deploys need two repository secrets; setup steps are in [ARCHITECTURE.md](docs/ARCHITECTURE.md#3-publishing).
 
 ## The page
+
+Search box: type a question such as `agent repos over 1k stars this month`, `jepa papers from meta` or `attention ahead`. It is parsed into filters in the browser (tab, window, paradigm, numeric thresholds, author/lab, new, rising, free text with typo tolerance); no model is called. Click any row or chart point for its score anatomy and sources.
 
 | Tab | What it ranks | Score |
 |---|---|---|
