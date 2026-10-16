@@ -822,6 +822,13 @@ def canon(u):
     u = re.sub(r'^https?://(www\.|m\.|mobile\.)?', '', u).rstrip('/')
     return u if '/' in u else ''          # a bare domain is not one story
 
+PAIN_RX = re.compile(r"\b((is|are|it'?s|still)\b[^.?!]{0,30}\bdown\b|outage|lobotomi[sz]ed|nerf(ed)?|usage limits?|rate.?limit|limit reset|bug|broken|not working|"
+                     r"doesn'?t work|stopped working|error|worse|degrad|refund|banned|deactivat|disappear|missing|dumber|declin(ing|es) (all|my))", re.I)
+ASK_RX = re.compile(r"\?\s*$|^(is|are|does|do|can|should|how|why|what|which|anyone|has anyone|noob)\b", re.I)
+def mode(title):
+    """say (a statement or report), ask (a question) or pain (a complaint, outage or support problem), from the title alone."""
+    return 'pain' if PAIN_RX.search(title or '') else 'ask' if ASK_RX.search(title or '') else 'say'
+
 def anchors(found):
     """The named release a post is about; a post naming several (a comparison, a digest) anchors nothing, or it would bridge events."""
     a = [t for t, x in found.items() if x['kind'] in ('version', 'emerging')]
@@ -936,7 +943,7 @@ def stories(rel, limit=60):
             junk = (bool(re.fullmatch(r'[\w.-]+ v?\d+(\.\w+)*', t)) or len(t) > 160 or len(t) < 12      # package bumps, run-ons, stubs
                     or t.count(',') >= 2 or bool(re.search('[\U0001F300-\U0001FAFF\u2600-\u27BF]', t)) or t.startswith('['))   # digest issue titles
             named = not label or label.lower() in t.lower()
-            return (junk, not (named and d[0]['net'] in SEED_NETS), not named, rank.get(d[0]['net'], 9), -(d[0]['score'] or 0), d[1])
+            return (junk, mode(t) != 'say', not (named and d[0]['net'] in SEED_NETS), not named, rank.get(d[0]['net'], 9), -(d[0]['score'] or 0), d[1])
         head = min(c, key=hk)
         path, got = [], set()
         for d in c:
@@ -953,7 +960,9 @@ def stories(rel, limit=60):
         e0 = ed[0]                                            # earliest editorial post (members are in time order)
         cid = ('release:' + top_a) if top_a else (canon((e0[0].get('extra') or {}).get('link')) or e0[0]['url'] or f"{e0[0]['net']}:{e0[0]['pid']}")
         covered = bool(set(nets) & SEED_NETS) or bool(nl)
-        out.append({'id': 's:' + hashlib.sha1(cid.encode()).hexdigest()[:12], 'label': label, 'covered': covered,
+        pain = sum(1 for d in c if mode(shown(d[0])) == 'pain') / len(c)
+        kind = 'news' if covered else 'pain' if pain >= 0.5 else 'chatter'
+        out.append({'id': 's:' + hashlib.sha1(cid.encode()).hexdigest()[:12], 'label': label, 'covered': covered, 'kind': kind, 'pain': round(pain, 2),
                     'headline': shown(head[0])[:220], 'url': head[0]['url'],
                     'link': (head[0].get('extra') or {}).get('link'), 'first': iso(c[0][1]), 'last': iso(c[-1][1]),
                     'voices': len(voices), 'nets': nets, 'newsletters': sorted(nl), 'official': 'Official' in nets, 'hn_points': hn or None,
@@ -962,13 +971,15 @@ def stories(rel, limit=60):
                     'posts': [{'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': d[0]['url'], 'author': d[0]['author'], 'at': iso(d[1]),
                                'score': d[0]['score'], 'comments': d[0]['comments']} for d in sorted(c, key=lambda d: -(d[0]['score'] or 0))[:10]]})
     out.sort(key=lambda x: -x['heat'])
-    cov = [x for x in out if x['covered']][:limit]
-    return cov + [x for x in out if not x['covered']][:limit // 2]
+    return ([x for x in out if x['kind'] == 'news'][:limit] + [x for x in out if x['kind'] == 'chatter'][:limit // 2]
+            + [x for x in out if x['kind'] == 'pain'][:limit // 3])
 
 STORY_METHOD = ('stories (last 7 days): an event is a cluster of posts. HN, Lobsters, newsletter and official items seed clusters and join when they share a '
                 'canonical target link or idf-weighted title overlap >= 0.45 with two shared uncommon words (each in < 2% of the window\'s posts); '
                 'posts naming the same model version or emerging name join one story; Reddit, Mastodon and Bluesky posts attach to their release or the best seed at >= 0.40; unmatched chatter joins at >= 0.55 and stands alone only with 5+ voices. '
                 'covered = seeded by HN, Lobsters, a newsletter or a lab/vendor feed, or carried by a newsletter; otherwise it is chatter not yet in the press. '
+                'pain = share of its post titles that read as a complaint, outage or support problem (keyword list); kind = news when covered, '
+                'else pain when pain >= 0.5, else chatter. Headlines prefer statements over questions and complaints. '
                 'A newsletter carries a story when its item names all of the story\'s key words (up to three uncommon words shared by its editorial posts). '
                 'heat = (2 x log2(1 + voices) + networks outside newsletters/official + 1.5 x newsletters carrying it + 1 if a lab or vendor posted it + log10(1 + HN points)) '
                 'x 0.5^(hours since the newest post / 48). id = "s:" + first 12 hex of sha1("release:" + topic id when the story is about one named release, '

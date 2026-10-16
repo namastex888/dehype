@@ -336,6 +336,13 @@ class PulseTest(unittest.TestCase):
         self.assertEqual(m['id'], 's:' + __import__('hashlib').sha1(b'release:e:muse-spark').hexdigest()[:12])
         self.assertFalse(any('GPUs' in s['headline'] for s in st))           # a lone chatter post is not a story
 
+    def test_post_mode_reads_complaints_and_questions(self):
+        self.assertEqual(pulse.mode('IS GPT 6 DOWN ? WHY AM I GETTING THIS'), 'pain')
+        self.assertEqual(pulse.mode('Gpt 6 Astra lobotomised?'), 'pain')
+        self.assertEqual(pulse.mode('ChatGPT Plus usage limit hit after 10 messages'), 'pain')
+        self.assertEqual(pulse.mode('Which model is best right now for video?'), 'ask')
+        self.assertEqual(pulse.mode('Google slows down Gemini rollout in the EU'), 'say')
+        self.assertEqual(pulse.mode('Flux 3 Klein is out'), 'say')
 
 if __name__ == '__main__':
     unittest.main()
