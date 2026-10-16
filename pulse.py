@@ -11,7 +11,7 @@ Networks are samples, never totals: Hacker News stories above a points floor, th
 hashtags, plus (when connected) chosen subreddits and Bluesky searches. X is not collected. Every topic node carries the
 posts that matched it, so a node is never more than the evidence behind it. Standard library only.
 """
-import os, sys, re, json, math, time, sqlite3, base64, html, urllib.request, urllib.parse, urllib.error
+import os, sys, re, json, math, time, bisect, sqlite3, base64, html, urllib.request, urllib.parse, urllib.error
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone, timedelta
@@ -286,9 +286,11 @@ where which while who why will with without work world would year years yet you 
 video audio voice code model release app api update review demo test tests paper study chat beta'''.split())
 
 EMERGING_STOP = set()
+PROJECT_TOPIC = {}                                   # hype item id -> topic id that counts its live mentions
 
 def compile_lexicon(lex, hype_items):
     topics = []
+    PROJECT_TOPIC.clear()
     def rx(aliases, case):
         alts = sorted({a for a in aliases if a}, key=len, reverse=True)
         if not alts: return None
@@ -300,7 +302,10 @@ def compile_lexicon(lex, hype_items):
     ambiguous = set(lex.get('ambiguous_hype_names', []))
     for hid, it in hype_items.items():
         name = it.get('name') or hid
-        if any(t['label'].lower() == name.lower() for t in topics): continue
+        same = [t for t in topics if t['label'].lower() == name.lower()]
+        if same:
+            PROJECT_TOPIC[hid] = same[0]['id']; continue
+        PROJECT_TOPIC[hid] = 'p:' + hid
         aliases = [a for a in it.get('aliases', []) if '/' not in a and '@' not in a]
         cat = (it.get('category') or '').lower()
         kind = 'model' if 'model' in cat and 'product' not in cat and 'platform' not in cat else 'product'
@@ -375,7 +380,7 @@ def build(posts, lex, hype_items):
         # HN is general-interest: keep a story only if it names an AI model/product/version or uses an AI keyword
         if p['net'] == 'HN' and p['source'] == 'live' and not kw.search(text) and not any(t['kind'] in ('model', 'version', 'product') for t in found.values()): continue
         rel.append((p, dt, found))
-    labels = {t['label'].lower() for t in topics} | {w.lower() for t in topics for w in t['label'].split()}
+    labels = {t['label'].lower() for t in topics} | {w.lower() for t in topics if t['kind'] != 'person' for w in t['label'].split()}
     vwords = [set(t['label'].lower().split()) for _, _, f in rel for t in f.values() if t['kind'] == 'version']
     def covered(ph):
         r = [t.get('rx') or t.get('rx_case') for t in topics]
@@ -388,22 +393,38 @@ def build(posts, lex, hype_items):
             if prx.search(p['title'] or ''): found[tid] = {'id': tid, 'label': ph, 'kind': 'emerging', 'parent': None}
 
     nodes, edges = {}, {}
+    proj = {hid: {w: {'authors': set(), 'posts': 0, 'nets': set()} for w in PROJECT_WINDOWS} for hid in PROJECT_TOPIC}
+    by_topic = {}
+    for hid, tid in PROJECT_TOPIC.items(): by_topic.setdefault(tid, []).append(hid)
     def node(t):
         n = nodes.get(t['id'])
         if not n:
             n = nodes[t['id']] = {'id': t['id'], 'label': t['label'], 'kind': t['kind'], 'parent': t.get('parent'),
-                                  'w': {w: {'posts': 0, 'authors': set(), 'nets': {}, 'eng': 0.0, 'conv': 0} for w in WINDOWS},
+                                  'w': {w: {'posts': 0, 'authors': set(), 'nets': {}, 'eng': 0.0, 'eng_xr': 0.0, 'conv': 0, 'nl': set(),
+                                          'obs': {}} for w in WINDOWS},
                                   'first': None, 'last': None, 'samples': [], 'origin': {}}
         return n
     for p, dt, found in rel:
         age = (NOW - dt).total_seconds() / 86400
         ids = sorted(found)
+        if p['source'] == 'live':
+            for tid in ids:
+                for hid in by_topic.get(tid, ()):
+                    for w in PROJECT_WINDOWS:
+                        if age <= WINDOWS[w]:
+                            s = proj[hid][w]; s['posts'] += 1; s['authors'].add((p['net'], p['author'])); s['nets'].add(p['net'])
         for tid in ids:
             n = node(found[tid])
             for w, days in WINDOWS.items():
                 if age <= days:
                     s = n['w'][w]; s['posts'] += 1; s['authors'].add((p['net'], p['author'])); s['nets'][p['net']] = s['nets'].get(p['net'], 0) + 1
-                    s['eng'] += math.log1p(max(0, p['score'] or 0) + max(0, p['comments'] or 0))
+                    e = math.log1p(max(0, p['score'] or 0) + max(0, p['comments'] or 0))
+                    s['eng'] += e
+                    if p['net'] != 'Reddit': s['eng_xr'] += e
+                    if p['net'] in DIGEST: s['nl'].add(p['author'])
+                    if p['source'] == 'live' and p['net'] not in DIGEST and (p['score'] is not None or p['comments'] is not None):
+                        o = s['obs'].setdefault(p['net'], {'posts': 0, 'score': 0, 'comments': 0})
+                        o['posts'] += 1; o['score'] += max(0, p['score'] or 0); o['comments'] += max(0, p['comments'] or 0)
                     if p['net'] in CONVERSATION and p['source'] == 'live': s['conv'] += 1
             n['first'] = min(n['first'] or p['created'], p['created']); n['last'] = max(n['last'] or p['created'], p['created'])
             n['samples'].append((math.log1p(max(0, p['score'] or 0)) - age / 30, p, dt))
@@ -427,8 +448,12 @@ def build(posts, lex, hype_items):
         W = {}
         for w, s in n['w'].items():
             nets = len(s['nets'])
+            other = len([k for k in s['nets'] if k not in DIGEST])
+            reach = other + len(s['nl'])
             W[w] = {'posts': s['posts'], 'authors': len(s['authors']), 'nets': s['nets'], 'eng': round(s['eng'], 1),
-                    'weight': round(len(s['authors']) * (1 + 0.5 * max(0, nets - 1)), 2)}
+                    'eng_ex_reddit': round(s['eng_xr'], 1), 'newsletters': len(s['nl']), 'newsletter_names': sorted(s['nl']),
+                    'reach': reach, 'reach_label': f"{other} network{'s' if other != 1 else ''} + {len(s['nl'])} newsletter{'s' if len(s['nl']) != 1 else ''}",
+                    'engagement': s['obs'], 'weight': round(len(s['authors']) * (1 + 0.5 * max(0, nets - 1)), 2)}
         conv1, conv7 = n['w']['1d']['conv'], n['w']['7d']['conv']
         rising = round(conv1 / (conv7 / 7), 2) if conv7 >= 4 and conv1 >= 2 else None
         n['samples'].sort(key=lambda x: -x[0])
@@ -447,6 +472,7 @@ def build(posts, lex, hype_items):
     out_nodes.sort(key=lambda x: -x['w']['30d']['weight'])
     out_nodes = [x for x in out_nodes if x['w']['30d']['posts'] >= 2][:160]
     keep = {x['id'] for x in out_nodes}
+    score_signal(out_nodes)
     out_edges = [{'a': a, 'b': b, 'w': w} for (a, b), w in edges.items() if a in keep and b in keep and (w['30d'] >= 2 or
                  any(x['id'] in (a, b) and x['parent'] in (a, b) for x in out_nodes))]
     totals = {w: {} for w in WINDOWS}
@@ -454,7 +480,33 @@ def build(posts, lex, hype_items):
         age = (NOW - dt).total_seconds() / 86400
         for w, days in WINDOWS.items():
             if age <= days: totals[w][p['net']] = totals[w].get(p['net'], 0) + 1
-    return out_nodes, out_edges, totals
+    projects = {hid: {w: {'voices': len(s['authors']), 'posts': s['posts'], 'nets': len(s['nets'])} for w, s in ws.items()}
+                for hid, ws in proj.items()}
+    return out_nodes, out_edges, totals, projects
+
+SIGNAL_WEIGHTS = {'voices': 0.4, 'reach': 0.25, 'rising': 0.2, 'eng': 0.15}
+SIGNAL_METHOD = ('signal (0-100, per window) = 0.40 x pct(voices) + 0.25 x pct(reach) + 0.20 x pct(rising) + 0.15 x pct(engagement excl. Reddit); '
+                 'pct(x) = share of the other topics on the map with a strictly lower value (ties share the lower rank; a zero value scores 0); '
+                 'reach = distinct networks other than newsletters + distinct newsletters; rising is the node-level 24h-vs-7d ratio, missing rising scores 0; '
+                 'engagement = sum of log(1 + score + comments) over matching posts outside Reddit (Reddit archive scores are ingestion snapshots). '
+                 'A heuristic for ordering attention, not a measure of truth or importance')
+
+def score_signal(nodes):
+    """Per-window signal: weighted mean of percentile ranks among the nodes kept on the map. Components are stored next to it."""
+    n = len(nodes)
+    def pct(vals):
+        srt = sorted(vals)
+        return [0.0 if v <= 0 or n < 2 else 100.0 * bisect.bisect_left(srt, v) / (n - 1) for v in vals]
+    rising = pct([x['rising'] or 0 for x in nodes])
+    for w in WINDOWS:
+        parts = {'voices': pct([x['w'][w]['authors'] for x in nodes]), 'reach': pct([x['w'][w]['reach'] for x in nodes]),
+                 'rising': rising, 'eng': pct([x['w'][w]['eng_ex_reddit'] for x in nodes])}
+        for i, x in enumerate(nodes):
+            comp = {k: round(parts[k][i], 1) for k in SIGNAL_WEIGHTS}
+            x['w'][w]['signal'] = round(sum(SIGNAL_WEIGHTS[k] * parts[k][i] for k in SIGNAL_WEIGHTS), 1) if x['w'][w]['authors'] else 0.0
+            x['w'][w]['signal_parts'] = comp
+
+PROJECT_WINDOWS = ('7d', '30d')
 
 ADAPTERS = ['Hacker News (Algolia)', 'Lobsters (ai tag)', 'Mastodon (mastodon.social tags)', 'Reddit (arctic-shift archive)',
             'Reddit (official API)', 'Bluesky (app password)', 'Newsletters (RSS)']
@@ -489,16 +541,17 @@ def main():
             SOURCES.setdefault(k, {'status': 'unknown', 'detail': 'not fetched in this offline rebuild'})
     stored = load_stored(con)
     posts = stored + internal_posts()
-    nodes, edges, totals = build(posts, lex, hype_items)
+    nodes, edges, totals, projects = build(posts, lex, hype_items)
     out = {'generated_at': iso(NOW), 'windows': list(WINDOWS), 'sources': SOURCES, 'totals': totals,
-           'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days',
+           'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days; ' + SIGNAL_METHOD,
+           'projects_note': 'projects: live sampled feeds only (no tracker, no dossier); voices = distinct (network, author) pairs, nets = distinct networks; 0 means no matching post in our sampled feeds, not zero attention',
            'coverage': ['Sampled feeds, not internet-wide totals: HN stories above 20 points, the Lobsters AI tag, nine Mastodon hashtags on mastodon.social, '
                         'ten AI subreddits via the arctic-shift public archive (up to 1,000 newest posts per subreddit per run, so busy subreddits reach back about a week), '
                         'eleven public AI newsletter feeds (the digest end point), tracker papers and repos, and the static HYPE research dossier. '
                         'Bluesky appears only when an app password is configured. X appears only through the static dossier; it is not collected live.',
                         'Topics come from a reviewable lexicon (topics_lexicon.json), automatic model-version names, and capitalised phrases used by at least three distinct authors (marked emerging).',
                         'A node is only as strong as the posts listed under it; open it to read them.'],
-           'nodes': nodes, 'edges': edges}
+           'nodes': nodes, 'edges': edges, 'projects': projects}
     with open(os.path.join(WEB, 'pulse.json'), 'w') as f:
         json.dump(out, f, separators=(',', ':'), ensure_ascii=False)
     print(f'pulse: {len(nodes)} topics, {len(edges)} links, 7d posts by network {totals["7d"]}')

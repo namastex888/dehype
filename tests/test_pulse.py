@@ -21,7 +21,7 @@ class PulseTest(unittest.TestCase):
         pulse.EMERGING_STOP.update(x.lower() for x in LEX.get('emerging_stop', []))
 
     def build(self, posts):
-        nodes, edges, totals = pulse.build(posts, LEX, HYPE)
+        nodes, edges, totals, self.projects = pulse.build(posts, LEX, HYPE)
         return {n['id']: n for n in nodes}, edges, totals
 
     def test_version_codename_and_parent(self):
@@ -107,6 +107,56 @@ class PulseTest(unittest.TestCase):
                               source='dossier') for i in range(5)]
         n, _, _ = self.build(dossier + [p('Reddit', 9, 'Grok 5 note', 'z', 100)])
         self.assertIsNone(n['grok']['rising'])
+
+    def test_person_is_case_sensitive_and_links_to_its_organisation(self):
+        posts = [p('Reddit', 1, 'Sam Altman says GPT 6 is close', 'a', 2), p('HN', 2, 'Altman on AI compute deals', 'b', 3),
+                 p('Mastodon', 3, 'sam altman lowercase is not matched', 'c', 3), p('Reddit', 4, 'OpenAI ships a thing', 'd', 4),
+                 p('Reddit', 5, 'OpenAI again', 'e', 5)]
+        n, edges, _ = self.build(posts)
+        self.assertEqual(n['sam-altman']['kind'], 'person')
+        self.assertEqual(n['sam-altman']['parent'], 'openai')
+        self.assertEqual(n['sam-altman']['w']['7d']['authors'], 2)          # lowercase mention ignored
+        self.assertEqual(n['openai']['w']['7d']['posts'], 2)                 # a person mention is not a lab mention
+        self.assertTrue(any({e['a'], e['b']} == {'sam-altman', 'openai'} for e in edges))
+        self.assertFalse(any(k.startswith('e:sam-altman') for k in n))
+
+    def test_newsletters_count_distinct_digests_and_reach(self):
+        nl = lambda i, name: pulse.post('Newsletter', f'n{i}', f'https://nl.test/{i}', 'MCP everywhere \u241f body', name,
+                                        pulse.iso(pulse.NOW - timedelta(hours=5 + i)))
+        posts = [nl(1, 'Digest A'), nl(2, 'Digest A'), nl(3, 'Digest B'), p('HN', 9, 'MCP servers for AI', 'h', 1),
+                 p('Reddit', 10, 'MCP rocks', 'r', 1, score=500)]
+        n, _, _ = self.build(posts)
+        w = n['mcp']['w']['7d']
+        self.assertEqual(w['newsletters'], 2)
+        self.assertEqual(w['newsletter_names'], ['Digest A', 'Digest B'])
+        self.assertEqual(w['reach'], 4)                                      # HN + Reddit + two newsletters
+        self.assertEqual(w['reach_label'], '2 networks + 2 newsletters')
+        self.assertLess(w['eng_ex_reddit'], w['eng'])                        # Reddit snapshot scores excluded
+        self.assertEqual(w['engagement']['Reddit']['score'], 500)
+
+    def test_signal_orders_more_voices_and_reach_higher(self):
+        posts = [p(net, f'{net}{i}', 'Gemma is great for AI', f'{net}-g{i}', 2) for net in ('HN', 'Reddit', 'Mastodon') for i in range(3)] + \
+                [p('Reddit', f'k{i}', 'Kimi is fine', f'k{i}', 2) for i in range(2)] + \
+                [p('Reddit', f'm{i}', 'MiniMax note', f'm{i}', 2) for i in range(3)]
+        n, _, _ = self.build(posts)
+        s = lambda k: n[k]['w']['7d']['signal']
+        self.assertGreater(s('gemma'), s('minimax'))
+        self.assertGreater(s('minimax'), s('moonshot-kimi'))
+        self.assertTrue(all(0 <= x['w'][w]['signal'] <= 100 for x in n.values() for w in pulse.WINDOWS))
+        self.assertEqual(set(n['gemma']['w']['7d']['signal_parts']), {'voices', 'reach', 'rising', 'eng'})
+        self.assertIsNone(n['moonshot-kimi']['rising'])
+        self.assertEqual(n['moonshot-kimi']['w']['7d']['signal_parts']['rising'], 0)    # no rising value scores 0
+
+    def test_projects_map_covers_every_hype_item_live_only(self):
+        dossier = pulse.post('X', 'd1', 'https://x.test/1', 'Claude Code is magic', 'fan', pulse.iso(pulse.NOW - timedelta(hours=3)),
+                             source='dossier')
+        posts = [dossier, p('HN', 1, 'Claude Code CLI ships hooks', 'a', 2), p('Reddit', 2, 'Claude Code broke my repo', 'b', 50),
+                 p('Reddit', 3, 'Claude Code again', 'b', 400)]
+        self.build(posts)
+        self.assertEqual(set(self.projects), set(HYPE))
+        self.assertEqual(self.projects['pi'], {'7d': {'voices': 0, 'posts': 0, 'nets': 0}, '30d': {'voices': 0, 'posts': 0, 'nets': 0}})
+        self.assertEqual(self.projects['claude-code']['7d'], {'voices': 2, 'posts': 2, 'nets': 2})
+        self.assertEqual(self.projects['claude-code']['30d'], {'voices': 2, 'posts': 3, 'nets': 2})
 
 
 if __name__ == '__main__':

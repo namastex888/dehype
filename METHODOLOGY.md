@@ -225,7 +225,7 @@ The Pulse tab answers "what is the AI conversation about right now, and where". 
 
 **Topics.** A post maps to topics through three reviewable rules:
 
-1. the lexicon in `topics_lexicon.json` (labs, model families, products, themes) plus HYPE project names and aliases; short, ambiguous product names match only case-sensitively;
+1. the lexicon in `topics_lexicon.json` (labs, model families, products, themes, public AI figures) plus HYPE project names and aliases; short, ambiguous product names match only case-sensitively. People are public figures named in posts (for example Sam Altman, Demis Hassabis, Andrej Karpathy), matched case-sensitively on the full name and on a surname only where it is unambiguous; a person node means *people mentioned*, never the authors of posts, and its `parent` links it to the person's organisation when there is one. Post authors are never ranked;
 2. model-version names built from versioned families (`Opus 5.5`, `Gemini 4 Argon`, `GPT 6 Astra`): one- or two-digit versions only, a trailing tier word (Pro, Flash, ...) or a capitalised codename joins the name;
 3. emerging phrases: capitalised multi-word or CamelCase phrases from live conversation said by at least three distinct authors, excluding hashtags, phrases made only of common words, phrases already covered by rules 1-2, and a stoplist in the lexicon. They are drawn with a dashed outline.
 
@@ -244,6 +244,25 @@ edge    = number of posts that match both topics (co-mention); parent links (Opu
 ```
 
 Votes, views and reach do not enter the weight: they are not comparable across networks and one viral account would dominate. A node is only as strong as the posts listed under it; the drawer shows them with network, date, author and score. Matching is lexical, so sarcasm, negation and quotes count as mentions, and a rumour node records that people discussed a name, not that the thing exists.
+
+### Signal: what matters now
+
+The "What matters now" list orders topics by a per-window **signal** from 0 to 100. It is a heuristic for ordering attention in our sampled feeds, not a measure of truth, quality or importance.
+
+```
+signal      = 0.40 × pct(voices) + 0.25 × pct(reach) + 0.20 × pct(rising) + 0.15 × pct(engagement excl. Reddit)
+pct(x)      = share of the other topics on the map (up to 160, all kinds) with a strictly lower value; ties share the lower rank; a zero value scores 0
+reach       = distinct networks other than newsletters (tracker arXiv/GitHub and dossier platforms count as networks, as in `nets`)
+              + distinct newsletters carrying the topic in the window
+rising      = the node's 24h-vs-7d ratio above (one value for every window); a topic without a rising value scores 0 on this component
+engagement  = Σ log(1 + score + comments) over matching posts outside Reddit (arctic-shift Reddit scores are snapshots taken at ingestion)
+```
+
+A topic with no voices in the window scores 0. The four percentiles are stored next to the signal (`signal_parts`) and the page always shows the counts behind them (voices, networks, newsletters, rising) rather than the bare number. **Colour on the map is reach** (a single blue ramp in five fixed bins: 1, 2, 3–4, 5–7, 8+), size is still voices, and shape is the kind of topic. Each node also records which newsletters carried it and the raw score and comment sums per network on its sampled live posts (`engagement`; HN points, Mastodon favourites + boosts, Reddit snapshot votes); these are sums over our sample, never platform totals.
+
+### Live column on the Hype tab
+
+`pulse.json` carries `projects`: for every HYPE project id, the 7-day and 30-day voices, posts and networks among **live** sampled posts (HN, Reddit, Mastodon, Lobsters, newsletters; never the tracker or the static research dossier) that match the project's name or aliases. A value of 0 means no matching post in our sampled feeds, not zero attention; a dash means the Pulse file is unavailable. The research dossier columns on the Hype tab stay a static sample as of the dossier's content cutoff.
 
 ## Known biases
 

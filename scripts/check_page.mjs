@@ -71,7 +71,15 @@ try {
   }
   for (const e of P.edges) need(ids.has(e.a) && ids.has(e.b), `pulse edge ${e.a}-${e.b} points at a missing node`);
   need(P.sources && Object.keys(P.sources).length > 0, 'pulse.json has no source status');
-  pulseNote = `pulse ${P.nodes.length} topics`;
+  // signal + live project counts: required once pulse.py writes them (method names the signal); older files only warn
+  if (/signal/.test(P.method || '')) {
+    for (const n of P.nodes) need(P.windows.every(w => Number.isFinite(n.w[w].signal) && n.w[w].signal_parts && Number.isFinite(n.w[w].reach)),
+      `pulse node ${n.id} lacks signal / reach`);
+    need(P.projects && typeof P.projects === 'object', 'pulse.json has no projects map');
+    for (const id of Object.keys(H.items || {}))
+      need(['7d', '30d'].every(w => Number.isFinite(P.projects?.[id]?.[w]?.voices)), `pulse.json projects lacks hype id ${id}`);
+  } else warn.push('pulse.json predates the signal field (no signal / projects); the next pulse.py run adds them');
+  pulseNote = `pulse ${P.nodes.length} topics${P.projects ? `, ${Object.keys(P.projects).length} projects` : ''}`;
 } catch (e) { if (e.code !== 'ENOENT') fail.push(`pulse.json unreadable: ${e.message}`); }
 
 for (const w of warn) console.warn('warning: ' + w);
