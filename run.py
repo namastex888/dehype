@@ -171,8 +171,12 @@ def hf_get(path, allow404=False):
 
 GH_TOKEN = None
 def gh_token():
-    """Use gh's token only if `gh auth status` says we are logged in (never read token files)."""
+    """Token from GH_TOKEN/GITHUB_TOKEN (CI), else gh's token if `gh auth status` says we are logged in (never read token files)."""
     global GH_TOKEN
+    env = (os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN') or '').strip()
+    if env:
+        GH_TOKEN = env
+        return GH_TOKEN
     try:
         import subprocess
         st = subprocess.run(['gh', 'auth', 'status'], capture_output=True, text=True, timeout=15)

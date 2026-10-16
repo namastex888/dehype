@@ -12,3 +12,6 @@ shots/
 .env
 .env.*
 *.token
+
+# semantic-search builder dependencies
+scripts/embed/node_modules/

@@ -1,0 +1,9 @@
+{
+  "name": "trend-observatory-embed",
+  "private": true,
+  "type": "module",
+  "description": "Builds web/search-index.json + web/search-vectors.bin for semantic search. Runs in refresh.yml; not needed to view the site.",
+  "dependencies": {
+    "@huggingface/transformers": "4.2.0"
+  }
+}

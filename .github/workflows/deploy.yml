@@ -1,0 +1,79 @@
+name: deploy
+# Publishes web/ to GitHub Pages (always) and to Cloudflare Pages (when its secrets exist). Runs on pushes to dev that touch the site, on demand,
+# and as the last job of the daily refresh (pushes made with GITHUB_TOKEN do not trigger workflows).
+# Cloudflare needs repository secrets CLOUDFLARE_API_TOKEN (Pages:Edit) and CLOUDFLARE_ACCOUNT_ID; without them that job skips.
+on:
+  push:
+    branches: [dev]
+    paths: ['web/**', 'METHODOLOGY.md', '.github/workflows/deploy.yml']
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+env:
+  PROJECT: ${{ vars.CF_PAGES_PROJECT || 'trend-observatory' }}
+jobs:
+  github-pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: dev
+          persist-credentials: false
+      - name: Sync methodology and check the page
+        run: |
+          cp METHODOLOGY.md web/METHODOLOGY.md
+          node scripts/check_page.mjs
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+  cloudflare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: dev
+          persist-credentials: false
+      - name: Check credentials
+        id: creds
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::notice::CLOUDFLARE_API_TOKEN not set; skipping deploy (see docs/ARCHITECTURE.md#3-publishing)"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: steps.creds.outputs.ok == 'true'
+        with:
+          node-version: '22'
+      - name: Sync methodology and check the page
+        if: steps.creds.outputs.ok == 'true'
+        run: |
+          cp METHODOLOGY.md web/METHODOLOGY.md
+          node scripts/check_page.mjs
+      - name: Deploy to Cloudflare Pages
+        # the token exists only in this step; it runs wrangler 4.143.0 via npx (its own dependencies resolve at install time)
+        if: steps.creds.outputs.ok == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --yes wrangler@4.143.0 pages project create "$PROJECT" --production-branch dev 2>/dev/null || true
+          npx --yes wrangler@4.143.0 pages deploy web --project-name "$PROJECT" --branch dev --commit-hash "$(git rev-parse HEAD)" --commit-dirty=true
