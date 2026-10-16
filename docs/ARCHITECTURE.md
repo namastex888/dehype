@@ -25,7 +25,7 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
  │                     web/data.json   papers + repos, 7 windows × 7 paradigms          │
  │                                     │                                                │
  │   scripts/embed/embed.mjs ──► web/search-index.json + search-vectors.bin             │
- │      (one 384-d vector per paper/repo/project, MiniLM-L6 q8, pinned, ~10 s, no API)   │
+ │      (one 384-d vector per paper/repo/project, MiniLM-L6 q8 at a pinned HF commit, ~10 s)   │
  │   gate: unit tests + scripts/check_page.mjs ──► commit "data: daily refresh" to dev  │
  │   state ──save──► Actions cache (+ 30-day artifact backup of history/)               │
  └─────────────────────────────────────┬────────────────────────────────────────────────┘
@@ -33,7 +33,7 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
                                        │ do not trigger workflows, so refresh calls it)
                                        ▼
  ┌──────────────── .github/workflows/deploy.yml  [NEW, needs 2 secrets] ─────────────────┐
- │   cp METHODOLOGY.md web/ → rebuild search index → check_page → wrangler pages deploy   │
+ │   cp METHODOLOGY.md web/ → check_page → wrangler pages deploy (token only in this step)│
  └─────────────────────────────────────┬────────────────────────────────────────────────┘
                                        ▼
  ┌──────────────── Cloudflare Pages (free static hosting + CDN) [BLOCKED: account] ─────┐
@@ -44,8 +44,8 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
  │  search ─► 1. parser: tab, window, paradigm, "stars > 1k", "from meta", "new",       │
  │               "rising", "attention ahead" become filters                             │
  │           2. leftover words ─► semantic: same embedding model runs in the browser    │
- │               (transformers.js, ~23 MB once, cached), dot product with the index,     │
- │               ranks by meaning; keyword fallback if the model cannot load             │
+ │               (transformers.js + same pinned weights, ~28 MB once, cached), dot product,     │
+ │               keeps the closest items; keyword fallback if the model cannot load    │
  │           ─► KPI tiles · paradigm mix · scatter · leaders · table                    │
  │  (no server, no paid API, the query never leaves the browser)                        │
  │  row click ─► detail drawer (score anatomy, flags, sources, HYPE research card)      │

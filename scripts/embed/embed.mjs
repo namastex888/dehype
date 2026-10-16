@@ -9,6 +9,8 @@ import { pipeline } from '@huggingface/transformers';
 
 export const MODEL = 'Xenova/all-MiniLM-L6-v2';
 export const DTYPE = 'q8';
+// Pinned Hugging Face commit: index vectors and browser query vectors must come from the same weights.
+export const REVISION = '751bff37182d3f1213fa05d7196b954e230abad9';
 const web = process.argv[2] || 'web';
 const D = JSON.parse(readFileSync(join(web, 'data.json'), 'utf8'));
 const H = JSON.parse(readFileSync(join(web, 'hype.json'), 'utf8'));
@@ -20,11 +22,11 @@ const docs = {
   hype: Object.entries(H.items).map(([id, h]) => [id, clip(`${h.name}: ${h.category || ''}. ${h.summary || ''}`, 600)]),
 };
 
-const extract = await pipeline('feature-extraction', MODEL, { dtype: DTYPE });
+const extract = await pipeline('feature-extraction', MODEL, { dtype: DTYPE, revision: REVISION });
 const dim = 384;
 const total = Object.values(docs).reduce((a, d) => a + d.length, 0);
 const out = new Int8Array(total * dim);
-const index = { model: MODEL, dtype: DTYPE, dim, scale: 127, generated_at: new Date().toISOString(),
+const index = { model: MODEL, revision: REVISION, dtype: DTYPE, dim, scale: 127, generated_at: new Date().toISOString(),
   data_generated_at: D.generated_at, hype_generated_at: H.generated_at, tabs: {} };
 let row = 0;
 for (const [tab, list] of Object.entries(docs)) {

@@ -5,7 +5,7 @@ import { pipeline } from '@huggingface/transformers';
 const [tab, q, web = 'web'] = process.argv.slice(2);
 const idx = JSON.parse(readFileSync(join(web, 'search-index.json'), 'utf8'));
 const vec = new Int8Array(readFileSync(join(web, 'search-vectors.bin')).buffer.slice(0));
-const ext = await pipeline('feature-extraction', idx.model, { dtype: idx.dtype });
+const ext = await pipeline('feature-extraction', idx.model, { dtype: idx.dtype, revision: idx.revision });
 const qv = (await ext(q, { pooling: 'mean', normalize: true })).data;
 const T = idx.tabs[tab];
 const sims = T.ids.map((id, i) => { let s = 0; const o = (T.offset + i) * idx.dim; for (let k = 0; k < idx.dim; k++) s += qv[k] * vec[o + k]; return [s / idx.scale, id]; });

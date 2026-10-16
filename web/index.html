@@ -212,7 +212,7 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between}
   <div class="ask">
    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/><path d="M11 7.5v.01M8.2 9.2l.01 0" opacity=".6"/></svg>
    <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Ask: “agent repos over 1k stars this month”, “browser automation”, “robots learning from video”…" aria-label="Search">
-   <button class="sem" id="sem" title="semantic search: ranks by meaning with a small embedding model that runs in your browser (downloads ~23 MB once)">✦ semantic</button>
+   <button class="sem" id="sem" title="semantic search: ranks by meaning with a small embedding model that runs in your browser (downloads a ~28 MB model from jsDelivr and Hugging Face once, then cached)">✦ semantic</button>
    <kbd>⌘K</kbd>
   </div>
   <div class="parsed" id="parsed"></div>
@@ -332,23 +332,25 @@ function cmp(a,op,b){return a==null?false:op=='>'?a>b:op=='>='?a>=b:op=='<'?a<b:
 
 // ------------------------------------------------------------------ semantic search: same model as scripts/embed/embed.mjs, query embedded locally
 const SEM={idx:null,vec:null,ext:null,state:'idle',err:null,cache:new Map(),pending:new Set()};
+// weights, tokenizer and config load at the index's pinned revision; transformers.js 4.2.0 still probes config at 'main' only to list which files exist
 const TF_URL='https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0';
 async function semLoad(){
  if(SEM.state=='ready'||SEM.state=='loading')return;SEM.state='loading';renderSemStatus();
  try{const [ix,bin]=await Promise.all([fetch('search-index.json').then(r=>{if(!r.ok)throw new Error('index HTTP '+r.status);return r.json()}),fetch('search-vectors.bin').then(r=>{if(!r.ok)throw new Error('vectors HTTP '+r.status);return r.arrayBuffer()})]);
   if(bin.byteLength!=ix.rows*ix.dim)throw new Error('vector size mismatch');
-  const tf=await import(TF_URL);SEM.ext=await tf.pipeline('feature-extraction',ix.model,{dtype:ix.dtype});
+  if(!ix.revision)throw new Error('index has no pinned model revision');
+  if(!SEM.ext||SEM.rev!==ix.revision){const tf=await import(TF_URL);SEM.ext=await tf.pipeline('feature-extraction',ix.model,{dtype:ix.dtype,revision:ix.revision});SEM.rev=ix.revision;SEM.cache.clear()}
   SEM.idx=ix;SEM.vec=new Int8Array(bin);SEM.pos={};for(const [t,v] of Object.entries(ix.tabs)){const m=new Map();v.ids.forEach((id,i)=>m.set(id,v.offset+i));SEM.pos[t]=m}
   SEM.state='ready'}
  catch(e){SEM.state='failed';SEM.err=e.message;console.warn('semantic search unavailable',e)}
  render()}
 function semQuery(text){if(SEM.cache.has(text))return SEM.cache.get(text);if(SEM.state!='ready'){semLoad();return null}
- if(!SEM.pending.has(text)){SEM.pending.add(text);const qAt=S.q;SEM.ext(text,{pooling:'mean',normalize:true}).then(t=>{SEM.cache.set(text,t.data);SEM.pending.delete(text);if(S.q==qAt)render()}).catch(e=>{SEM.pending.delete(text);console.warn(e)})}
+ if(!SEM.pending.has(text)){SEM.pending.add(text);SEM.ext(text,{pooling:'mean',normalize:true}).then(t=>{SEM.cache.set(text,t.data);SEM.pending.delete(text);render()}).catch(e=>{SEM.pending.delete(text);console.warn(e)})}
  return null}
 function semSim(tab,id,q){const p=SEM.pos[tab]?.get(id);if(p==null)return null;const o=p*SEM.idx.dim,v=SEM.vec;let s=0;for(let k=0;k<SEM.idx.dim;k++)s+=q[k]*v[o+k];return s/SEM.idx.scale}
 const semText=P=>P.terms.join(' ');
 function renderSemStatus(){$('sem').classList.toggle('on',S.sem);$('sem').textContent=S.sem?(SEM.state=='loading'?'✦ loading…':SEM.state=='failed'?'✦ keyword':'✦ semantic'):'✦ off';
- $('sem').title=S.sem?(SEM.state=='failed'?'semantic model could not load ('+SEM.err+'); using keyword matching':'semantic search on: ranks by meaning with a small embedding model running in your browser (downloads ~23 MB once). Click to switch to keyword matching'):'keyword matching. Click to rank by meaning instead'}
+ $('sem').title=S.sem?(SEM.state=='failed'?'semantic model could not load ('+SEM.err+'); using keyword matching':'semantic search on: ranks by meaning with a small embedding model running in your browser (first query downloads a ~28 MB model from jsDelivr and Hugging Face, then cached; your query never leaves the browser). Click to switch to keyword matching'):'keyword matching. Click to rank by meaning instead'}
 
 // ------------------------------------------------------------------ data access
 function rowsFor(tab,win,view){
@@ -365,7 +367,7 @@ function applyFilters(rows,P){
  if(P.who){const re=new RegExp('(^|[^a-z0-9])'+P.who.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-z0-9])');out=out.filter(r=>re.test([r.lab,r.owner,(r.authors||[]).join(' '),r.id,r.name].filter(Boolean).join(' · ').toLowerCase()))}
  if(P.label)out=out.filter(r=>r.label==P.label);
  if(P.rising)out=out.filter(r=>(mvDelta(r)??0)>0||isNew(r));
- if(P.terms.length){const qv=S.sem&&SEM.state!='failed'?semQuery(semText(P)):null;
+ if(P.terms.length){const qv=S.sem&&SEM.state!='failed'?semQuery(semText(P)):null;if(S.sem&&SEM.state!='failed'&&!qv)P.semPending=true;
   if(qv){const scored=out.map(r=>{const sim=semSim(S.tab,r.id,qv);let kw=0;for(const t of P.terms)kw+=termHit(r,t)?1:0;return {...r,_sim:sim,_rel:(sim??0)+0.06*kw,_kw:kw}});
    const best=Math.max(0,...scored.map(r=>r._sim??0));out=scored.filter(r=>r._kw==P.terms.length||(r._sim!=null&&r._sim>=Math.max(0.3,best-0.2)));P.semantic=true}
   else{out=out.map(r=>{let s=0;for(const t of P.terms){const h=termHit(r,t);if(!h)return null;s+=h}return {...r,_rel:s}}).filter(Boolean)}}
@@ -463,7 +465,7 @@ function render(){
  if(S.tab=='hype'&&!H){$('tb').innerHTML='<tr><td class=empty>Loading HYPE data…</td></tr>';loadHype().then(render,()=>{});return}
  let P=parseQuery(S.q);
  const fresh=S.q!==S.qApplied;S.qApplied=S.q;
- if(fresh&&P.tab&&P.tab!=S.tab){S.tab=P.tab;S.sort=null;return render()}
+ if(fresh&&P.tab&&P.tab!=S.tab){S.tab=P.tab;S.sort=null;S.qApplied=undefined;return render()}
  const meta=S.tab=='hype'?H:D;
  const wins=S.tab=='hype'?WN.filter(w=>H.windows[w]):D.windows;
  if(fresh&&P.win&&wins.includes(P.win)&&(S.tab!='hype'||H.windows[P.win].enabled))S.win=P.win;
@@ -501,7 +503,7 @@ function render(){
   rows=rows.slice().sort((a,b)=>{const x=val(a),y=val(b);if(x==null&&y==null)return a.rank-b.rank;if(x==null)return 1;if(y==null)return -1;return (typeof x=='string'?x.localeCompare(y):x-y)*dir||a.rank-b.rank})}
  else rows=rows.slice().sort((a,b)=>a.rank-b.rank);
  renderSemStatus();
- renderParsed(P,rows.length,base.rows.length,rows.length||!S.q?null:otherTabs(P).filter(([t])=>!P.tab||t==S.tab));
+ renderParsed(P,rows.length,base.rows.length,rows.length||!S.q||P.semPending?null:otherTabs(P).filter(([t])=>!P.tab||t==S.tab));
  renderKpis(base,rows);
  renderCharts(base.rows,rows);
  renderTable(rows,base,sortKey);
@@ -516,9 +518,9 @@ function renderParsed(P,n,tot,other){
  if(P.who)c.push(['from',P.who]);if(P.label)c.push(['gap',P.label.replace('_',' ')]);if(P.isNew)c.push(['only','new entries']);if(P.rising)c.push(['only','rising']);if(P.sort)c.push(['sort','most '+P.sort]);
  if(P.terms.length)c.push([P.semantic?'meaning':'text',semText(P)]);
  if(!S.q){const ex={papers:['agent papers this week','robots learning from human videos','world models upvotes > 100','new harness papers'],repos:['agent repos over 1k stars this month','most gained world models','rising harness 30d','browser'],hype:['attention ahead','gap > 20','image generation','discovery > 60 overall']}[S.tab];
-  $('parsed').innerHTML=`<span class=lbl>try</span><span class=examples>${ex.map(e=>`<button data-ex="${esc(e)}">${esc(e)}</button>`).join(' ')}</span><span class="dim hint" style="margin-left:auto;font-size:11px">filters are parsed from your words; the rest is ranked by meaning · all in your browser, no server, no paid API</span>`;
+  $('parsed').innerHTML=`<span class=lbl>try</span><span class=examples>${ex.map(e=>`<button data-ex="${esc(e)}">${esc(e)}</button>`).join(' ')}</span><span class="dim hint" style="margin-left:auto;font-size:11px">filters are parsed from your words; the rest is matched by meaning with a ~28 MB model fetched once from jsDelivr/Hugging Face · your query never leaves the browser</span>`;
   $('parsed').querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{$('q').value=b.dataset.ex;S.q=b.dataset.ex;render()});return}
- $('parsed').innerHTML=`<span class=lbl>understood</span>${c.map(([k,v])=>`<span class="pchip${k=='text'?' t':''}">${esc(k)}: ${esc(v)}</span>`).join('')||'<span class=dim>nothing to filter on</span>'}<span class=dim style="margin-left:6px">→ ${n} of ${tot} rows${P.semantic?' · ranked by meaning':S.sem&&P.terms.length&&SEM.state=='loading'?' · loading semantic model…':''}</span>${other&&other.length?`<span class=lbl style="margin-left:10px">found in</span>${other.map(([t,w,k])=>`<button class=chip data-go="${t}|${w}">${k} in ${t} · ${w} →</button>`).join('')}`:''}`;
+ $('parsed').innerHTML=`<span class=lbl>understood</span>${c.map(([k,v])=>`<span class="pchip${k=='text'?' t':''}">${esc(k)}: ${esc(v)}</span>`).join('')||'<span class=dim>nothing to filter on</span>'}<span class=dim style="margin-left:6px">→ ${n} of ${tot} rows${P.semantic?' · closest by meaning, best first':P.semPending?' · semantic model loading, showing exact word matches meanwhile':''}</span>${other&&other.length?`<span class=lbl style="margin-left:10px">found in</span>${other.map(([t,w,k])=>`<button class=chip data-go="${t}|${w}">${k} in ${t} · ${w} →</button>`).join('')}`:''}`;
  $('parsed').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const [t,w]=b.dataset.go.split('|');S.tab=t;S.win=w;S.sort=null;render()})}
 function kpi(k,v,s){return `<div class="panel kpi"><div class=k>${k}</div><b>${v}</b><div class=s>${s}</div></div>`}
 function renderKpis(base,rows){
@@ -563,7 +565,7 @@ function renderCharts(all,shown){
 function renderTable(rows,base,sortKey){
  const cols=C[S.tab];
  $('ttitle').textContent={papers:'Ranked papers',repos:'Ranked repositories',hype:'Researched projects'}[S.tab];
- $('cnt').textContent=`${rows.length} shown · ${base.rows.length} ranked in ${S.win}${S.view=='all'?'':' within '+S.view} · ${num(base.candidates)} candidates`;
+ $('cnt').textContent=`${rows.length} shown · ${base.rows.length} ranked in ${S.win}${(S.vw||S.view)=='all'?'':' within '+(S.vw||S.view)} · ${num(base.candidates)} candidates`;
  $('sortinfo').textContent=sortKey?`sorted by ${sortKey=='_rel'?(rows.some(r=>r._sim!=null)?'semantic relevance':'relevance'):sortKey=='_mv'?'movement':(cols.find(c=>c.k==sortKey)?.l||sortKey)}`:'sorted by rank';
  $('th').innerHTML='<tr>'+cols.map(c=>`<th class="s${c.n?' n':''}${c.hs?' hs':''}${S.sort?.k==c.k?' on':''}" data-k="${c.k}">${c.l}${S.sort?.k==c.k?(S.sort.d>0?' ↑':' ↓'):''}</th>`).join('')+'</tr>';
  $('th').querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;S.sort=S.sort?.k==k?{k,d:-S.sort.d}:{k,d:k=='rank'||k=='title'||k=='id'||k=='name'||k=='tag'?1:-1};render()});
@@ -695,7 +697,7 @@ try{const t=localStorage.getItem(TH_KEY);if(t)document.documentElement.dataset.t
 $('theme').onclick=()=>setTheme(document.documentElement.dataset.theme=='light'?'dark':'light');
 addEventListener('hashchange',()=>{const t0=S.tab,b=S.tab+'|'+S.msec+'|'+S.win+'|'+S.view;readHash();if(S.tab!=t0)closeDetail();if(S.tab+'|'+S.msec+'|'+S.win+'|'+S.view!=b)render()});
 async function loadHype(){try{const r=await fetch('hype.json?'+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);H=await r.json()}catch(e){H=null;$('tb').innerHTML=`<tr><td class=empty>No HYPE data (hype.json): ${esc(e.message)}</td></tr>`;throw e}}
-async function load(){const r=await fetch('data.json?'+Date.now());D=await r.json();HAY.clear();buildWho();render()}
+async function load(){const r=await fetch('data.json?'+Date.now());D=await r.json();HAY.clear();buildWho();if(SEM.idx&&SEM.idx.data_generated_at!==D.generated_at){SEM.idx=null;SEM.state='idle'}render()}
 readHash();{const u=new URLSearchParams(location.search);if(u.get('q')){S.q=u.get('q');$('q').value=S.q}if(u.get('open'))S.sel=u.get('open').split(',')[0]}
 load().catch(e=>{$('tb').innerHTML=`<tr><td class=empty>Could not load data.json: ${esc(e.message)}</td></tr>`});
 setInterval(()=>{if(S.tab!='methodology'&&!document.hidden){H=S.tab=='hype'?H:null;load()}},5*60*1000);

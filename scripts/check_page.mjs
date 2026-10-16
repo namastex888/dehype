@@ -46,6 +46,7 @@ let semNote = 'no semantic index';
 try {
   const ix = JSON.parse(readFileSync(join(web, 'search-index.json'), 'utf8'));
   const bin = readFileSync(join(web, 'search-vectors.bin'));
+  need(/^[0-9a-f]{40}$/.test(ix.revision || ''), 'search index has no pinned model revision');
   need(bin.length === ix.rows * ix.dim, `search-vectors.bin is ${bin.length} bytes, expected ${ix.rows * ix.dim}`);
   const items = { papers: D.papers.items, repos: D.repos.items, hype: H.items };
   for (const [t, v] of Object.entries(ix.tabs)) {
@@ -54,7 +55,9 @@ try {
   }
   if (ix.data_generated_at !== D.generated_at) warn.push(`search index built from data ${ix.data_generated_at}, page data is ${D.generated_at}; new items fall back to keyword matching`);
   semNote = `semantic index ${ix.rows} vectors`;
-} catch (e) { if (e.code !== 'ENOENT') fail.push(`semantic index unreadable: ${e.message}`); }
+} catch (e) {
+  if (e.code !== 'ENOENT' || /search-vectors/.test(e.path || '')) fail.push(`semantic index unreadable: ${e.message}`);
+}
 
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
