@@ -634,7 +634,7 @@ def build(posts, lex, hype_items, repos=None):
             if age <= days: totals[w][p['net']] = totals[w].get(p['net'], 0) + 1
     projects = {hid: {w: {'voices': len(s['authors']), 'posts': s['posts'], 'nets': len(s['nets'])} for w, s in ws.items()}
                 for hid, ws in proj.items()}
-    return out_nodes, out_edges, totals, projects, {'citations': cite_table(rel)}
+    return out_nodes, out_edges, totals, projects, {'citations': cite_table(rel), 'stories': stories(rel)}
 
 REACH_PCT_METHOD = ('reach_pct (per window) = mean of the five highest item percentiles among the items matching the topic; an item\'s percentile '
                     'is taken within its own type and window: posts per network (HN points, Mastodon favourites + boosts, Lobsters score, Bluesky likes + reposts; '
@@ -803,6 +803,177 @@ def score_signal(nodes):
             x['w'][w]['signal'] = round(sum(SIGNAL_WEIGHTS[k] * parts[k][i] for k in SIGNAL_WEIGHTS), 1) if x['w'][w]['authors'] else 0.0
             x['w'][w]['signal_parts'] = comp
 
+# ------------------------------------------------------------------ stories: events, not topics
+STORY_DAYS = 7
+SEED_NETS = {'HN', 'Lobsters'} | DIGEST | OFFICIAL            # edited or launch sources seed a story; chatter attaches to one
+TOK_RX = re.compile(r"[a-z0-9][a-z0-9.+'\-]*[a-z0-9+]|[a-z0-9]")
+STORY_STOP = set("""the a an and or of to in on for with by from at as is are was were be been it its this that these those you your we our i my me
+he she they them his her their not no yes do does did have has had will would can could should just more most less than then so very really
+how why what when where who which new now today via vs about into over out up down off one two all any some get got make made using use used
+like say says said here there s t ve ll re d m don doesn didn isn aren won can't don't i'm it's you're show ask hn tell launch introducing
+announces announced launches launched releases released open-source opensource open source free first best guide week day news update updates""".split()) | COMMON
+
+def toks(text):
+    t = re.sub(r'https?://\S+|#\w+|@\w+', ' ', (text or '').lower())
+    return {w.strip("'") for w in TOK_RX.findall(t) if w.strip("'") not in STORY_STOP and (len(w) > 2 or any(c.isdigit() for c in w))}
+
+def canon(u):
+    u = re.sub(r'[?#].*$', '', (u or '').strip().lower())
+    u = re.sub(r'^https?://(www\.|m\.|mobile\.)?', '', u).rstrip('/')
+    return u if '/' in u else ''          # a bare domain is not one story
+
+def anchors(found):
+    """The named release a post is about; a post naming several (a comparison, a digest) anchors nothing, or it would bridge events."""
+    a = [t for t, x in found.items() if x['kind'] in ('version', 'emerging')]
+    return a if len(a) == 1 else []
+
+def _uf(n):
+    par = list(range(n))
+    def find(i):
+        while par[i] != i: par[i] = par[par[i]]; i = par[i]
+        return i
+    def join(a, b): par[find(b)] = find(a)
+    return find, join
+
+def stories(rel, limit=60):
+    """Cluster the last 7 days into events. Seeds: HN, Lobsters, newsletter and official items, joined when they share
+    a canonical target link or most of their idf-weighted title words. Reddit, Mastodon and Bluesky posts attach to the
+    best-matching seed; chatter that matches no seed forms its own story only with >= 5 voices on it.
+    A newsletter whose body names a story's key words carries it. Ids hash a canonical URL: stable across runs."""
+    import hashlib
+    rows = [(p, dt, f) for p, dt, f in rel if (NOW - dt).total_seconds() / 86400 <= STORY_DAYS and p['source'] in ('live', 'official')]
+    docs = [(p, dt, f, toks(shown(p))) for p, dt, f in rows]
+    df = {}
+    for _, _, _, t in docs:
+        for w in t: df[w] = df.get(w, 0) + 1
+    N = max(1, len(docs))
+    idf = {w: math.log(N / c) for w, c in df.items()}
+    def sim(a, b):
+        sh = a & b
+        if len([w for w in sh if df[w] < N * 0.02]) < 2: return 0.0       # two shared words that are not everyday AI vocabulary
+        return sum(idf[w] for w in sh) / (sum(idf[w] for w in a | b) or 1)
+    seeds = [d for d in docs if d[0]['net'] in SEED_NETS and len(d[3]) >= 2]
+    find, join = _uf(len(seeds))
+    link = {}
+    for i, (p, _, _, t) in enumerate(seeds):
+        c = canon((p.get('extra') or {}).get('link') or (p['url'] if p['net'] in OFFICIAL else ''))
+        if c: link.setdefault(c, []).append(i)
+    for ids in link.values():
+        for j in ids[1:]: join(ids[0], j)
+    anchor = {}                                               # a named release (a model version or a new name) is one event
+    for i, d in enumerate(seeds):
+        for tid in anchors(d[2]): anchor.setdefault(tid, []).append(i)
+    for ids in anchor.values():
+        for j in ids[1:]: join(ids[0], j)
+    for i in range(len(seeds)):
+        for j in range(i + 1, len(seeds)):
+            if sim(seeds[i][3], seeds[j][3]) >= 0.45: join(i, j)
+    groups = {}
+    for i, d in enumerate(seeds): groups.setdefault(find(i), []).append(d)
+    clusters = list(groups.values())
+    by_anchor = {}
+    for k, c in enumerate(clusters):
+        for d in c:
+            for tid in anchors(d[2]): by_anchor.setdefault(tid, k)
+    stray = []
+    for d in docs:                                            # chatter attaches to its release, else to the best seed
+        if d[0]['net'] in SEED_NETS: continue
+        a = [by_anchor[t] for t in anchors(d[2]) if t in by_anchor]
+        if a: clusters[a[0]].append(d); continue
+        best, bs = None, 0.0
+        for k, c in enumerate(clusters):
+            for s_ in c[:6]:
+                v = sim(d[3], s_[3])
+                if v > bs: best, bs = k, v
+        if best is not None and bs >= 0.4: clusters[best].append(d)
+        else: stray.append(d)
+    idx = {}                                                  # chatter-only stories: stricter threshold, 5+ voices
+    for i, d in enumerate(stray):
+        for w in d[3]:
+            if 2 <= df[w] <= 80: idx.setdefault(w, []).append(i)
+    find2, join2 = _uf(len(stray))
+    first_a = {}
+    for i, d in enumerate(stray):
+        for tid in anchors(d[2]):
+            if tid in first_a: join2(first_a[tid], i)
+            else: first_a[tid] = i
+    tried = set()
+    for ids in idx.values():
+        for x, a in enumerate(ids):
+            for b in ids[x + 1:]:
+                if (a, b) in tried: continue
+                tried.add((a, b))
+                if stray[a][0]['author'] != stray[b][0]['author'] and sim(stray[a][3], stray[b][3]) >= 0.55: join2(a, b)
+    g2 = {}
+    for i, d in enumerate(stray): g2.setdefault(find2(i), []).append(d)
+    clusters += [c for c in g2.values() if len({(d[0]['net'], d[0]['author']) for d in c}) >= 5]
+    digests = [d for d in docs if d[0]['net'] in DIGEST]
+    rank = {n: i for i, n in enumerate(['Official', 'Newsletter', 'HN', 'Lobsters', 'Reddit', 'Mastodon', 'Bluesky'])}
+    out = []
+    for c in clusters:
+        c.sort(key=lambda d: d[1])
+        voices = {(d[0]['net'], d[0]['author']) for d in c if d[0]['net'] not in OFFICIAL}
+        nets = {}
+        for d in c: nets[d[0]['net']] = nets.get(d[0]['net'], 0) + 1
+        if len(voices) < 2 and not (set(nets) & (DIGEST | OFFICIAL)): continue
+        ed = [d for d in c if d[0]['net'] in SEED_NETS] or c
+        cnt = {}
+        for d in ed:
+            for w in d[3]: cnt[w] = cnt.get(w, 0) + 1
+        key = sorted((w for w, k in cnt.items() if k >= max(1, len(ed) / 2) and df[w] < N * 0.02), key=lambda w: -idf[w])[:3]
+        nl = {d[0]['author'] for d in c if d[0]['net'] in DIGEST}
+        if len(key) >= 2:
+            for d in digests:
+                body = (d[0]['title'] or '').lower()
+                if all(re.search(r'(?<![a-z0-9])' + re.escape(w) + r'(?![a-z0-9])', body) for w in key): nl.add(d[0]['author'])
+        ac = {}
+        for d in c:
+            for t in anchors(d[2]): ac[t] = ac.get(t, 0) + 1
+        top_a = max(ac, key=ac.get) if ac else None
+        label = next((x[top_a]['label'] for _, _, x, _ in c if top_a in x), None) if top_a else None
+        def hk(d):
+            t = shown(d[0])
+            junk = (bool(re.fullmatch(r'[\w.-]+ v?\d+(\.\w+)*', t)) or len(t) > 160 or len(t) < 12      # package bumps, run-ons, stubs
+                    or t.count(',') >= 2 or bool(re.search('[\U0001F300-\U0001FAFF\u2600-\u27BF]', t)) or t.startswith('['))   # digest issue titles
+            named = not label or label.lower() in t.lower()
+            return (junk, not (named and d[0]['net'] in SEED_NETS), not named, rank.get(d[0]['net'], 9), -(d[0]['score'] or 0), d[1])
+        head = min(c, key=hk)
+        path, got = [], set()
+        for d in c:
+            k = d[0]['author'] if d[0]['net'] in DIGEST else d[0]['net']
+            if k in got: continue
+            got.add(k); path.append({'net': d[0]['net'], 'who': d[0]['author'] if d[0]['net'] in DIGEST | OFFICIAL else None, 'at': iso(d[1]), 'url': d[0]['url']})
+        tags = {}
+        for d in c:
+            for tid in d[2]: tags[tid] = tags.get(tid, 0) + 1
+        hn = max([d[0]['score'] or 0 for d in c if d[0]['net'] == 'HN'] or [0])
+        age_h = (NOW - c[-1][1]).total_seconds() / 3600
+        spread = (2 * math.log2(1 + len(voices)) + len([n for n in nets if n not in DIGEST | OFFICIAL]) + 1.5 * len(nl)
+                  + (1 if 'Official' in nets else 0) + math.log10(1 + hn))
+        e0 = ed[0]                                            # earliest editorial post (members are in time order)
+        cid = ('release:' + top_a) if top_a else (canon((e0[0].get('extra') or {}).get('link')) or e0[0]['url'] or f"{e0[0]['net']}:{e0[0]['pid']}")
+        covered = bool(set(nets) & SEED_NETS) or bool(nl)
+        out.append({'id': 's:' + hashlib.sha1(cid.encode()).hexdigest()[:12], 'label': label, 'covered': covered,
+                    'headline': shown(head[0])[:220], 'url': head[0]['url'],
+                    'link': (head[0].get('extra') or {}).get('link'), 'first': iso(c[0][1]), 'last': iso(c[-1][1]),
+                    'voices': len(voices), 'nets': nets, 'newsletters': sorted(nl), 'official': 'Official' in nets, 'hn_points': hn or None,
+                    'key': key, 'path': path[:8], 'tags': [t for t, _ in sorted(tags.items(), key=lambda x: -x[1])[:5]],
+                    'heat': round(spread * 0.5 ** (age_h / 48), 3),
+                    'posts': [{'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': d[0]['url'], 'author': d[0]['author'], 'at': iso(d[1]),
+                               'score': d[0]['score'], 'comments': d[0]['comments']} for d in sorted(c, key=lambda d: -(d[0]['score'] or 0))[:10]]})
+    out.sort(key=lambda x: -x['heat'])
+    cov = [x for x in out if x['covered']][:limit]
+    return cov + [x for x in out if not x['covered']][:limit // 2]
+
+STORY_METHOD = ('stories (last 7 days): an event is a cluster of posts. HN, Lobsters, newsletter and official items seed clusters and join when they share a '
+                'canonical target link or idf-weighted title overlap >= 0.45 with two shared uncommon words (each in < 2% of the window\'s posts); '
+                'posts naming the same model version or emerging name join one story; Reddit, Mastodon and Bluesky posts attach to their release or the best seed at >= 0.40; unmatched chatter joins at >= 0.55 and stands alone only with 5+ voices. '
+                'covered = seeded by HN, Lobsters, a newsletter or a lab/vendor feed, or carried by a newsletter; otherwise it is chatter not yet in the press. '
+                'A newsletter carries a story when its item names all of the story\'s key words (up to three uncommon words shared by its editorial posts). '
+                'heat = (2 x log2(1 + voices) + networks outside newsletters/official + 1.5 x newsletters carrying it + 1 if a lab or vendor posted it + log10(1 + HN points)) '
+                'x 0.5^(hours since the newest post / 48). id = "s:" + first 12 hex of sha1("release:" + topic id when the story is about one named release, '
+                'else the canonical target link of its earliest editorial post, else that post\'s URL)')
+
 NOW_DAYS, BASE_DAYS = 7, 30
 NOVELTY_METHOD = ('new (the default ranking): two legs, each a percentile among topics that qualify for it, and a topic ranks by the higher one. '
                   'talk = lift of the topic\'s share of posts in the last 7 days over its share in days 8-30, on the deep networks only '
@@ -898,7 +1069,7 @@ def main():
     nodes, edges, totals, projects, extras = build(posts, lex, hype_items, tracker_repos())
     out = {'generated_at': iso(NOW), 'windows': list(WINDOWS), 'sources': SOURCES, 'totals': totals,
            'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days; ' + SIGNAL_METHOD
-                     + '; ' + REACH_PCT_METHOD + '; ' + ORGANIC_METHOD + '; ' + NOVELTY_METHOD,
+                     + '; ' + REACH_PCT_METHOD + '; ' + ORGANIC_METHOD + '; ' + NOVELTY_METHOD + '; ' + STORY_METHOD,
            'projects_note': 'projects: live sampled feeds only (no tracker, no dossier); voices = distinct (network, author) pairs, nets = distinct networks; 0 means no matching post in our sampled feeds, not zero attention',
            'coverage': ['Sampled feeds, not internet-wide totals: HN stories above 20 points, the Lobsters AI tag, nine Mastodon hashtags on mastodon.social, '
                         'ten AI subreddits via the arctic-shift public archive (up to 1,000 newest posts per subreddit per run, so busy subreddits reach back about a week), '
@@ -907,7 +1078,7 @@ def main():
                         'Bluesky appears only when an app password is configured. X appears only through the static dossier; it is not collected live.',
                         'Topics come from a reviewable lexicon (topics_lexicon.json), automatic model-version names, and capitalised phrases used by at least three distinct authors (marked emerging).',
                         'A node is only as strong as the posts listed under it; open it to read them.'],
-           'nodes': nodes, 'edges': edges, 'projects': projects,
+           'stories': extras['stories'], 'nodes': nodes, 'edges': edges, 'projects': projects,
            'citations': {w: {'domains': c['domains']} for w, c in extras['citations'].items()},     # handles stay private (below)
            'official_feeds': official_meta()}
     with open(os.path.join(WEB, 'pulse.json'), 'w') as f:

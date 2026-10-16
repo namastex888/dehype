@@ -282,11 +282,7 @@ class PulseTest(unittest.TestCase):
         self.assertEqual(n['moonshot-kimi']['w']['7d']['signal_parts']['rising'], 0)
         self.assertGreater(n['gemma']['w']['7d']['signal_parts']['rising'], 0)
 
-if __name__ == '__main__':
-    unittest.main()
 
-
-class NoveltyTest(PulseTest):
     def test_always_on_recedes_and_new_topic_ranks_with_counts(self):
         base = [p('HN', 100 + d, f'Claude tip number {d} for coding', f'u{d}', 24 * d + 5) for d in range(8, 30)]
         base += [p('HN', 200 + d, f'LLM inference note {d}', f'v{d}', 24 * d + 9) for d in range(8, 30)]
@@ -318,3 +314,28 @@ class NoveltyTest(PulseTest):
         ag = n['ai-agents']['new']
         self.assertEqual(ag['born'], 3); self.assertEqual(ag['build'], 0.0)   # 3 of 10: an old field, not a wave
         del self.repos
+
+
+    def test_release_is_one_story_with_editorial_headline_and_stable_id(self):
+        posts = [p('HN', 1, 'Muse Spark Open: Meta releases open LLM weights', 'h1', 30, score=400),
+                 pulse.post('Official', 'https://ai.meta.test/muse-spark-open', 'https://ai.meta.test/muse-spark-open',
+                            'Introducing Muse Spark Open ␟ weights today', 'Meta AI', pulse.iso(pulse.NOW - timedelta(hours=40)), source='official')]
+        posts += [p('Reddit', 10 + i, f'Muse Spark is great at coding, test {i}', f'r{i}', 20 - i) for i in range(5)]
+        posts += [p('Mastodon', 30 + i, f'Muse Spark Open looks strong {i}', f'm{i}', 10 + i) for i in range(3)]
+        posts += [p('HN', 50, 'Postgres 19 delayed by LLM-assisted patches', 'h9', 5, score=200),
+                  p('Reddit', 60, 'Unrelated question about GPUs', 'z', 3)]
+        self.build(posts)
+        st = self.extras['stories']
+        muse = [s for s in st if s['label'] == 'Muse Spark']
+        self.assertEqual(len(muse), 1, [s['headline'] for s in st])
+        m = muse[0]
+        self.assertEqual(m['headline'], 'Introducing Muse Spark Open')      # lab post first, body never shown
+        self.assertTrue(m['covered']); self.assertTrue(m['official'])
+        self.assertEqual(m['voices'], 9)                                      # official feed is not a voice
+        self.assertEqual(m['path'][0]['net'], 'Official')
+        self.assertEqual(m['id'], 's:' + __import__('hashlib').sha1(b'release:e:muse-spark').hexdigest()[:12])
+        self.assertFalse(any('GPUs' in s['headline'] for s in st))           # a lone chatter post is not a story
+
+
+if __name__ == '__main__':
+    unittest.main()

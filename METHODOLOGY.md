@@ -245,6 +245,37 @@ edge    = number of posts that match both topics (co-mention); parent links (Opu
 
 Votes, views and reach do not enter the weight: they are not comparable across networks and one viral account would dominate. A node is only as strong as the posts listed under it; the drawer shows them with network, date, author and score. Matching is lexical, so sarcasm, negation and quotes count as mentions, and a rumour node records that people discussed a name, not that the thing exists.
 
+### Briefing
+
+The Pulse tab opens on the **Briefing**: events, not topics. A topic such as Claude is discussed every day; an event such as "Meta open-sources Muse Spark" happens once and spreads. Each line of the Briefing is one event from the last seven days.
+
+```
+seed      = HN story, Lobsters story, newsletter item or lab/vendor post
+join      = same canonical target link, or the same named release (one model version or emerging name per post),
+            or idf-weighted title overlap >= 0.45 with two shared uncommon words (each in < 2% of the window's posts)
+attach    = a Reddit, Mastodon or Bluesky post joins its release, else the best seed at >= 0.40
+chatter   = unmatched posts joined at >= 0.55; one becomes a story only with 5+ voices
+carried   = a newsletter whose item names all of the story's key words (up to three uncommon words its editorial posts share)
+heat      = (2 x log2(1 + voices) + networks outside newsletters/official + 1.5 x newsletters carrying it
+             + 1 if a lab or vendor posted it + log10(1 + HN points)) x 0.5^(hours since the newest post / 48)
+```
+
+"Covered" stories have an HN, Lobsters, newsletter or lab post, or a newsletter carries them. The rest are listed as **Chatter, not in the press yet**: releases that 5+ people discuss on Reddit, Mastodon or Bluesky before any editor picks them up. That is where gossip starts. The headline is the clearest editorial title that names the release (lab post first, then HN, then a newsletter story), never a digest issue title. Clustering is lexical: an event described in two unrelated vocabularies can split in two, and a busy release name gathers everything said about it that week.
+
+### Data identity (stable ids)
+
+Every record keeps an id that is a pure function of its source, so the data can be migrated to another store (such as a knowledge graph) at any time and re-imported without duplicates.
+
+```
+post   = (network, pid): HN objectID, Reddit/Mastodon/Lobsters/Bluesky post id, feed item link for newsletters and labs
+topic  = lexicon id (topics_lexicon.json), "v:" version slug, or "e:" + slug of an emerging phrase
+story  = "s:" + first 12 hex of sha1("release:" + topic id for a story about one named release,
+         else the canonical target link of its earliest editorial post, else that post's URL)
+repo   = owner/name    paper = arXiv id
+```
+
+Every story, topic sample and spread step carries the URL of the original post.
+
 ### What's new
 
 The Pulse tab opens on **What's new this week**: topics that changed, not topics that are always large. Claude, OpenAI or "AI agents" are discussed every day; a list ordered by size tells a daily reader nothing. Each topic gets two scores and ranks by the higher one.

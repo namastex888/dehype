@@ -201,6 +201,23 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap}
 @media (prefers-reduced-motion:reduce){.pstars .tw,.pring{animation:none}}
 .kg{font-style:normal;color:var(--accent);font-size:11px}.kg.em{opacity:.9}
 .pside{display:grid;gap:12px;align-content:start}
+.bgrid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:12px;margin-bottom:12px}
+@media (max-width:1000px){.bgrid{grid-template-columns:minmax(0,1fr)}}
+.brief{padding:14px 16px}.brief h3{margin:0;font:600 15px var(--sans);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.brief .sub{font-size:12px;color:var(--text-muted);margin:2px 0 8px}
+.brief .seg{margin-left:auto}
+.st{border-bottom:1px solid var(--line);padding:10px 0;display:grid;grid-template-columns:28px minmax(0,1fr);gap:0 8px}
+.st .rk{font:12px var(--mono);color:var(--text-muted);padding-top:2px}
+.st .hd{font:500 14px/1.35 var(--sans);color:var(--text-primary);text-decoration:none}.st .hd:hover{color:var(--accent);text-decoration:underline}
+.st .lb{font:10px var(--mono);color:var(--accent);border:1px solid #3fd0ff44;border-radius:4px;padding:0 5px;margin-left:6px;white-space:nowrap;vertical-align:2px}
+.st .mt{font:11px var(--mono);color:var(--text-secondary);margin-top:3px}
+.st .mt b{color:var(--text-primary);font-weight:600}
+.st .pth{font:11px var(--mono);color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st .pth i{font-style:normal;color:var(--text-secondary)}
+.st .more{background:none;border:0;color:var(--text-muted);font:11px var(--mono);cursor:pointer;padding:2px 0;text-align:left}.st .more:hover{color:var(--accent)}
+.st ul{list-style:none;padding:0;margin:6px 0 0;font-size:12px}.st li{padding:3px 0;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st li a{color:var(--text-secondary);text-decoration:none}.st li a:hover{color:var(--accent)}
+.st.ch .hd{font-size:13px}
 .pnew{padding:14px 16px;margin-bottom:12px}
 .pnew h3{margin:0;font:600 15px var(--sans)}.pnew .sub{font-size:12px;color:var(--text-muted);margin:2px 0 10px}
 .ngrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
@@ -757,7 +774,7 @@ async function renderMethod(){const el=$('md');
  if(S.msec){const t=document.getElementById(S.msec);if(t){t.classList.add('hl');t.scrollIntoView()}}else window.scrollTo(0,0)}
 
 // ------------------------------------------------------------------ Pulse: topic map of sampled conversation (web/pulse.json, built by pulse.py)
-let PU=null,PUsim=null,PUfail=false,PUfocus=null;const PS={win:'7d',kinds:new Set(['model','lab','product','technique','version','person','emerging']),min:2,focus:null,view:'map',sort:{k:'signal',d:-1}};
+let PU=null,PUsim=null,PUfail=false,PUfocus=null;const PS={bwin:null,bopen:null,win:'7d',kinds:new Set(['model','lab','product','technique','version','person','emerging']),min:2,focus:null,view:'map',sort:{k:'signal',d:-1}};
 const D3_URL='https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js';
 const KGROUP={model:'models',version:'models',lab:'labs & products',product:'labs & products',technique:'themes',person:'people',emerging:'emerging'};
 const KGLYPH={models:'●','labs & products':'■',people:'◆',themes:'⬡',emerging:'◌'};
@@ -785,6 +802,15 @@ function symOf(k){return {models:d3.symbolCircle,'labs & products':d3.symbolSqua
 function comps(n,w){w=w||pw(n);const k=nnets(w),nl=w.newsletters;return `${num(w.authors)} voices · ${k} net${k==1?'':'s'}${nl!=null?` · ${nl} newsletter${nl==1?'':'s'}`:''}${n.rising?` · ${n.rising}×`:''}`}
 const NETL={HN:'HN',Reddit:'Reddit',Mastodon:'Mastodon',Lobsters:'Lobsters',Bluesky:'Bluesky',Official:'official'};
 function ago(d){const x=Math.round((Date.parse(PU.generated_at)-Date.parse(d))/864e5);return x<=0?'today':x==1?'1d ago':x+'d ago'}
+function storyRow(x,i,chat){const nets=Object.entries(x.nets).filter(([k])=>k!='Newsletter'&&k!='Official').sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(NETL[k]||k)} ${v}`).join(' · ');
+ const nl=x.newsletters.length?` · in ${x.newsletters.length} newsletter${x.newsletters.length==1?'':'s'} <span class=dim>(${x.newsletters.map(esc).join(', ')})</span>`:'';
+ const path=x.path.slice(0,6).map(p=>`<i>${esc(p.who||NETL[p.net]||p.net)}</i> ${esc(p.at.slice(5,10))}`).join(' → ');
+ const tags=(x.tags||[]).map(t=>PU.nodes.find(n=>n.id==t)?.label).filter(Boolean).slice(0,3);
+ const open=PS.bopen==x.id;
+ return `<div class="st${chat?' ch':''}" id="${esc(x.id)}"><span class=rk>${i+1}</span><div><a class=hd href="${esc(x.link||x.url)}" target=_blank rel=noopener>${esc(x.headline)}</a>${x.label?`<span class=lb>${esc(x.label)}</span>`:''}
+ <div class=mt><b>${x.voices}</b> voices · ${nets||'—'}${x.official?' · <b>lab post</b>':''}${x.hn_points?` · ${x.hn_points} HN pts`:''}${nl} · newest ${ago(x.last)}</div>
+ <div class=pth title="first post per network or newsletter, oldest first">${path}${tags.length?` <span class=dim>· ${tags.map(esc).join(', ')}</span>`:''}</div>
+ <button class=more data-s="${esc(x.id)}">${open?'▾ hide posts':`▸ ${Math.min(10,x.posts.length)} posts`}</button>${open?`<ul>${x.posts.map(p=>`<li><span class=nettag>${esc(NETL[p.net]||p.net)}</span> <a href="${esc(p.url)}" target=_blank rel=noopener>${esc(p.title)}</a> <span class=dim>· ${esc(p.author)} · ${esc(p.at.slice(5,10))}${p.score!=null?` · ${p.score}`:''}</span></li>`).join('')}</ul>`:''}</div></div>`}
 function newWhy(n){const v=n.new;if(!v)return '';const deep=v.deep.map(k=>k=='Newsletter'?'newsletters':k).join(' + ');
  if(v.leg=='build')return `${v.born} of ${v.repos} repos born in the last 30 days`;
  return v.base==0?`new: ${v.now} mentions on ${deep} this week, none in the 3 weeks before`:`${v.lift}× its usual share on ${deep} (${v.now} this week vs ${v.base} in the 3 weeks before)`}
@@ -827,6 +853,10 @@ function renderPulse(){
  const risers=nodes.filter(n=>n.rising).sort((a,b)=>b.rising-a.rising||b._w.authors-a._w.authors).slice(0,8);
  const hasSig=PU.nodes.some(n=>n.w[PS.win]?.signal!=null),hasOrg=PU.nodes.some(n=>n.organic);
  const top=nodes.slice().sort((a,b)=>hasSig?(b._w.signal??0)-(a._w.signal??0)||b._w.authors-a._w.authors:b._w.weight-a._w.weight).slice(0,10);
+ const SS=PU.stories||[],gen=Date.parse(PU.generated_at);
+ if(!PS.bwin)PS.bwin=SS.filter(x=>x.covered&&gen-Date.parse(x.last)<=864e5).length>=6?'24h':'7d';
+ const inB=x=>PS.bwin=='7d'||gen-Date.parse(x.last)<=864e5;
+ const cov=SS.filter(x=>x.covered&&inB(x)).slice(0,15),chat=SS.filter(x=>!x.covered&&inB(x)).slice(0,8);
  const fresh=PU.nodes.filter(n=>n.new&&n.new.score>0).sort((a,b)=>b.new.score-a.new.score||b.w['7d'].authors-a.w['7d'].authors).slice(0,12);
  const always=PU.nodes.filter(n=>n.new?.always_on&&!(n.new.score>0)).sort((a,b)=>b.w['7d'].authors-a.w['7d'].authors);
  const people=PU.nodes.filter(n=>n.kind=='person'&&(n.w[PS.win]?.authors||0)>0).sort((a,b)=>b.w[PS.win].authors-a.w[PS.win].authors).slice(0,8);
@@ -842,7 +872,9 @@ function renderPulse(){
  <div class=plegend><span><b>colour</b> = how far it travelled: networks + newsletters carrying it <span class=ramp>${RBIN.map(([,l],i)=>`<i style="background:${REACH[i]}"></i><small>${l}</small>`).join('')}</span> · glow = ${GLOW_AT}+</span>
  <span><b>size</b> = distinct voices</span><span><b>shape</b> = ● model · ■ lab/product · ◆ person · ⬡ theme · <span class=em>◌</span> emerging</span><span><span class=prise>◎</span> rising today · <span style="color:#7c8cff">○</span> new this week · faded = always on · lines = named in the same post</span></div></div>`;
  box.innerHTML=`<div class=kpis>${kp('Sampled items',num(posts),`${wl()} · ${Object.keys(tot).length} networks incl. tracker, newsletters and official feeds`)}${kp('Feeds live',`${live}/${src.length}`,'open the source list for detail')}${kp('Topics on the map',num(nodes.length),`≥ ${PS.min} distinct voices`)}${kp('New this week',fresh[0]?esc(fresh[0].label):'—',fresh[0]?esc(newWhy(fresh[0])):'novelty arrives with the next data refresh')}</div>
- ${fresh.length?`<div class="panel pnew"><h3>What's new this week</h3><div class=sub>topics talked about far more than in the three weeks before, or with a wave of new repos around them · the big always-on names are listed apart · <a href="#methodology/whats-new">how</a></div><div class=ngrid>${fresh.map((n,i)=>newCard(n,i)).join('')}</div>${always.length?`<div class=aon>Always on, big but not news: ${always.map(n=>`<button class=prow2 data-id="${esc(n.id)}">${esc(n.label)}</button>`).join('')}</div>`:''}</div>`:''}
+ ${SS.length?`<div class=bgrid><div class="panel brief"><h3>Briefing <span class=dim style="font:400 12px var(--sans)">events, not topics</span><span class=seg id=bwin>${['24h','7d'].map(w=>`<button class="${PS.bwin==w?'on':''}" data-b="${w}">${w}</button>`).join('')}</span></h3><div class=sub>what happened, ranked by how far it spread: voices, networks, newsletters, lab posts, HN points; fades after two quiet days · <a href="#methodology/briefing">how</a></div>${cov.map((x,i)=>storyRow(x,i)).join('')||'<div class=dim>no covered story with a post in this window</div>'}</div>
+ <div class="panel brief"><h3>Chatter, not in the press yet</h3><div class=sub>5+ voices on Reddit, Mastodon or Bluesky about one release; no HN, lab or newsletter post yet. Where gossip starts.</div>${chat.map((x,i)=>storyRow(x,i,1)).join('')||'<div class=dim>nothing in this window</div>'}</div></div>`:''}
+ ${fresh.length?`<div class="panel pnew"><h3>Topics on the move this week</h3><div class=sub>topics talked about far more than in the three weeks before, or with a wave of new repos around them · the big always-on names are listed apart · <a href="#methodology/whats-new">how</a></div><div class=ngrid>${fresh.map((n,i)=>newCard(n,i)).join('')}</div>${always.length?`<div class=aon>Always on, big but not news: ${always.map(n=>`<button class=prow2 data-id="${esc(n.id)}">${esc(n.label)}</button>`).join('')}</div>`:''}</div>`:''}
  <div class=pctl><div class=seg id=pview role=group aria-label="View">${[['map','Map'],['table','Table']].map(([k,l])=>`<button class="${PS.view==k?'on':''}" data-v="${k}">${l}</button>`).join('')}</div><div class=seg id=pwins>${PU.windows.map(w=>`<button class="${w==PS.win?'on':''}" data-w="${w}">${w=='1d'?'24h':w}</button>`).join('')}</div>
  <div class=chips id=pkinds>${groups.map(g=>{const on=Object.entries(KGROUP).some(([k,v])=>v==g&&PS.kinds.has(k));return `<button class="chip ${on?'on':''}" data-g="${g}"><span class="kg${g=='emerging'?' em':''}" aria-hidden=true>${KGLYPH[g]}</span>${g}</button>`}).join('')}</div>
  <div class=facet><span class=ctl-l>min voices</span><select id=pmin>${[1,2,3,5,10].map(v=>`<option ${v==PS.min?'selected':''}>${v}</option>`).join('')}</select></div></div>
@@ -855,6 +887,8 @@ function renderPulse(){
  box.querySelectorAll('#pwins button').forEach(b=>b.onclick=()=>{PS.win=b.dataset.w;render()});
  box.querySelectorAll('#pkinds button').forEach(b=>b.onclick=()=>{const g=b.dataset.g;const ks=Object.keys(KGROUP).filter(k=>KGROUP[k]==g);const on=ks.some(k=>PS.kinds.has(k));ks.forEach(k=>on?PS.kinds.delete(k):PS.kinds.add(k));render()});
  $('pmin').onchange=e=>{PS.min=+e.target.value;render()};
+ box.querySelectorAll('#bwin button').forEach(b=>b.onclick=()=>{PS.bwin=b.dataset.b;render()});
+ box.querySelectorAll('.st .more').forEach(b=>b.onclick=()=>{PS.bopen=PS.bopen==b.dataset.s?null:b.dataset.s;render()});
  box.querySelectorAll('.ncard,.prow2').forEach(b=>b.onclick=e=>{if(e.target.closest('a'))return;PS.focus=b.dataset.id;if(PUfocus)PUfocus(PS.focus);openPulse(b.dataset.id)});
  box.querySelectorAll('.prow').forEach(b=>b.onclick=()=>{PS.focus=b.dataset.id;if(PUfocus)PUfocus(PS.focus);openPulse(b.dataset.id)});
  box.querySelectorAll('table.pt th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;PS.sort=PS.sort.k==k?{k,d:-PS.sort.d}:{k,d:k=='label'||k=='kind'?1:-1};render()});
