@@ -17,8 +17,10 @@ Owner of sequencing since 2026-10-16: the delivery agent, by delegation from the
 
 | Step | Delivery | Builds on | Status |
 |---|---|---|---|
-| P1 | Console UI: charts, filters, smart + semantic search, detail drawer | layer 0 | this change |
-| P2 | Hosting + daily self-update + CI gate | P1 | this change; needs Cloudflare secrets |
+| P1 | Console UI: charts, filters, smart + semantic search, detail drawer | layer 0 | live |
+| P1b | **Pulse**: default topic map from sampled HN, Reddit (arctic-shift), Mastodon, Lobsters, tracker and dossier posts; rising topics; evidence posts per node | P2 | this change |
+| P2 | Hosting + daily self-update + CI gate | P1 | live on GitHub Pages; Cloudflare needs secrets |
+| P2b | More voices: Bluesky (app password), YouTube Data API (free key), official Reddit API if approved; X only via a paid, terms-compliant route (official API or xAI search) if the owner funds it | P1b | planned |
 | P3 | Richer search corpus: embed abstracts (the pipeline stores titles only today) and README excerpts; optional LLM answer card over the top results via Workers AI with a hard daily cap | P2 | planned |
 | P4 | Durable history: copy `history/` to R2 after each run so momentum survives cache eviction; publish daily `data.json` to R2 and commit only weekly snapshots to git to cap repository growth | P2 | planned |
 | P5 | Trend-over-time charts per item (needs ≥ 14 daily snapshots from P2/P4) | P4 | planned |

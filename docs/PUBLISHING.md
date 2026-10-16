@@ -28,6 +28,8 @@ GitHub Pages is the zero-setup launch host. Cloudflare becomes the primary once 
 
 **What makes it different**
 
+0. *Pulse: one map of the AI conversation.* Topics sized by distinct voices across Hacker News, Reddit, Mastodon and Lobsters, with rising names (new model versions, codenames, launches) lit up, and every node opening the posts behind it.
+
 1. *Evidence coverage on every score.* Each rank carries how much of its evidence was actually observed. Thin evidence pulls the score toward a neutral prior instead of letting one viral post win.
 2. *Attention vs discovery.* For hyped projects we plot sampled attention against independent proxies (code activity, paper upvotes, discussion). Above the diagonal = talked about more than evidenced. It is a lead to investigate, not a verdict.
 3. *Stars are not activity.* Repos rank on issues, PRs, commits and contributors moving with star growth; star spikes without activity are capped and flagged.

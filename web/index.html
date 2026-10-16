@@ -181,6 +181,26 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap}
 #md article td,#md article th{border:1px solid var(--line);padding:6px 8px;vertical-align:top}
 #md article blockquote{border-left:2px solid var(--accent);margin:0;padding-left:14px;color:var(--text-secondary)}
 #md .hl{background:var(--accent-dim);border-radius:6px}
+#pulse .pctl{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:2px 0 12px}
+.pgrid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;margin-bottom:24px}
+.pmap{padding:6px;overflow:hidden;min-height:440px}
+.pmap svg{display:block;width:100%}
+.plab.pin{font-weight:600;stroke-width:2.5px}
+.plab{font:11px var(--mono);fill:var(--text-primary);paint-order:stroke;stroke:var(--surface-1);stroke-width:3px;pointer-events:none}
+.plegend{font-size:11px;color:var(--text-muted);padding:6px 10px}
+.prise{color:var(--accent)}
+.pring{animation:pring 2.4s ease-out infinite;transform-box:fill-box;transform-origin:center}
+@keyframes pring{0%{stroke-opacity:.7;transform:scale(.9)}100%{stroke-opacity:0;transform:scale(1.5)}}
+.pside{display:grid;gap:12px;align-content:start}
+.plist{padding:14px 16px}.plist h3{margin:0;font:600 13px var(--sans)}.plist .sub{font-size:12px;color:var(--text-muted);margin:2px 0 8px}
+.prow{display:flex;justify-content:space-between;gap:8px;width:100%;background:none;border:0;border-bottom:1px solid var(--line);color:var(--text-primary);font:13px var(--sans);padding:7px 0;cursor:pointer;text-align:left}
+.prow:hover span{color:var(--accent)}.prow b{font:12px var(--mono);color:var(--text-secondary)}
+.nbar{display:grid;grid-template-columns:90px 1fr 40px;gap:8px;align-items:center;font:12px var(--mono);margin:4px 0}
+.nbar i{display:block;height:8px;background:var(--series-1);border-radius:4px}.nbar b{text-align:right;font-weight:500}
+.spread{list-style:none;padding:0;margin:0;border-left:2px solid var(--line-2)}.spread li{padding:6px 0 6px 12px;position:relative}.spread li::before{content:'';position:absolute;left:-6px;top:12px;width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.plist2{list-style:none;padding:0}.plist2 li{padding:8px 0;border-bottom:1px solid var(--line)}
+.nettag{font:10px var(--mono);color:var(--accent);border:1px solid #3fd0ff44;border-radius:4px;padding:0 5px;margin-right:4px}
+@media (max-width:1000px){.pgrid{grid-template-columns:minmax(0,1fr)}}
 footer{border-top:1px solid var(--line);padding:22px 0 40px;color:var(--text-muted);font-size:12px}
 footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between}
 .empty{padding:40px;text-align:center;color:var(--text-muted)}
@@ -230,6 +250,7 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between}
   <button class="chip" id="noflag">hide flagged</button>
  </section>
  <div class="notice" id="note"></div>
+ <section id="pulse"></section>
  <section class="kpis" id="kpis"></section>
  <section class="charts" id="charts"></section>
  <section class="panel tablecard" id="tablecard">
@@ -250,7 +271,7 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between}
 'use strict';
 // ------------------------------------------------------------------ state
 let D=null,H=null,M=null;
-const S={sem:true,tab:'papers',win:'7d',view:'all',q:'',mincov:0,onlyNew:false,noFlag:false,sort:null,sel:null,msec:''};
+const S={sem:true,tab:'pulse',win:'7d',view:'all',q:'',mincov:0,onlyNew:false,noFlag:false,sort:null,sel:null,msec:''};
 const WN=['1d','7d','30d','90d','180d','1y','overall'];
 const REPO='https://github.com/namastex888/trending-research/blob/dev/';
 const $=id=>document.getElementById(id);
@@ -454,10 +475,11 @@ function scatter(pts,{x,y,xl,yl,diag=false,xfmt=v=>v,yfmt=v=>v,ann=[]}){
 function domainOf(vals,lo=0,hi=100,padv=4){vals=vals.filter(v=>v!=null);if(!vals.length)return [lo,hi];return [Math.max(lo,Math.floor((Math.min(...vals)-padv)/5)*5),Math.min(hi,Math.ceil((Math.max(...vals)+padv)/5)*5)]}
 
 // ------------------------------------------------------------------ render
-const TABS=[['papers','Papers'],['repos','Repos'],['hype','Hype'],['methodology','Method']];
-function writeHash(){const h=S.tab=='methodology'?'#methodology'+(S.msec?'/'+S.msec:''):'#'+S.tab+'/'+S.win+'/'+encodeURIComponent(S.view);const u=new URL(location.href);u.hash=h;if(S.q)u.searchParams.set('q',S.q);else u.searchParams.delete('q');if(S.sel)u.searchParams.set('open',S.sel);else u.searchParams.delete('open');history.replaceState(null,'',u)}
+const TABS=[['pulse','Pulse'],['papers','Papers'],['repos','Repos'],['hype','Hype'],['methodology','Method']];
+function writeHash(){const h=S.tab=='methodology'?'#methodology'+(S.msec?'/'+S.msec:''):S.tab=='pulse'?'#pulse/'+PS.win:'#'+S.tab+'/'+S.win+'/'+encodeURIComponent(S.view);const u=new URL(location.href);u.hash=h;if(S.q)u.searchParams.set('q',S.q);else u.searchParams.delete('q');if(S.sel)u.searchParams.set('open',S.sel);else u.searchParams.delete('open');history.replaceState(null,'',u)}
 function readHash(){let h;try{h=decodeURIComponent(location.hash.slice(1)).split('/')}catch(e){h=[]}
  if(h[0]=='methodology'){S.tab='methodology';S.msec=h[1]||'';return}
+ if(h[0]=='pulse'){S.tab='pulse';if(h[1])PS.win=h[1];return}
  if(['papers','repos','hype'].includes(h[0]))S.tab=h[0];if(h[1])S.win=h[1];if(h[2])S.view=h.slice(2).join('/')}
 function setTab(t){if(S.tab==t)return;S.tab=t;S.sort=null;S.msec='';closeDetail();render();window.scrollTo({top:0})}
 function render(){
@@ -465,6 +487,11 @@ function render(){
  $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
  const isM=S.tab=='methodology';
  for(const id of ['hero','controls','note','kpis','charts','tablecard'])$(id).style.display=isM?'none':'';
+ $('pulse').style.display=S.tab=='pulse'?'':'none';
+ if(S.tab=='pulse'){for(const id of ['controls','kpis','charts','tablecard'])$(id).style.display='none';$('h1').textContent='What is the AI world talking about right now?';
+  $('lede').textContent='Sampled conversation from Hacker News, Reddit, Mastodon and Lobsters plus our paper and repo tracker. Bigger means more distinct voices across more networks; lines join topics mentioned in the same post.';
+  $('parsed').innerHTML=S.q?`<span class=lbl>highlighting</span><span class=pchip>${esc(S.q)}</span>`:'<span class=lbl>tip</span><span class=dim>type to highlight topics · click a node to read its posts · drag to rearrange · scroll to zoom</span>';
+  writeHash();renderSources();if(D)$('upd').textContent='updated '+(D.generated_local||'').replace(/\s*\(.*\)/,'');return renderPulse()}
  $('md').style.display=isM?'grid':'none';
  if(isM){writeHash();renderSources();$('upd').textContent='updated '+(D.generated_local||'').replace(/\s*\(.*\)/,'');return renderMethod()}
  if(S.tab=='hype'&&!H){$('tb').innerHTML='<tr><td class=empty>Loading HYPE data…</td></tr>';loadHype().then(render,()=>{});return}
@@ -684,6 +711,91 @@ async function renderMethod(){const el=$('md');
   catch(e){el.innerHTML=`<p class=dim>Could not load METHODOLOGY.md (${esc(e.message)}). <a href="${REPO}METHODOLOGY.md">Read it on GitHub</a>.</p>`;return}}
  el.innerHTML=`<nav><b class=ctl-l>Sections</b>${M.toc.map(([id,t])=>`<a href="#methodology/${id}">${inl(t)}</a>`).join('')}<a href="${REPO}METHODOLOGY.md" target=_blank rel=noopener>source: METHODOLOGY.md ↗</a></nav><article>${M.html}</article>`;
  if(S.msec){const t=document.getElementById(S.msec);if(t){t.classList.add('hl');t.scrollIntoView()}}else window.scrollTo(0,0)}
+
+// ------------------------------------------------------------------ Pulse: topic map of sampled conversation (web/pulse.json, built by pulse.py)
+let PU=null,PUsim=null;const PS={win:'7d',kinds:new Set(['model','lab','product','technique','version','emerging']),min:2,focus:null};
+const D3_URL='https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js';
+const KGROUP={model:'models',version:'models',lab:'labs & products',product:'labs & products',technique:'themes',emerging:'emerging'};
+const KCOL={models:'var(--series-1)','labs & products':'var(--series-2)',themes:'var(--series-3)',emerging:'var(--accent)'};
+const NETORDER=['HN','Reddit','Mastodon','Lobsters','Bluesky','X','arXiv','GitHub','LinkedIn','YouTube','Telegram'];
+function loadScript(u){return new Promise((ok,ko)=>{if(window.d3)return ok();const s=document.createElement('script');s.src=u;s.onload=ok;s.onerror=()=>ko(new Error('could not load '+u));document.head.appendChild(s)})}
+async function loadPulse(){const r=await fetch('pulse.json?'+Date.now());if(!r.ok)throw new Error('pulse.json HTTP '+r.status);PU=await r.json()}
+function pw(n){return n.w[PS.win]||{posts:0,authors:0,nets:{},weight:0}}
+function pulseNodes(){const q=S.q.trim().toLowerCase();
+ return PU.nodes.filter(n=>PS.kinds.has(n.kind)&&pw(n).authors>=PS.min).map(n=>({...n,_w:pw(n),_hit:q&&(n.label.toLowerCase().includes(q)||n.samples.some(s=>s.title.toLowerCase().includes(q)))}))}
+function renderPulse(){
+ const box=$('pulse');
+ if(!PU){box.innerHTML='<div class=empty>Loading the topic map…</div>';Promise.all([loadPulse(),loadScript(D3_URL)]).then(render,e=>{box.innerHTML=`<div class=empty>Topic map unavailable: ${esc(e.message)}</div>`});return}
+ if(!PU.windows.includes(PS.win))PS.win='7d';
+ const nodes=pulseNodes(),ids=new Set(nodes.map(n=>n.id));
+ const edges=PU.edges.filter(e=>ids.has(e.a)&&ids.has(e.b)&&(e.w[PS.win]>0||nodes.find(n=>n.id==e.a).parent==e.b||nodes.find(n=>n.id==e.b).parent==e.a)).map(e=>({source:e.a,target:e.b,w:e.w[PS.win]}));
+ const tot=PU.totals[PS.win]||{},posts=Object.values(tot).reduce((a,b)=>a+b,0);
+ const src=Object.entries(PU.sources),live=src.filter(([,v])=>v.status=='ok'||v.status=='partial').length;
+ const risers=nodes.filter(n=>n.rising).sort((a,b)=>b.rising-a.rising||b._w.authors-a._w.authors).slice(0,8);
+ const biggest=nodes.slice().sort((a,b)=>b._w.weight-a._w.weight).slice(0,8);
+ const kp=(k,v,s)=>`<div class="panel kpi"><div class=k>${k}</div><b>${v}</b><div class=s>${s}</div></div>`;
+ const groups=['models','labs & products','themes','emerging'];
+ box.innerHTML=`<div class=kpis>${kp('Sampled posts',num(posts),`${PS.win} · ${Object.keys(tot).length} networks`)}${kp('Feeds live',`${live}/${src.length}`,'open the source list for detail')}${kp('Topics on the map',num(nodes.length),`≥ ${PS.min} distinct voices`)}${kp('Fastest riser',risers[0]?esc(risers[0].label):'—',risers[0]?`${risers[0].rising}× its 7-day daily average today`:'needs a day of conversation')}</div>
+ <div class=pctl><div class=seg id=pwins>${PU.windows.map(w=>`<button class="${w==PS.win?'on':''}" data-w="${w}">${w=='1d'?'24h':w}</button>`).join('')}</div>
+ <div class=chips id=pkinds>${groups.map(g=>{const on=Object.entries(KGROUP).some(([k,v])=>v==g&&PS.kinds.has(k));return `<button class="chip ${on?'on':''}" data-g="${g}"><span class=sw style="${g=='emerging'?'border:1.5px dashed var(--accent);background:none':'background:'+KCOL[g]}"></span>${g}</button>`}).join('')}</div>
+ <div class=facet><span class=ctl-l>min voices</span><select id=pmin>${[1,2,3,5,10].map(v=>`<option ${v==PS.min?'selected':''}>${v}</option>`).join('')}</select></div></div>
+ <div class=pgrid><div class="panel pmap"><svg id=psvg role=img aria-label="Topic map"></svg><div class=plegend>size = distinct voices × network spread · halo thickness = number of networks · <span class=prise>◉</span> rising today · lines = mentioned in the same post</div></div>
+ <div class=pside><div class="panel plist"><h3>Rising now</h3><div class=sub>conversation today vs its 7-day daily average</div>${risers.map(n=>`<button class=prow data-id="${esc(n.id)}"><span>${esc(n.label)}</span><b class=up>${n.rising}×</b></button>`).join('')||'<div class=dim>no riser yet</div>'}</div>
+ <div class="panel plist"><h3>Loudest this ${PS.win=='1d'?'day':PS.win=='7d'?'week':'month'}</h3><div class=sub>distinct voices · networks</div>${biggest.map(n=>`<button class=prow data-id="${esc(n.id)}"><span>${esc(n.label)}</span><b>${n._w.authors} · ${Object.keys(n._w.nets).length}</b></button>`).join('')}</div></div></div>`;
+ box.querySelectorAll('#pwins button').forEach(b=>b.onclick=()=>{PS.win=b.dataset.w;render()});
+ box.querySelectorAll('#pkinds button').forEach(b=>b.onclick=()=>{const g=b.dataset.g;const ks=Object.keys(KGROUP).filter(k=>KGROUP[k]==g);const on=ks.some(k=>PS.kinds.has(k));ks.forEach(k=>on?PS.kinds.delete(k):PS.kinds.add(k));render()});
+ $('pmin').onchange=e=>{PS.min=+e.target.value;render()};
+ box.querySelectorAll('.prow').forEach(b=>b.onclick=()=>openPulse(b.dataset.id));
+ drawPulse(nodes,edges);
+ const noteSrc=src.filter(([,v])=>v.status!='ok').map(([k,v])=>`${k}: ${v.status}`).join(' · ');
+ $('note').innerHTML=`<div><b>Not internet totals.</b> ${esc(PU.coverage[0])} Node size counts distinct voices, never views or reach; open a node to read the posts behind it.${noteSrc?`<div class=dim style="margin-top:4px">${esc(noteSrc)}</div>`:''}</div>`}
+function drawPulse(nodes,edges){
+ const svg=d3.select('#psvg'),el=$('psvg'),W=el.clientWidth||900,Hh=Math.max(460,Math.min(760,W*0.68));
+ svg.attr('viewBox',`0 0 ${W} ${Hh}`).attr('height',Hh);svg.selectAll('*').remove();
+ if(PUsim)PUsim.stop();
+ const maxw=Math.max(1,...nodes.map(n=>n._w.weight)),R=n=>5+Math.sqrt(n._w.weight/maxw)*Math.min(46,W/18);
+ const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches,hasQ=nodes.some(n=>n._hit);
+ const defs=svg.append('defs');defs.append('filter').attr('id','glow').attr('x','-50%').attr('y','-50%').attr('width','200%').attr('height','200%').html('<feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>');
+ const g=svg.append('g');
+ svg.call(d3.zoom().scaleExtent([0.4,4]).on('zoom',e=>g.attr('transform',e.transform)));
+ const maxe=Math.max(1,...edges.map(e=>e.w));
+ const link=g.append('g').attr('stroke','var(--text-muted)').selectAll('line').data(edges).join('line').attr('stroke-opacity',e=>0.12+0.5*e.w/maxe).attr('stroke-width',e=>0.6+2*e.w/maxe);
+ const node=g.append('g').selectAll('g').data(nodes,d=>d.id).join('g').attr('class','pn').style('cursor','pointer');
+ node.filter(d=>d.rising>=2).append('circle').attr('class',reduce?'':'pring').attr('r',d=>R(d)+6).attr('fill','none').attr('stroke','var(--accent)').attr('stroke-opacity',.6);
+ node.append('circle').attr('r',R).attr('fill',d=>d.kind=='emerging'?'var(--accent-dim)':KCOL[KGROUP[d.kind]]).attr('fill-opacity',d=>d.kind=='emerging'?1:.82)
+  .attr('stroke',d=>d.kind=='emerging'?'var(--accent)':'var(--text-primary)').attr('stroke-opacity',d=>d.kind=='emerging'?.9:.35)
+  .attr('stroke-dasharray',d=>d.kind=='emerging'?'3 2':null).attr('stroke-width',d=>d.kind=='emerging'?1.5:1+1.2*Object.keys(d._w.nets).length)
+  .attr('filter',d=>d.rising>=2?'url(#glow)':null).attr('opacity',d=>hasQ&&!d._hit?.18:1);
+ const top=new Set(nodes.slice().sort((a,b)=>b._w.weight-a._w.weight).slice(0,22).map(n=>n.id));
+ const inside=d=>R(d)>=24&&d.label.length*6.6<2*R(d)+18;
+ node.append('text').text(d=>d.label).attr('class',d=>inside(d)?'plab pin':'plab').attr('dy',d=>inside(d)?4:R(d)+13).attr('text-anchor','middle').style('display',d=>top.has(d.id)||d.rising>=2||d._hit?null:'none').attr('opacity',d=>hasQ&&!d._hit?.25:1);
+ const nb=new Map(nodes.map(n=>[n.id,new Set([n.id])]));edges.forEach(e=>{nb.get(e.source)?.add(e.target);nb.get(e.target)?.add(e.source)});
+ node.on('mouseenter',(ev,d)=>{const s=nb.get(d.id);node.attr('opacity',x=>s.has(x.id)?1:.2);node.selectAll('text').style('display',x=>s.has(x.id)||top.has(x.id)?null:'none');link.attr('stroke-opacity',e=>(e.source.id==d.id||e.target.id==d.id)?.9:.04);
+   const nets=Object.entries(d._w.nets).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(k)} ${v}`).join(' · ');
+   showTip(ev,`<b>${esc(d.label)}</b> <span class=m>${esc(KGROUP[d.kind])}</span><div class=m>${d._w.authors} voices · ${d._w.posts} posts · ${PS.win=='1d'?'24h':PS.win}</div><div class=m>${nets}</div>${d.rising?`<div class=m>rising ${d.rising}× today</div>`:''}`)})
+  .on('mousemove',(ev,d)=>showTip(ev,tip.innerHTML)).on('mouseleave',()=>{hideTip();node.attr('opacity',1);node.selectAll('text').style('display',x=>top.has(x.id)||x.rising>=2||x._hit?null:'none');link.attr('stroke-opacity',e=>0.12+0.5*e.w/maxe)})
+  .on('click',(ev,d)=>openPulse(d.id));
+ const sim=PUsim=d3.forceSimulation(nodes).force('link',d3.forceLink(edges).id(d=>d.id).distance(e=>60+40/(1+e.w)).strength(e=>0.05+0.4*e.w/maxe))
+  .force('charge',d3.forceManyBody().strength(d=>-90-10*R(d))).force('collide',d3.forceCollide(d=>R(d)+(top.has(d.id)?14:5)).iterations(2)).force('x',d3.forceX(W/2).strength(.06)).force('y',d3.forceY(Hh/2).strength(.09));
+ const tick=()=>{link.attr('x1',e=>e.source.x).attr('y1',e=>e.source.y).attr('x2',e=>e.target.x).attr('y2',e=>e.target.y);node.attr('transform',d=>`translate(${d.x},${d.y})`)};
+ if(reduce){sim.stop();for(let i=0;i<300;i++)sim.tick();tick()}else sim.on('tick',tick);
+ node.call(d3.drag().on('start',(ev,d)=>{if(!ev.active)sim.alphaTarget(.2).restart();d.fx=d.x;d.fy=d.y}).on('drag',(ev,d)=>{d.fx=ev.x;d.fy=ev.y}).on('end',(ev,d)=>{if(!ev.active)sim.alphaTarget(0);d.fx=null;d.fy=null}))}
+function fmtGap(ms){const h=ms/36e5;return h<1?Math.round(ms/6e4)+' min':h<48?h.toFixed(1)+' h':Math.round(h/24)+' d'}
+function openPulse(id){const n=PU.nodes.find(x=>x.id==id);if(!n)return;S.sel=null;
+ const par=n.parent&&PU.nodes.find(x=>x.id==n.parent);
+ const linked=PU.edges.filter(e=>(e.a==id||e.b==id)&&e.w['30d']>0).sort((a,b)=>b.w['30d']-a.w['30d']).slice(0,14).map(e=>PU.nodes.find(x=>x.id==(e.a==id?e.b:e.a))).filter(Boolean);
+ const w=n.w[PS.win],nets=Object.entries(w.nets).sort((a,b)=>b[1]-a[1]),mx=Math.max(1,...nets.map(x=>x[1]));
+ $('drawer').innerHTML=`<div class=dh><h2>${esc(n.label)}</h2><button class=iconbtn id=dclose aria-label="Close">esc ✕</button></div><div class=db>
+ <div class=sec>${esc(KGROUP[n.kind])}${n.kind=='emerging'?' · auto-detected phrase used by several authors':''}${n.kind=='version'?' · auto-detected model version name':''}${par?` · part of <a href="#" data-go="${esc(par.id)}">${esc(par.label)}</a>`:''}</div>
+ <div class=kv>${['1d','7d','30d'].map(k=>`<div><span>${k=='1d'?'24h':k} voices</span><b>${n.w[k].authors}</b></div>`).join('')}${['1d','7d','30d'].map(k=>`<div><span>${k=='1d'?'24h':k} posts</span><b>${n.w[k].posts}</b></div>`).join('')}</div>
+ ${n.rising?`<p><b class=up>Rising ${n.rising}×</b> <span class=dim>conversation posts in the last 24h versus its daily average over 7 days</span></p>`:''}
+ <h4>Where it is discussed (${PS.win=='1d'?'24h':PS.win})</h4>${nets.map(([k,v])=>`<div class=nbar><span>${esc(k)}</span><i style="width:${Math.round(100*v/mx)}%"></i><b>${v}</b></div>`).join('')||'<div class=dim>no posts in this window</div>'}
+ ${n.spread&&n.spread.length?`<h4>How it spread (first post per network, last 30 days)</h4><ol class=spread>${n.spread.map((x,i)=>`<li><span class=nettag>${esc(x.net)}${x.source=='dossier'?' · dossier':''}</span> <b>${esc(x.at.slice(0,16).replace('T',' '))}Z</b>${i?` <span class=dim>+${fmtGap(Date.parse(x.at)-Date.parse(n.spread[0].at))}</span>`:' <span class=dim>earliest in our sample</span>'}<div>${A(x.url,esc(x.title||'(untitled)'))} <span class=dim>${esc(x.author||'')}</span></div></li>`).join('')}</ol><div class=dim>Earliest in our sampled feeds, not proof of origin: the first post may have happened on a network we do not collect.</div>`:''}
+ <h4>Connected topics</h4><div class=chips>${linked.map(x=>`<button class=chip data-go="${esc(x.id)}">${esc(x.label)}</button>`).join('')||'<span class=dim>none yet</span>'}</div>
+ <h4>Posts behind this node</h4><ul class=plist2>${n.samples.map(s=>`<li><span class=nettag>${esc(s.net)}${s.source=='dossier'?' · dossier':''}</span> ${A(s.url,esc(s.title||'(untitled)'))}<div class=dim>${esc(s.date)}${s.author?' · '+esc(s.author):''}${s.score!=null?' · '+num(s.score)+(s.net=='HN'?' pts':''):''}${s.comments!=null?' · '+num(s.comments)+' comments':''}</div></li>`).join('')}</ul>
+ <div class=dim style="margin-top:12px">First seen ${esc(n.first||'—')} · last ${esc(n.last||'—')} in the stored sample. Mentions are sampled posts that match this topic's lexicon entry; they are not verified claims.</div></div>`;
+ $('dclose').onclick=closeDetail;$('drawer').classList.add('on');$('scrim').classList.add('on');$('drawer').scrollTop=0;
+ $('drawer').querySelectorAll('[data-go]').forEach(a=>a.onclick=e=>{e.preventDefault();openPulse(a.dataset.go)})}
 
 // ------------------------------------------------------------------ wiring
 let qT;$('q').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{S.q=e.target.value.trim();render()},120)});

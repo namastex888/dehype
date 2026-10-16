@@ -59,6 +59,21 @@ try {
   if (e.code !== 'ENOENT' || /search-vectors/.test(e.path || '')) fail.push(`semantic index unreadable: ${e.message}`);
 }
 
+// Pulse topic map (optional): ids unique, edges point at nodes, every node carries its windows and evidence posts.
+let pulseNote = 'no pulse map';
+try {
+  const P = JSON.parse(readFileSync(join(web, 'pulse.json'), 'utf8'));
+  const ids = new Set(P.nodes.map(n => n.id));
+  need(ids.size === P.nodes.length, 'pulse.json has duplicate node ids');
+  for (const n of P.nodes) {
+    need(P.windows.every(w => n.w?.[w] && Number.isFinite(n.w[w].weight)), `pulse node ${n.id} lacks window metrics`);
+    need(Array.isArray(n.samples) && n.samples.length > 0, `pulse node ${n.id} has no evidence posts`);
+  }
+  for (const e of P.edges) need(ids.has(e.a) && ids.has(e.b), `pulse edge ${e.a}-${e.b} points at a missing node`);
+  need(P.sources && Object.keys(P.sources).length > 0, 'pulse.json has no source status');
+  pulseNote = `pulse ${P.nodes.length} topics`;
+} catch (e) { if (e.code !== 'ENOENT') fail.push(`pulse.json unreadable: ${e.message}`); }
+
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
-console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}`);
+console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}`);
