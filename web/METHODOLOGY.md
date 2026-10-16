@@ -260,6 +260,8 @@ heat      = (2 x log2(1 + voices) + networks outside newsletters/official + 1.5 
              + 1 if a lab or vendor posted it + log10(1 + HN points)) x 0.5^(hours since the newest post / 48)
 ```
 
+Each post title is read as a statement, a question or a complaint (an outage, a limit, a bug: a reviewable keyword list in `pulse.py`). Headlines prefer statements. A story shows "N% complaints" when a quarter or more of its posts are complaints, and an uncovered story that is half complaints is listed under **Complaints**, not as news.
+
 "Covered" stories have an HN, Lobsters, newsletter or lab post, or a newsletter carries them. The rest are listed as **Chatter, not in the press yet**: releases that 5+ people discuss on Reddit, Mastodon or Bluesky before any editor picks them up. That is where gossip starts. The headline is the clearest editorial title that names the release (lab post first, then HN, then a newsletter story), never a digest issue title. Clustering is lexical: an event described in two unrelated vocabularies can split in two, and a busy release name gathers everything said about it that week.
 
 ### Data identity (stable ids)
