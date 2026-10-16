@@ -217,6 +217,34 @@ label = attention_ahead   if gap >= +15
 
 This subtracts relative positions in **different proxy reference populations**, not comparable absolute magnitudes. It is a discovery heuristic, not “likely hype”, “earned”, “underrated”, technical validity or economic value. Coverage thresholds are not accuracy thresholds. Cards show research analyst observations separately; those are not independent acceptance receipts.
 
+## Pulse: topic map
+
+The Pulse tab answers "what is the AI conversation about right now, and where". It is built by `pulse.py` (standard library) from sampled feeds and is separate from the ranking scores above.
+
+**Feeds (samples, never totals).** Hacker News stories above 20 points (Algolia), the Lobsters `ai` tag, nine Mastodon hashtags on mastodon.social, ten AI subreddits through the arctic-shift public Reddit archive (a third-party archive with no uptime guarantee; vote counts there are snapshots), Bluesky searches when an app password is configured, eleven public AI newsletter RSS feeds listed in `newsletters.json` (a separate `Newsletter` network: the point where a topic reached the digests; newsletter issues do not create co-mention links and do not count as conversation for *rising*), plus the tracker's own papers and ranked repos and the static HYPE research dossier. X is not collected. Each feed records `ok`, `partial`, `failed` or `not connected` on the page; a failed feed keeps the posts it stored earlier (45-day retention in `history/signals.sqlite`).
+
+**Topics.** A post maps to topics through three reviewable rules:
+
+1. the lexicon in `topics_lexicon.json` (labs, model families, products, themes) plus HYPE project names and aliases; short, ambiguous product names match only case-sensitively;
+2. model-version names built from versioned families (`Opus 5.5`, `Gemini 4 Argon`, `GPT 6 Astra`): one- or two-digit versions only, a trailing tier word (Pro, Flash, ...) or a capitalised codename joins the name;
+3. emerging phrases: capitalised multi-word or CamelCase phrases from live conversation said by at least three distinct authors, excluding hashtags, phrases made only of common words, phrases already covered by rules 1-2, and a stoplist in the lexicon. They are drawn with a dashed outline.
+
+General-interest Hacker News stories count only when they use an AI keyword or name an AI model, product or version (a lab or theme alias alone, such as "court" or "Microsoft", is not enough). Emerging phrases can be person names; private individuals are added to the stoplist when noticed. Mastodon and Bluesky posts have no title, so their samples show up to 200 characters of the public post text. Newsletter bodies are used for matching only; the page shows the issue title and link.
+
+**Metrics per window (24h, 7d, 30d).**
+
+```
+voices  = distinct (network, author) pairs among matching posts (for tracker items the author is the lab or repo owner; for newsletters, the newsletter)
+weight  = voices × (1 + 0.5 × (networks − 1))          node area grows with √weight
+rising  = conversation posts in the last 24h ÷ (conversation posts in 7d ÷ 7)
+          live conversation only (HN, Reddit, Mastodon, Lobsters, Bluesky); tracker, dossier and newsletter items are excluded;
+          shown only when 7d ≥ 4 and 24h ≥ 2 such posts
+spread  = first item per network; a newsletter never takes the earliest slot of a day (many feeds give a date without a time)
+edge    = number of posts that match both topics (co-mention); parent links (Opus 5.5 → Claude Opus) are always drawn
+```
+
+Votes, views and reach do not enter the weight: they are not comparable across networks and one viral account would dominate. A node is only as strong as the posts listed under it; the drawer shows them with network, date, author and score. Matching is lexical, so sarcasm, negation and quotes count as mentions, and a rumour node records that people discussed a name, not that the thing exists.
+
 ## Known biases
 
 - **HN dominance**: Papers mentions and most HYPE posts come from Hacker News, which over-represents developer tools and under-represents research-only and non-English work.

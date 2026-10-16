@@ -36,6 +36,8 @@ An optional network refresh is `python run.py`; it calls external source APIs an
 
 ## The page
 
+**Pulse** (default tab) is a live topic map: what the AI conversation is about right now across Hacker News, Reddit, Mastodon and Lobsters (plus our paper and repo tracker). Bigger nodes have more distinct voices across more networks, lines join topics mentioned in the same post, and every node opens the posts behind it. Built daily by `pulse.py`; method in [METHODOLOGY.md](METHODOLOGY.md#pulse-topic-map).
+
 Search box: type a question such as `agent repos over 1k stars this month`, `browser automation` or `attention ahead`. It is parsed into filters in the browser (tab, window, paradigm, numeric thresholds, author/lab, new, rising), and the remaining words are ranked by meaning with a small open embedding model that runs in the browser (vectors are built at refresh time by `scripts/embed`). No server or paid API is involved; toggle `✦ semantic` off for plain keyword matching. Click any row or chart point for its score anatomy and sources.
 
 | Tab | What it ranks | Score |

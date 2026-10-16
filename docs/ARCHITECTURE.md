@@ -24,6 +24,10 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
  │                                     ▼                                                │
  │                     web/data.json   papers + repos, 7 windows × 7 paradigms          │
  │                                     │                                                │
+ │   pulse.py ── HN · Reddit (arctic-shift) · Mastodon · Lobsters · 11 newsletters      │
+ │               (RSS) · [Bluesky*] ──►                                                │
+ │      history/signals.sqlite (45 days) + topics_lexicon.json ──► web/pulse.json       │
+ │      (topic nodes: voices × network spread, rising, co-mention edges, evidence posts)│
  │   scripts/embed/embed.mjs ──► web/search-index.json + search-vectors.bin             │
  │      (one 384-d vector per paper/repo/project, MiniLM-L6 q8, pinned HF commit)       │
  │   gate: unit tests + scripts/check_page.mjs ──► commit "data: daily refresh" to dev  │
@@ -42,6 +46,7 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
  └─────────────────────────────────────┬──────────────────────────────────────────────────────┘
                                        ▼
  ┌──────────────── Browser: web/index.html  (one static file, no build)  [NEW] ─────────┐
+ │  Pulse (default): force map of topics; click a node to read the posts behind it  │
  │  search ─► 1. parser: tab, window, paradigm, "stars > 1k", "from meta", "new",       │
  │               "rising", "attention ahead" become filters                             │
  │           2. leftover words ─► semantic: same embedding model runs in the browser    │
@@ -66,6 +71,8 @@ What each piece guarantees:
 | `scoring.py` | unknown stays `null`; coverage is completeness, not confidence; thin evidence shrinks toward the prior | unit tests, `eval.py`, METHODOLOGY.md |
 | `check_page.mjs` | the page script parses; the top-level data fields and per-row item references it relies on exist; the search vectors match the index (stale index = warning) | `ci.yml`, `refresh.yml`, `deploy.yml` |
 | `index.html` | `—` for unknown, gap labels only when both coverages ≥ 50%, sampled counts called samples, star-growth source and span shown per row | carried over from the previous page and checked by an independent review |
+
+\* Bluesky needs an app password secret (`BSKY_HANDLE`, `BSKY_APP_PASSWORD`). The official Reddit API is optional (`REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`); without it Reddit comes from the arctic-shift public archive. X is not collected: there is no free route that stays within X's terms.
 
 ## 2. How it updates itself
 
