@@ -245,9 +245,26 @@ edge    = number of posts that match both topics (co-mention); parent links (Opu
 
 Votes, views and reach do not enter the weight: they are not comparable across networks and one viral account would dominate. A node is only as strong as the posts listed under it; the drawer shows them with network, date, author and score. Matching is lexical, so sarcasm, negation and quotes count as mentions, and a rumour node records that people discussed a name, not that the thing exists.
 
+### What's new
+
+The Pulse tab opens on **What's new this week**: topics that changed, not topics that are always large. Claude, OpenAI or "AI agents" are discussed every day; a list ordered by size tells a daily reader nothing. Each topic gets two scores and ranks by the higher one.
+
+```
+talk   = this week's share of posts / share in days 8-30, on the deep networks only, baseline smoothed by +1 post
+         deep network = live network with posts on >= 70% of the baseline days and >= 50 baseline posts
+         qualifies with >= 2 deep-network posts this week, >= 5 voices and >= 2 networks in the last 7 days
+build  = tracker repos matching the topic that were born in the last 30 days
+         (a repo in a tracker paradigm, such as JEV, counts only for that paradigm's theme)
+         qualifies with >= 3 born repos that are at least half of the topic's repos (a new wave, not an old field)
+rank   = max(percentile of log(talk) among qualifying topics, percentile of build among qualifying topics)
+always-on = mentioned on the deep networks on >= 60% of the baseline days with talk < 2: its talk score does not count
+```
+
+Shares, not counts, because collection volume changes: the store began on different dates per network. In October 2026 only Hacker News and the newsletters reach back far enough to be deep; Reddit (about a week of archive) and Mastodon (sparse before mid-October) join automatically once their stored history meets the rule. A lift is relative to what we sampled, not to the whole internet, and two posts against none is a small number: each card shows the counts behind it. A card also shows the newest headline, the first sighting per network (the spread path) and the people and subjects named with it.
+
 ### Signal: what matters now
 
-The "What matters now" list orders topics by a per-window **signal** from 0 to 100. It is a heuristic for ordering attention in our sampled feeds, not a measure of truth, quality or importance.
+The "Biggest right now" list (formerly "What matters now") orders topics by a per-window **signal** from 0 to 100. It is a heuristic for ordering attention in our sampled feeds, not a measure of truth, quality or importance.
 
 ```
 signal      = 0.40 × pct(voices) + 0.25 × pct(reach) + 0.20 × pct(rising) + 0.15 × pct(engagement excl. Reddit)

@@ -201,6 +201,20 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap}
 @media (prefers-reduced-motion:reduce){.pstars .tw,.pring{animation:none}}
 .kg{font-style:normal;color:var(--accent);font-size:11px}.kg.em{opacity:.9}
 .pside{display:grid;gap:12px;align-content:start}
+.pnew{padding:14px 16px;margin-bottom:12px}
+.pnew h3{margin:0;font:600 15px var(--sans)}.pnew .sub{font-size:12px;color:var(--text-muted);margin:2px 0 10px}
+.ngrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.ncard{display:flex;flex-direction:column;gap:6px;text-align:left;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--text-primary);font:13px var(--sans);cursor:pointer;min-width:0}
+.ncard:hover{border-color:var(--accent);box-shadow:var(--glow)}
+.ncard .nt{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.ncard .nt b{font:600 15px var(--sans)}
+.ncard .nk{font:10px var(--mono);color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.ncard .why{font:12px var(--mono);color:var(--accent)}
+.ncard .hl{color:var(--text-secondary);font-size:13px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ncard .hl a{color:inherit;text-decoration:none}.ncard .hl a:hover{color:var(--accent);text-decoration:underline}
+.ncard .path{font:11px var(--mono);color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ncard .path i{font-style:normal;color:var(--text-secondary)}
+.ncard .with{font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.aon{font-size:12px;color:var(--text-muted);margin-top:10px}.aon button{background:none;border:1px solid var(--line-2);border-radius:999px;color:var(--text-secondary);font:12px var(--sans);padding:1px 8px;margin:2px 2px;cursor:pointer}.aon button:hover{color:var(--accent);border-color:var(--accent)}
 .plist{padding:14px 16px}.plist h3{margin:0;font:600 13px var(--sans)}.plist .sub{font-size:12px;color:var(--text-muted);margin:2px 0 8px}
 .prow{display:flex;justify-content:space-between;gap:8px;width:100%;background:none;border:0;border-bottom:1px solid var(--line);color:var(--text-primary);font:13px var(--sans);padding:7px 0;cursor:pointer;text-align:left}
 .prow:hover span{color:var(--accent)}.prow b{font:12px var(--mono);color:var(--text-secondary)}
@@ -769,6 +783,20 @@ function rcol(r){return REACH[rbin(r)]}
 const symHex={draw(c,size){const r=Math.sqrt(2*size/(3*Math.sqrt(3)));for(let i=0;i<6;i++){const a=Math.PI/3*i-Math.PI/2;i?c.lineTo(r*Math.cos(a),r*Math.sin(a)):c.moveTo(r*Math.cos(a),r*Math.sin(a))}c.closePath()}};
 function symOf(k){return {models:d3.symbolCircle,'labs & products':d3.symbolSquare,people:d3.symbolDiamond,themes:symHex}[KGROUP[k]]||d3.symbolCircle}
 function comps(n,w){w=w||pw(n);const k=nnets(w),nl=w.newsletters;return `${num(w.authors)} voices · ${k} net${k==1?'':'s'}${nl!=null?` · ${nl} newsletter${nl==1?'':'s'}`:''}${n.rising?` · ${n.rising}×`:''}`}
+const NETL={HN:'HN',Reddit:'Reddit',Mastodon:'Mastodon',Lobsters:'Lobsters',Bluesky:'Bluesky',Official:'official'};
+function ago(d){const x=Math.round((Date.parse(PU.generated_at)-Date.parse(d))/864e5);return x<=0?'today':x==1?'1d ago':x+'d ago'}
+function newWhy(n){const v=n.new;if(!v)return '';const deep=v.deep.map(k=>k=='Newsletter'?'newsletters':k).join(' + ');
+ if(v.leg=='build')return `${v.born} of ${v.repos} repos born in the last 30 days`;
+ return v.base==0?`new: ${v.now} mentions on ${deep} this week, none in the 3 weeks before`:`${v.lift}× its usual share on ${deep} (${v.now} this week vs ${v.base} in the 3 weeks before)`}
+function newCard(n,i){const v=n.new,wk=Date.parse(PU.generated_at)-7*864e5;
+ const s=n.samples.find(x=>x.source!='tracker'&&Date.parse(x.date)>=wk)||n.samples.find(x=>Date.parse(x.date)>=wk)||n.samples[0];
+ const path=(n.spread||[]).filter(x=>Date.parse(x.at)>=Date.parse(PU.generated_at)-14*864e5).slice(0,5).map(x=>`<i>${esc(x.net=='Newsletter'?x.author:(NETL[x.net]||x.net))}</i> ${ago(x.at)}`).join(' → ');
+ const w=n.with?.['7d']||{},nm=a=>(a||[]).map(([id])=>PU.nodes.find(x=>x.id==id)?.label).filter(Boolean);
+ const withs=[...nm(w.people),...nm(w.subjects)].slice(0,4);
+ const repos=v.leg=='build'&&v.born_top?.length?`<div class=with>new repos: ${v.born_top.map(([r,g])=>esc(r.split('/')[1])+(g?` +${num(g)}★`:'')).join(' · ')}</div>`:'';
+ return `<button class=ncard data-id="${esc(n.id)}"><div class=nt><b>${i+1}. ${esc(n.label)}</b><span class=nk>${esc(KGROUP[n.kind]||n.kind)}</span></div><div class=why>${esc(newWhy(n))}</div>
+ ${s?`<div class=hl><a href="${esc(s.url)}" target=_blank rel=noopener>${esc(s.title)}</a> <span class=dim>· ${esc(s.net)} ${esc(s.date.slice(5))}</span></div>`:''}${repos}
+ ${path?`<div class=path title="first sighting per network in the last 14 days, oldest first">first seen: ${path}</div>`:''}${withs.length?`<div class=with>with ${withs.map(esc).join(', ')}</div>`:''}</button>`}
 function subjects(id,k){return PU.edges.filter(e=>(e.a==id||e.b==id)&&e.w[PS.win]>0).sort((a,b)=>b.w[PS.win]-a.w[PS.win]).map(e=>PU.nodes.find(x=>x.id==(e.a==id?e.b:e.a))).filter(x=>x&&x.kind!='person').slice(0,k)}
 const nodeOf=id=>PU.nodes.find(x=>x.id==id);
 function withList(n,key){const l=n.with?.[PS.win]?.[key];return l?l.map(([i,c])=>({x:nodeOf(i),c})).filter(z=>z.x):null}
@@ -799,6 +827,8 @@ function renderPulse(){
  const risers=nodes.filter(n=>n.rising).sort((a,b)=>b.rising-a.rising||b._w.authors-a._w.authors).slice(0,8);
  const hasSig=PU.nodes.some(n=>n.w[PS.win]?.signal!=null),hasOrg=PU.nodes.some(n=>n.organic);
  const top=nodes.slice().sort((a,b)=>hasSig?(b._w.signal??0)-(a._w.signal??0)||b._w.authors-a._w.authors:b._w.weight-a._w.weight).slice(0,10);
+ const fresh=PU.nodes.filter(n=>n.new&&n.new.score>0).sort((a,b)=>b.new.score-a.new.score||b.w['7d'].authors-a.w['7d'].authors).slice(0,12);
+ const always=PU.nodes.filter(n=>n.new?.always_on&&!(n.new.score>0)).sort((a,b)=>b.w['7d'].authors-a.w['7d'].authors);
  const people=PU.nodes.filter(n=>n.kind=='person'&&(n.w[PS.win]?.authors||0)>0).sort((a,b)=>b.w[PS.win].authors-a.w[PS.win].authors).slice(0,8);
  const coord=PU.nodes.filter(n=>orgRank(n)>=2&&n.organic.posts>=10).sort((a,b)=>orgRank(b)-orgRank(a)||b.organic.flags.length-a.organic.flags.length||b.organic.posts-a.organic.posts).slice(0,8);
  const kp=(k,v,s)=>`<div class="panel kpi"><div class=k>${k}</div><b>${v}</b><div class=s>${s}</div></div>`;
@@ -810,13 +840,14 @@ function renderPulse(){
   <tbody>${rows.map(n=>`<tr data-id="${esc(n.id)}" class="${PS.focus==n.id?'sel':''}">${PCOLS.map(c=>`<td class="${c.n?'n':''}${c.hs?' hs':''}">${c.h(n)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan=${PCOLS.length} class=empty>No topic at this voice floor.</td></tr>`}</tbody></table></div></div>`}
  else main=`<div class="panel pmap"><svg id=psvg role=img aria-label="Topic map: colour is how many networks and newsletters carried a topic, size is distinct voices, shape is the kind of topic"></svg>
  <div class=plegend><span><b>colour</b> = how far it travelled: networks + newsletters carrying it <span class=ramp>${RBIN.map(([,l],i)=>`<i style="background:${REACH[i]}"></i><small>${l}</small>`).join('')}</span> · glow = ${GLOW_AT}+</span>
- <span><b>size</b> = distinct voices</span><span><b>shape</b> = ● model · ■ lab/product · ◆ person · ⬡ theme · <span class=em>◌</span> emerging</span><span><span class=prise>◎</span> rising today · labels = top by signal · lines = named in the same post</span></div></div>`;
- box.innerHTML=`<div class=kpis>${kp('Sampled items',num(posts),`${wl()} · ${Object.keys(tot).length} networks incl. tracker, newsletters and official feeds`)}${kp('Feeds live',`${live}/${src.length}`,'open the source list for detail')}${kp('Topics on the map',num(nodes.length),`≥ ${PS.min} distinct voices`)}${kp('Top signal',top[0]&&hasSig?esc(top[0].label):'—',top[0]&&hasSig?esc(comps(top[0])):'signal arrives with the next data refresh')}</div>
+ <span><b>size</b> = distinct voices</span><span><b>shape</b> = ● model · ■ lab/product · ◆ person · ⬡ theme · <span class=em>◌</span> emerging</span><span><span class=prise>◎</span> rising today · <span style="color:#7c8cff">○</span> new this week · faded = always on · lines = named in the same post</span></div></div>`;
+ box.innerHTML=`<div class=kpis>${kp('Sampled items',num(posts),`${wl()} · ${Object.keys(tot).length} networks incl. tracker, newsletters and official feeds`)}${kp('Feeds live',`${live}/${src.length}`,'open the source list for detail')}${kp('Topics on the map',num(nodes.length),`≥ ${PS.min} distinct voices`)}${kp('New this week',fresh[0]?esc(fresh[0].label):'—',fresh[0]?esc(newWhy(fresh[0])):'novelty arrives with the next data refresh')}</div>
+ ${fresh.length?`<div class="panel pnew"><h3>What's new this week</h3><div class=sub>topics talked about far more than in the three weeks before, or with a wave of new repos around them · the big always-on names are listed apart · <a href="#methodology/whats-new">how</a></div><div class=ngrid>${fresh.map((n,i)=>newCard(n,i)).join('')}</div>${always.length?`<div class=aon>Always on, big but not news: ${always.map(n=>`<button class=prow2 data-id="${esc(n.id)}">${esc(n.label)}</button>`).join('')}</div>`:''}</div>`:''}
  <div class=pctl><div class=seg id=pview role=group aria-label="View">${[['map','Map'],['table','Table']].map(([k,l])=>`<button class="${PS.view==k?'on':''}" data-v="${k}">${l}</button>`).join('')}</div><div class=seg id=pwins>${PU.windows.map(w=>`<button class="${w==PS.win?'on':''}" data-w="${w}">${w=='1d'?'24h':w}</button>`).join('')}</div>
  <div class=chips id=pkinds>${groups.map(g=>{const on=Object.entries(KGROUP).some(([k,v])=>v==g&&PS.kinds.has(k));return `<button class="chip ${on?'on':''}" data-g="${g}"><span class="kg${g=='emerging'?' em':''}" aria-hidden=true>${KGLYPH[g]}</span>${g}</button>`}).join('')}</div>
  <div class=facet><span class=ctl-l>min voices</span><select id=pmin>${[1,2,3,5,10].map(v=>`<option ${v==PS.min?'selected':''}>${v}</option>`).join('')}</select></div></div>
  <div class=pgrid>${main}
- <div class=pside><div class="panel plist"><h3>What matters now</h3><div class=sub>${hasSig?`top 10 by signal: voices, reach, rising and engagement ranked across the map · <a href="#methodology/signal-what-matters-now">how</a>`:'signal arrives with the next data refresh; ordered by voices × networks meanwhile'}</div>${top.map(n=>`<button class="prow pm" data-id="${esc(n.id)}"><span><i class=kg aria-hidden=true>${KGLYPH[KGROUP[n.kind]]}</i> ${esc(n.label)}</span>${n._w.signal!=null?`<b title="signal 0–100: a percentile blend for ordering attention, not importance">${Math.round(n._w.signal)}</b>`:''}<small title="${esc(comps(n))}">${esc(comps(n))}</small></button>`).join('')||'<div class=dim>no topic at this voice floor</div>'}</div>
+ <div class=pside><div class="panel plist"><h3>Biggest right now</h3><div class=sub>${hasSig?`top 10 by size: voices, reach, rising and engagement; for what changed, see What's new · <a href="#methodology/signal-what-matters-now">how</a>`:'signal arrives with the next data refresh; ordered by voices × networks meanwhile'}</div>${top.map(n=>`<button class="prow pm" data-id="${esc(n.id)}"><span><i class=kg aria-hidden=true>${KGLYPH[KGROUP[n.kind]]}</i> ${esc(n.label)}</span>${n._w.signal!=null?`<b title="signal 0–100: a percentile blend for ordering attention, not importance">${Math.round(n._w.signal)}</b>`:''}<small title="${esc(comps(n))}">${esc(comps(n))}</small></button>`).join('')||'<div class=dim>no topic at this voice floor</div>'}</div>
  <div class="panel plist"><h3>Rising now</h3><div class=sub>conversation today vs its 7-day daily average</div>${risers.map(n=>`<button class=prow data-id="${esc(n.id)}"><span>${esc(n.label)}</span><b class=up>${n.rising}×</b></button>`).join('')||'<div class=dim>no riser yet</div>'}</div>
  ${hasOrg?`<div class="panel plist"><h3>Most coordinated-looking</h3><div class=sub>30d live posts (10+) in our sample · signals, not proof · X not collected · Reddit/Mastodon windows are shallower in the first weeks of collection · <a href="#methodology/organic-or-orchestrated">how</a></div>${coord.map(n=>`<button class="prow pm" data-id="${esc(n.id)}"><span>${esc(n.label)}</span><b>${orgBadge(n)}</b><small>${esc(n.organic.flags.map(f=>f.replace('_',' ')).join(' · '))} · ${n.organic.posts} posts</small></button>`).join('')||'<div class=dim>no topic with 10+ posts shows a coordination signal</div>'}</div>`:''}
  <div class="panel plist"><h3>People in the conversation</h3><div class=sub>public figures named in posts (not authors) · ${wl()} · most connected subjects</div>${people.map(n=>{const s=subjects(n.id,3);return `<button class="prow pm" data-id="${esc(n.id)}"><span><i class=kg aria-hidden=true>◆</i> ${esc(n.label)}</span><b>${n.w[PS.win].authors}</b><small>${s.length?'with '+s.map(x=>esc(x.label)).join(', '):'no linked subject in this window'}</small></button>`}).join('')||`<div class=dim>${PU.nodes.some(n=>n.kind=='person')?'no person named in this window':'no person on the map yet'}</div>`}</div></div></div>`;
@@ -824,6 +855,7 @@ function renderPulse(){
  box.querySelectorAll('#pwins button').forEach(b=>b.onclick=()=>{PS.win=b.dataset.w;render()});
  box.querySelectorAll('#pkinds button').forEach(b=>b.onclick=()=>{const g=b.dataset.g;const ks=Object.keys(KGROUP).filter(k=>KGROUP[k]==g);const on=ks.some(k=>PS.kinds.has(k));ks.forEach(k=>on?PS.kinds.delete(k):PS.kinds.add(k));render()});
  $('pmin').onchange=e=>{PS.min=+e.target.value;render()};
+ box.querySelectorAll('.ncard,.prow2').forEach(b=>b.onclick=e=>{if(e.target.closest('a'))return;PS.focus=b.dataset.id;if(PUfocus)PUfocus(PS.focus);openPulse(b.dataset.id)});
  box.querySelectorAll('.prow').forEach(b=>b.onclick=()=>{PS.focus=b.dataset.id;if(PUfocus)PUfocus(PS.focus);openPulse(b.dataset.id)});
  box.querySelectorAll('table.pt th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;PS.sort=PS.sort.k==k?{k,d:-PS.sort.d}:{k,d:k=='label'||k=='kind'?1:-1};render()});
  box.querySelectorAll('table.pt tr[data-id]').forEach(tr=>tr.onclick=e=>{if(e.target.closest('a'))return;PS.focus=tr.dataset.id;box.querySelectorAll('table.pt tr').forEach(t=>t.classList.toggle('sel',t==tr));openPulse(tr.dataset.id)});
@@ -850,7 +882,9 @@ function drawPulse(nodes,edges){
  const link=g.append('g').attr('class','plinks').selectAll('line').data(edges).join('line').attr('stroke-opacity',eop).attr('stroke-width',e=>0.5+1.6*e.w/maxe);
  const node=g.append('g').selectAll('g').data(nodes,d=>d.id).join('g').attr('class','pn').style('cursor','pointer');
  const sig=d=>d._w.signal??-1,ranked=nodes.slice().sort((a,b)=>sig(b)-sig(a)||b._w.authors-a._w.authors);
- const top=new Set(ranked.slice(0,narrow?10:22).map(n=>n.id));
+ const nw=nodes.filter(n=>n.new?.score>0).sort((a,b)=>b.new.score-a.new.score).slice(0,narrow?6:12);
+ const top=new Set([...nw.map(n=>n.id),...ranked.filter(n=>!n.new?.always_on).slice(0,narrow?4:10).map(n=>n.id)]);
+ node.filter(d=>nw.includes(d)).append('circle').attr('r',d=>R(d)+3).attr('fill','none').attr('stroke','#7c8cff').attr('stroke-width',1.4).attr('stroke-opacity',.9);
  node.filter(d=>d.rising>=2).append('circle').attr('class',reduce?'':'pring').attr('r',d=>R(d)+6).attr('fill','none').attr('stroke','#3fd0ff').attr('stroke-opacity',.6);
  node.append('path').attr('d',d=>d3.symbol(symOf(d.kind),Math.PI*R(d)**2)()).attr('fill',d=>`url(#rg${rbin(rch(d._w))})`)
   .attr('stroke',d=>d.kind=='emerging'?'#3fd0ff':d3.color(rcol(rch(d._w))).brighter(1.3).formatHex()).attr('stroke-opacity',d=>d.kind=='emerging'?.95:.8)
@@ -860,7 +894,7 @@ function drawPulse(nodes,edges){
  node.append('text').text(d=>d.label).attr('class',d=>inside(d)?'plab pin':'plab').attr('dy',d=>inside(d)?4:R(d)+13).attr('text-anchor','middle');
  const nb=new Map(nodes.map(n=>[n.id,new Set([n.id])]));edges.forEach(e=>{nb.get(e.source)?.add(e.target);nb.get(e.target)?.add(e.source)});
  const lab=x=>top.has(x.id)||x._hit;
- const focusOn=id=>{const s=id&&nb.get(id);node.attr('opacity',x=>s?(s.has(x.id)?1:.15):hasQ&&!x._hit?.18:1);node.select('text').style('display',x=>(s&&s.has(x.id))||lab(x)?null:'none');
+ const focusOn=id=>{const s=id&&nb.get(id);node.attr('opacity',x=>s?(s.has(x.id)?1:.15):hasQ&&!x._hit?.18:x.new?.always_on?.45:1);node.select('text').style('display',x=>(s&&s.has(x.id))||lab(x)?null:'none');
   link.attr('stroke-opacity',e=>!s?eop(e):((e.source.id||e.source)==id||(e.target.id||e.target)==id)?.9:.03)};
  PUfocus=focusOn;
  node.on('mouseenter',(ev,d)=>{focusOn(d.id);const w=d._w,nets=Object.entries(w.nets).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(k)} ${v}`).join(' · ');

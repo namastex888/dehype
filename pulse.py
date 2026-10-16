@@ -337,7 +337,7 @@ def tracker_repos():
                 it = D['repos']['items'].get(row['id']) or {}
                 r = out.setdefault(row['id'], {'id': row['id'], 'text': f"{row['id'].split('/')[-1]}: {it.get('desc') or ''}", 'tag': it.get('tag'),
                                                'gained': {}, 'flags': {}})
-                r['gained'][w] = row.get('gained'); r['flags'][w] = row.get('flags') or []
+                r['gained'][w] = row.get('gained'); r['flags'][w] = row.get('flags') or []; r['created'] = it.get('created')
     return list(out.values())
 
 # ------------------------------------------------------------------ storage
@@ -454,6 +454,10 @@ def emerging_phrases(posts, known_labels, covered=None, min_authors=3, limit=30)
             if ph.lower() in EMERGING_STOP: continue
             if re.match(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*[ -]\d', ph): continue   # dates
             seen.setdefault(ph, set()).add((p['net'], p['author']))
+    for ph in sorted(seen, key=lambda x: -len(x)):       # "Muse Spark Open" folds into "Muse Spark" when both were said
+        words = re.split(r'[ -]', ph)
+        pre = next((q for k in range(len(words) - 1, 1, -1) for q in seen if q != ph and re.split(r'[ -]', q) == words[:k]), None)
+        if pre: seen[pre] |= seen.pop(ph)
     keep = [(ph, a) for ph, a in seen.items() if len(a) >= min_authors]
     keep.sort(key=lambda x: -len(x[1]))
     return [ph for ph, _ in keep[:limit]]
@@ -612,6 +616,7 @@ def build(posts, lex, hype_items, repos=None):
     out_nodes = [x for x in out_nodes if x['w']['30d']['posts'] >= 2][:160]
     keep = {x['id'] for x in out_nodes}
     score_signal(out_nodes)
+    novelty(rel, out_nodes, repo_topics, repos or [], tag_topics)
     kinds = {x['id']: x['kind'] for x in out_nodes}
     for x in out_nodes:                                      # who/where: people and subjects named in the same posts
         x['with'] = {}
@@ -798,6 +803,62 @@ def score_signal(nodes):
             x['w'][w]['signal'] = round(sum(SIGNAL_WEIGHTS[k] * parts[k][i] for k in SIGNAL_WEIGHTS), 1) if x['w'][w]['authors'] else 0.0
             x['w'][w]['signal_parts'] = comp
 
+NOW_DAYS, BASE_DAYS = 7, 30
+NOVELTY_METHOD = ('new (the default ranking): two legs, each a percentile among topics that qualify for it, and a topic ranks by the higher one. '
+                  'talk = lift of the topic\'s share of posts in the last 7 days over its share in days 8-30, on the deep networks only '
+                  '(live networks with posts on >= 70% of the baseline days and >= 50 baseline posts; shallower archives cannot show what is normal yet), '
+                  'baseline smoothed by +1 post; it qualifies with >= 2 deep-network posts this week, >= 5 voices and >= 2 networks in 7 days. '
+                  'build = count of tracker repos matching the topic (a repo in a tracker paradigm counts only for that paradigm\'s theme) that were born in the last 30 days; it qualifies with >= 3 born repos that are >= half of its repos (a new wave, not an old field). '
+                  'always-on = mentioned on the deep networks on >= 60% of the baseline days with talk lift < 2: big but not news; its talk leg does not count. '
+                  'Lift is relative to what we sampled, not to the whole internet')
+
+def novelty(rel, nodes, repo_topics, repos, tag_topics=None):
+    """What changed: this week's share against the topic's own baseline, and repos being born around it. Writes node['new']."""
+    span = BASE_DAYS - NOW_DAYS
+    tot, days = {}, {}
+    for p, dt, _ in rel:
+        if p['source'] != 'live' or p['net'] in OFFICIAL: continue
+        per = 'now' if (NOW - dt).total_seconds() / 86400 <= NOW_DAYS else 'base'
+        tot[(p['net'], per)] = tot.get((p['net'], per), 0) + 1
+        if per == 'base': days.setdefault(p['net'], set()).add(dt.date())
+    deep = sorted(n for n, d in days.items() if len(d) >= 0.7 * span and tot.get((n, 'base'), 0) >= 50)
+    nn, nb = sum(tot.get((n, 'now'), 0) for n in deep), sum(tot.get((n, 'base'), 0) for n in deep)
+    hits = {}
+    for p, dt, found in rel:
+        if p['source'] != 'live' or p['net'] not in deep: continue
+        now = (NOW - dt).total_seconds() / 86400 <= NOW_DAYS
+        for tid in found:
+            h = hits.setdefault(tid, {'now': 0, 'base': 0, 'bdays': set()})
+            if now: h['now'] += 1
+            else: h['base'] += 1; h['bdays'].add(dt.date())
+    born_cut = (NOW - timedelta(days=BASE_DAYS)).strftime('%Y-%m-%d')
+    rows = {r['id']: r for r in repos}
+    for x in nodes:
+        h = hits.get(x['id'], {'now': 0, 'base': 0, 'bdays': set()})
+        w7 = x['w']['7d']
+        lift = round((h['now'] / nn) / ((h['base'] + 1) / nb), 2) if nn and nb else None
+        talk_ok = lift is not None and h['now'] >= 2 and w7['authors'] >= 5 and len([k for k in w7['nets'] if k not in OFFICIAL]) >= 2
+        mine = [rows[r] for r, ts in repo_topics.items() if x['id'] in ts and r in rows       # a paradigm's repos build only its own theme
+                and (not (tag_topics or {}).get(rows[r].get('tag')) or x['id'] in tag_topics[rows[r]['tag']])]
+        born = [r for r in mine if (r.get('created') or '') >= born_cut]
+        x['new'] = {'lift': lift, 'now': h['now'], 'base': h['base'], 'base_days': len(h['bdays']), 'deep': deep,
+                    'talk_ok': talk_ok, 'repos': len(mine), 'born': len(born),
+                    'born_stars_7d': sum(max(0, (r['gained'] or {}).get('7d') or 0) for r in born),
+                    'always_on': len(h['bdays']) >= 0.6 * span and (lift or 0) < 2}
+        x['new']['born_share'] = round(len(born) / len(mine), 2) if mine else None
+        x['new']['born_top'] = [[r['id'], (r['gained'] or {}).get('7d')] for r in sorted(born, key=lambda r: -((r['gained'] or {}).get('7d') or 0))[:3]]
+    talk = pct_rank([math.log(x['new']['lift']) if x['new']['talk_ok'] and x['new']['lift'] > 1 else -99 for x in nodes])
+    build_v = [x['new']['born'] if x['new']['born'] >= 3 and x['new']['born_share'] >= 0.5 else 0 for x in nodes]
+    build = pct_rank(build_v)
+    for i, x in enumerate(nodes):
+        n = x['new']
+        t = round(talk[i], 1) if n['talk_ok'] and n['lift'] > 1 and not n['always_on'] else 0.0
+        b = round(build[i], 1) if build_v[i] else 0.0
+        n['talk'], n['build'] = t, b
+        n['score'] = max(t, b)
+        n['leg'] = None if not n['score'] else ('talk' if t >= b else 'build')
+    return deep
+
 PROJECT_WINDOWS = ('7d', '30d')
 
 ADAPTERS = ['Hacker News (Algolia)', 'Lobsters (ai tag)', 'Mastodon (mastodon.social tags)', 'Reddit (arctic-shift archive)',
@@ -837,7 +898,7 @@ def main():
     nodes, edges, totals, projects, extras = build(posts, lex, hype_items, tracker_repos())
     out = {'generated_at': iso(NOW), 'windows': list(WINDOWS), 'sources': SOURCES, 'totals': totals,
            'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days; ' + SIGNAL_METHOD
-                     + '; ' + REACH_PCT_METHOD + '; ' + ORGANIC_METHOD,
+                     + '; ' + REACH_PCT_METHOD + '; ' + ORGANIC_METHOD + '; ' + NOVELTY_METHOD,
            'projects_note': 'projects: live sampled feeds only (no tracker, no dossier); voices = distinct (network, author) pairs, nets = distinct networks; 0 means no matching post in our sampled feeds, not zero attention',
            'coverage': ['Sampled feeds, not internet-wide totals: HN stories above 20 points, the Lobsters AI tag, nine Mastodon hashtags on mastodon.social, '
                         'ten AI subreddits via the arctic-shift public archive (up to 1,000 newest posts per subreddit per run, so busy subreddits reach back about a week), '
