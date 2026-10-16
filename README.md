@@ -32,7 +32,7 @@ An optional network refresh is `python run.py`; it calls external source APIs an
 
 **Live site:** https://namastex888.github.io/trending-research/
 
-**Hosting and updates.** `.github/workflows/refresh.yml` runs `run.py` daily in GitHub Actions, commits `web/data.json` to `dev` and deploys `web/` to GitHub Pages (and Cloudflare Pages when configured) through `deploy.yml`; `ci.yml` runs on every pull request (mark it as a required check under branch protection to block merges). Deploys need two repository secrets; setup steps are in [ARCHITECTURE.md](docs/ARCHITECTURE.md#3-publishing).
+**Hosting and updates.** `.github/workflows/refresh.yml` runs `run.py` daily in GitHub Actions, commits `web/data.json` to `dev` and deploys `web/` to GitHub Pages (and Cloudflare Pages when configured) through `deploy.yml`; `ci.yml` runs on every pull request (mark it as a required check under branch protection to block merges). GitHub Pages needs no setup; the Cloudflare deploy needs two repository secrets, see [ARCHITECTURE.md](docs/ARCHITECTURE.md#3-publishing).
 
 ## The page
 
