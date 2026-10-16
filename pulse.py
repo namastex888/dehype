@@ -8,7 +8,8 @@ Env:   REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT   enable the Re
 State: history/signals.sqlite keeps 45 days of normalised posts; it rides in the same Actions cache as run.py's history.
 
 Networks are samples, never totals: Hacker News stories above a points floor, the Lobsters AI tag, a fixed set of Mastodon
-hashtags, plus (when connected) chosen subreddits and Bluesky searches. X is not collected. Every topic node carries the
+hashtags, plus (when connected) chosen subreddits and Bluesky searches, AI newsletter feeds (newsletters.json) and lab/vendor
+announcement feeds (official_feeds.json, the 'Official' network). X is not collected; newsletter links to X are kept as citations. Every topic node carries the
 posts that matched it, so a node is never more than the evidence behind it. Standard library only.
 """
 import os, sys, re, json, math, time, bisect, sqlite3, base64, html, urllib.request, urllib.parse, urllib.error
@@ -24,6 +25,7 @@ RETAIN_DAYS = 45
 WINDOWS = {'1d': 1, '7d': 7, '30d': 30}
 CONVERSATION = {'HN', 'Lobsters', 'Mastodon', 'Reddit', 'Bluesky'}          # live chatter; used for "rising"
 DIGEST = {'Newsletter'}                                                      # digests: the end point of a spread, not chatter
+OFFICIAL = {'Official'}                                                      # lab/vendor announcements: the origin of a launch, not spread
 UA = 'trend-observatory/1.0 (+https://github.com/namastex888/trending-research)'
 SOURCES = {}
 
@@ -63,9 +65,14 @@ def strip_html(s):
     s = html.unescape(re.sub(r'<[^>]+>', '', re.sub(r'</p>|<br\s*/?>', ' ', s)))
     return re.sub(r'\s+', ' ', re.sub(r'https?://\S+', ' ', s)).replace('\u200b', '').strip()
 
-def post(net, pid, url, title, author, created, score=None, comments=None, source='live'):
+def post(net, pid, url, title, author, created, score=None, comments=None, source='live', extra=None):
     return {'net': net, 'pid': str(pid), 'url': url, 'title': re.sub(r'\s+', ' ', title or '').strip()[:400],
-            'author': (author or '').strip()[:80], 'created': created, 'score': score, 'comments': comments, 'source': source}
+            'author': (author or '').strip()[:80], 'created': created, 'score': score, 'comments': comments, 'source': source,
+            'extra': extra or {}}
+
+def link_extra(u):
+    """The external page a post points at (kept for link_push); own-site links are not targets."""
+    return {'link': u} if u and re.match(r'https?://', u) else None
 
 # ------------------------------------------------------------------ adapters (each returns a list of posts or raises)
 def fetch_hn(days=30, min_points=20, step=3):
@@ -77,7 +84,7 @@ def fetch_hn(days=30, min_points=20, step=3):
                                     'hitsPerPage': 1000})
         for h in http('https://hn.algolia.com/api/v1/search_by_date?' + q).get('hits', []):
             out[h['objectID']] = post('HN', h['objectID'], f"https://news.ycombinator.com/item?id={h['objectID']}", h.get('title'),
-                                      h.get('author'), h.get('created_at'), h.get('points'), h.get('num_comments'))
+                                      h.get('author'), h.get('created_at'), h.get('points'), h.get('num_comments'), extra=link_extra(h.get('url')))
     return list(out.values())
 
 def fetch_lobsters(pages=4):
@@ -87,7 +94,7 @@ def fetch_lobsters(pages=4):
         for s in d:
             out.append(post('Lobsters', s['short_id'], s.get('comments_url') or s.get('url'), s.get('title'),
                             (s.get('submitter_user') or {}).get('username') if isinstance(s.get('submitter_user'), dict) else s.get('submitter_user'),
-                            s.get('created_at'), s.get('score'), s.get('comment_count')))
+                            s.get('created_at'), s.get('score'), s.get('comment_count'), extra=link_extra(s.get('url'))))
     return out
 
 MASTODON_TAGS = ['ai', 'llm', 'genai', 'claude', 'openai', 'anthropic', 'chatgpt', 'machinelearning', 'localllm']
@@ -104,9 +111,10 @@ def fetch_mastodon(instance='mastodon.social', pages=4):
                 if s.get('reblog'): continue
                 text = strip_html(s.get('content'))
                 if not text: continue
+                card = (s.get('card') or {}).get('url') or next(iter(re.findall(r'<a\b(?![^>]*(?:hashtag|mention))[^>]*href="([^"]+)"', s.get('content') or '')), None)
                 out.append(post('Mastodon', s['id'], s.get('url') or s.get('uri'), text[:280],
                                 (s.get('account') or {}).get('acct'), s.get('created_at'),
-                                (s.get('favourites_count') or 0) + (s.get('reblogs_count') or 0), s.get('replies_count')))
+                                (s.get('favourites_count') or 0) + (s.get('reblogs_count') or 0), s.get('replies_count'), extra=link_extra(card)))
             max_id = d[-1]['id']
             if parse_dt(d[-1].get('created_at')) and parse_dt(d[-1]['created_at']) < cutoff: break
     return out
@@ -137,7 +145,7 @@ def fetch_reddit_archive(days=7, pages=10, pause=1.0):
             for p in d:
                 out[p['id']] = post('Reddit', p['id'], 'https://www.reddit.com' + (p.get('permalink') or ''), p.get('title'),
                                     p.get('author'), iso(datetime.fromtimestamp(p.get('created_utc', 0), timezone.utc)),
-                                    p.get('score'), p.get('num_comments'))
+                                    p.get('score'), p.get('num_comments'), extra=None if p.get('is_self') else link_extra(p.get('url')))
             time.sleep(pause)
             if len(d) < 100: break
             before = int(min(p.get('created_utc', 0) for p in d))
@@ -161,7 +169,7 @@ def fetch_reddit():
             p = c['data']
             out.append(post('Reddit', p['id'], 'https://www.reddit.com' + p.get('permalink', ''), p.get('title'),
                             p.get('author'), iso(datetime.fromtimestamp(p.get('created_utc', 0), timezone.utc)),
-                            p.get('score'), p.get('num_comments')))
+                            p.get('score'), p.get('num_comments'), extra=None if p.get('is_self') else link_extra(p.get('url'))))
     return out
 
 def _rss_date(s):
@@ -171,34 +179,81 @@ def _rss_date(s):
         d = parse_dt(s)
         return iso(d) if d else None
 
+CITE_SKIP = {'substack.com', 'substackcdn.com', 'beehiiv.com', 'beehiiv.net', 'typeform.com', 'list-manage.com', 'mailchimp.com',
+             'x.com', 'twitter.com', 'eepurl.com', 'buttondown.email', 'ghost.io', 'feedburner.com', 'gravatar.com', 'w3.org'}
+X_SKIP = {'i', 'search', 'intent', 'hashtag', 'home', 'share', 'explore', 'settings', 'messages', 'notifications', 'compose', 'login',
+          'signup', 'tos', 'privacy', 'about', 'download'}
+
+def host(u):
+    h = urllib.parse.urlsplit(u).hostname or ''
+    return h[4:] if h.startswith('www.') else h
+
+def citations(body, own=()):
+    """Domains and X/Twitter handles linked from a newsletter item's HTML (read before the HTML is stripped).
+    Newsletter infrastructure (Substack, beehiiv, trackers) and the newsletter's own site are not citations."""
+    doms, handles = set(), set()
+    for u in re.findall(r'href=["\'](https?://[^"\'\s>]+)', body or '', flags=re.I):
+        h = host(u)
+        m = re.match(r'https?://(?:www\.|mobile\.)?(?:x|twitter)\.com/([A-Za-z0-9_]{1,15})(?:[/?#]|$)', u, re.I)
+        if m and m.group(1).lower() not in X_SKIP: handles.add(m.group(1).lower())
+        if not h or any(h == d or h.endswith('.' + d) for d in CITE_SKIP): continue
+        if any(o and (h == o or h.endswith('.' + o) or o.endswith('.' + h)) for o in own): continue
+        doms.add(h)
+    return sorted(doms), sorted(handles)
+
+def parse_feed(raw, name, net, cutoff, cite=False, own=()):
+    """RSS 2.0 or Atom bytes -> posts on `net` authored by the feed `name`. Every item is date-filtered (no fixed head count:
+    some vendor feeds carry a thousand items). Title + stripped body (capped) are kept for matching; the page shows the title."""
+    root = ET.fromstring(raw)
+    ns = {'a': 'http://www.w3.org/2005/Atom', 'c': 'http://purl.org/rss/1.0/modules/content/'}
+    out = []
+    for it in root.findall('.//item') or root.findall('.//a:entry', ns):
+        title = (it.findtext('title') or it.findtext('a:title', namespaces=ns) or '').strip()
+        link = (it.findtext('link') or '').strip()
+        if not link:
+            le = it.find("a:link[@rel='alternate']", ns)
+            if le is None: le = it.find('a:link', ns)
+            link = le.get('href') if le is not None else ''
+        date = _rss_date(it.findtext('pubDate') or it.findtext('a:published', namespaces=ns) or it.findtext('a:updated', namespaces=ns))
+        if not date or parse_dt(date) < cutoff: continue
+        body = it.findtext('c:encoded', namespaces=ns) or it.findtext('description') or it.findtext('a:content', namespaces=ns) or it.findtext('a:summary', namespaces=ns) or ''
+        extra = None
+        if cite:
+            d, x = citations(body, tuple(own) + (host(link),))
+            extra = {'domains': d, 'x': x}
+        text = (title + ' \u241f ' + strip_html(body))[:1500]          # U+241F separator: body kept for matching only
+        out.append(post(net, link or f"{name}:{title}", link, text, name, date, extra=extra))
+    return out
+
+def fetch_feedlist(cfg_file, net, cite, days=30):
+    path = os.path.join(BASE, cfg_file)
+    if not os.path.exists(path): raise PermissionError(f'not configured (add feeds to {cfg_file})')
+    out, failed, cutoff = [], [], NOW - timedelta(days=days)
+    for f in json.load(open(path))['feeds']:
+        try:
+            req = urllib.request.Request(f['url'], headers={'User-Agent': UA, 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml'})
+            with urllib.request.urlopen(req, timeout=30) as r: raw = r.read()
+            out += parse_feed(raw, f['name'], net, cutoff, cite, [host(f.get('site') or ''), host(f['url'])])
+        except Exception:
+            failed.append(f['name'])
+    return out, failed
+
 def fetch_newsletters(days=30):
     """Public RSS/Atom feeds of AI newsletters listed in newsletters.json. An issue is one post on the 'Newsletter' network;
     its text (title + summary, HTML stripped, capped) is matched against topics, so the spread trace shows when a topic
-    reached the digests. Only the item title, date and public link are published."""
-    path = os.path.join(BASE, 'newsletters.json')
-    if not os.path.exists(path): raise PermissionError('not configured (add feeds to newsletters.json)')
-    cfg = json.load(open(path))
-    out, failed, cutoff = [], [], NOW - timedelta(days=days)
-    for nl in cfg['feeds']:
-        try:
-            req = urllib.request.Request(nl['url'], headers={'User-Agent': UA, 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml'})
-            with urllib.request.urlopen(req, timeout=30) as r: root = ET.fromstring(r.read())
-        except Exception:
-            failed.append(nl['name']); continue
-        ns = {'a': 'http://www.w3.org/2005/Atom', 'c': 'http://purl.org/rss/1.0/modules/content/'}
-        items = root.findall('.//item') or root.findall('.//a:entry', ns)
-        for it in items[:60]:
-            title = (it.findtext('title') or it.findtext('a:title', namespaces=ns) or '').strip()
-            link = it.findtext('link') or ''
-            if not link:
-                le = it.find('a:link', ns); link = le.get('href') if le is not None else ''
-            date = _rss_date(it.findtext('pubDate') or it.findtext('a:published', namespaces=ns) or it.findtext('a:updated', namespaces=ns))
-            if not date or parse_dt(date) < cutoff: continue
-            body = it.findtext('c:encoded', namespaces=ns) or it.findtext('description') or it.findtext('a:content', namespaces=ns) or it.findtext('a:summary', namespaces=ns) or ''
-            text = (title + ' \u241f ' + strip_html(body))[:1500]          # U+241F separator: body kept for matching only
-            out.append(post('Newsletter', link or f"{nl['name']}:{title}", link, text, nl['name'], date))
+    reached the digests. Links in the issue are recorded as citations (domains, X handles). Only the item title, date and
+    public link are published."""
+    out, failed = fetch_feedlist('newsletters.json', 'Newsletter', True, days)
     if failed: PARTIAL['Newsletters (RSS)'] = 'unreachable: ' + ', '.join(failed)
     if failed and not out: raise ConnectionError(PARTIAL['Newsletters (RSS)'])
+    return out
+
+def fetch_official(days=30):
+    """Lab and vendor announcement feeds listed in official_feeds.json (network 'Official'): where launches originate.
+    Not conversation (no rising), not a digest; it can be the first point of a spread."""
+    out, failed = fetch_feedlist('official_feeds.json', 'Official', False, days)
+    if failed: PARTIAL['Official feeds (RSS)'] = 'unreachable: ' + ', '.join(failed)
+    if failed and not out: raise ConnectionError(PARTIAL['Official feeds (RSS)'])
     return out
 
 BSKY_QUERIES = ['Claude', 'Anthropic', 'OpenAI', 'ChatGPT', 'Gemini', 'LLM', 'AI agent', 'open-weight model']
@@ -214,9 +269,10 @@ def fetch_bluesky():
         for p in d.get('posts', []):
             a = p.get('author', {}).get('handle', '')
             rkey = p.get('uri', '').rsplit('/', 1)[-1]
+            ext = ((p.get('embed') or {}).get('external') or {}).get('uri')
             out.append(post('Bluesky', p.get('uri'), f'https://bsky.app/profile/{a}/post/{rkey}',
                             (p.get('record') or {}).get('text', '')[:280], a, (p.get('record') or {}).get('createdAt'),
-                            (p.get('likeCount') or 0) + (p.get('repostCount') or 0), p.get('replyCount')))
+                            (p.get('likeCount') or 0) + (p.get('repostCount') or 0), p.get('replyCount'), extra=link_extra(ext)))
     return out
 
 # ------------------------------------------------------------------ internal sources (already collected by run.py / research)
@@ -249,24 +305,44 @@ def internal_posts():
         note('HYPE research dossier', 'failed', str(e)[:120])
     return out
 
+def tracker_repos():
+    """Repo rows ranked by run.py in the Pulse windows (any paradigm view): text for topic matching, paradigm tag,
+    stars gained per window (common reach) and the anti-noise flags per window (coordination signals)."""
+    try: D = json.load(open(os.path.join(WEB, 'data.json')))
+    except (OSError, ValueError): return []
+    out = {}
+    for w in WINDOWS:
+        for view in (D.get('repos', {}).get(w) or {}).values():
+            for row in view.get('rows', []):
+                it = D['repos']['items'].get(row['id']) or {}
+                r = out.setdefault(row['id'], {'id': row['id'], 'text': f"{row['id'].split('/')[-1]}: {it.get('desc') or ''}", 'tag': it.get('tag'),
+                                               'gained': {}, 'flags': {}})
+                r['gained'][w] = row.get('gained'); r['flags'][w] = row.get('flags') or []
+    return list(out.values())
+
 # ------------------------------------------------------------------ storage
 def db():
     os.makedirs(HIST, exist_ok=True)
     con = sqlite3.connect(DB)
     con.execute('''CREATE TABLE IF NOT EXISTS signals(net TEXT, pid TEXT, url TEXT, title TEXT, author TEXT, created TEXT,
-                   score INT, comments INT, source TEXT, fetched TEXT, PRIMARY KEY(net, pid))''')
+                   score INT, comments INT, source TEXT, fetched TEXT, extra TEXT, PRIMARY KEY(net, pid))''')
+    if 'extra' not in [r[1] for r in con.execute('PRAGMA table_info(signals)')]:
+        con.execute('ALTER TABLE signals ADD COLUMN extra TEXT')       # stores from before target links / citations were kept
     return con
 
 def store(con, posts):
     for p in posts:
-        con.execute('INSERT OR REPLACE INTO signals VALUES(?,?,?,?,?,?,?,?,?,?)',
-                    (p['net'], p['pid'], p['url'], p['title'], p['author'], p['created'], p['score'], p['comments'], p['source'], iso(NOW)))
+        con.execute('INSERT OR REPLACE INTO signals(net,pid,url,title,author,created,score,comments,source,fetched,extra) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                    (p['net'], p['pid'], p['url'], p['title'], p['author'], p['created'], p['score'], p['comments'], p['source'], iso(NOW),
+                     json.dumps(p.get('extra')) if p.get('extra') else None))
     con.execute('DELETE FROM signals WHERE created IS NULL OR created < ?', (iso(NOW - timedelta(days=RETAIN_DAYS)),))
     con.commit()
 
 def load_stored(con):
-    cols = ['net', 'pid', 'url', 'title', 'author', 'created', 'score', 'comments', 'source']
-    return [dict(zip(cols, r)) for r in con.execute(f'SELECT {",".join(cols)} FROM signals')]
+    cols = ['net', 'pid', 'url', 'title', 'author', 'created', 'score', 'comments', 'source', 'extra']
+    out = [dict(zip(cols, r)) for r in con.execute(f'SELECT {",".join(cols)} FROM signals')]
+    for p in out: p['extra'] = json.loads(p['extra']) if p['extra'] else {}
+    return out
 
 # ------------------------------------------------------------------ topic extraction
 VARIANTS = {'pro', 'flash', 'mini', 'nano', 'ultra', 'max', 'turbo', 'lite', 'next', 'thinking', 'instant', 'opus', 'sonnet', 'haiku'}
@@ -297,8 +373,8 @@ def compile_lexicon(lex, hype_items):
         return re.compile(r'(?<![\w-])(?:' + '|'.join(re.escape(a).replace(r'\ ', r'[\s-]') for a in alts) + r')(?![\w-])',
                           0 if case else re.I)
     for t in lex['topics']:
-        topics.append({'id': t['id'], 'label': t['label'], 'kind': t['kind'], 'parent': t.get('parent'),
-                       'rx': rx(t.get('aliases', []), t.get('case', False))})
+        topics.append({'id': t['id'], 'label': t['label'], 'kind': t['kind'], 'parent': t.get('parent'), 'tracker_tag': t.get('tracker_tag'), 'hn_ai': t.get('hn_ai', False),
+                       'rx': re.compile(t['pattern'], re.I) if t.get('pattern') else rx(t.get('aliases', []), t.get('case', False))})
     ambiguous = set(lex.get('ambiguous_hype_names', []))
     for hid, it in hype_items.items():
         name = it.get('name') or hid
@@ -366,19 +442,21 @@ def emerging_phrases(posts, known_labels, covered=None, min_authors=3, limit=30)
 def shown(p):
     """Display text: newsletters keep their body only for matching; the page shows the issue title."""
     t = p['title'] or ''
-    return t.split('\u241f', 1)[0].strip() if p['net'] in DIGEST else t
+    return t.split('\u241f', 1)[0].strip() if p['net'] in DIGEST | OFFICIAL else t
 
-def build(posts, lex, hype_items):
+def build(posts, lex, hype_items, repos=None):
+    """posts -> (nodes, edges, totals, projects, extras). repos: tracker repo rows [{id, text, tag, gained: {w}, flags: {w}}]."""
     topics, fams, vrx, kw = compile_lexicon(lex, hype_items)
     by_id = {t['id']: t for t in topics}
-    rel = []
+    rel, author_total = [], {}
     for p in posts:
         dt = parse_dt(p['created'])
         if not dt or dt > NOW + timedelta(hours=1) or dt < NOW - timedelta(days=30): continue
+        if crowd(p): author_total[(p['net'], p['author'])] = author_total.get((p['net'], p['author']), 0) + 1   # before the HN AI filter
         text = p['title'] or ''
         found = match_topics(text, topics, fams, vrx)
         # HN is general-interest: keep a story only if it names an AI model/product/version or uses an AI keyword
-        if p['net'] == 'HN' and p['source'] == 'live' and not kw.search(text) and not any(t['kind'] in ('model', 'version', 'product') for t in found.values()): continue
+        if p['net'] == 'HN' and p['source'] == 'live' and not kw.search(text) and not any(t['kind'] in ('model', 'version', 'product') or t.get('hn_ai') for t in found.values()): continue
         rel.append((p, dt, found))
     labels = {t['label'].lower() for t in topics} | {w.lower() for t in topics if t['kind'] != 'person' for w in t['label'].split()}
     vwords = [set(t['label'].lower().split()) for _, _, f in rel for t in f.values() if t['kind'] == 'version']
@@ -392,6 +470,29 @@ def build(posts, lex, hype_items):
         for p, dt, found in rel:
             if prx.search(p['title'] or ''): found[tid] = {'id': tid, 'label': ph, 'kind': 'emerging', 'parent': None}
 
+    # common reach: each item's percentile within its own type and window (posts per network, papers, repos), never raw sums
+    item_pct = {w: {} for w in WINDOWS}
+    for w, days in WINDOWS.items():
+        groups = {}
+        for p, dt, _ in rel:
+            if (NOW - dt).total_seconds() / 86400 > days or p['score'] is None: continue
+            if p['source'] == 'live' and p['net'] in REACH_POST_NETS: groups.setdefault(('posts', p['net']), []).append(p)
+            elif p['source'] == 'tracker' and p['net'] == 'arXiv': groups.setdefault(('papers', 'arXiv'), []).append(p)
+        for (typ, _), ps in groups.items():
+            for p, v in zip(ps, pct_rank([max(0, x['score']) for x in ps])): item_pct[w][(p['net'], p['pid'])] = (typ, v)
+    repo_topics, repo_pct = {}, {w: {} for w in WINDOWS}
+    tag_topics = {}
+    for t in topics:
+        if t.get('tracker_tag'): tag_topics.setdefault(t['tracker_tag'], []).append(t['id'])
+    for r in repos or []:
+        repo_topics[r['id']] = set(match_topics(r['text'], topics, fams, vrx)) | set(tag_topics.get(r.get('tag'), ()))
+    for w in WINDOWS:
+        rs = [r for r in repos or [] if (r.get('gained') or {}).get(w) is not None]
+        for r, v in zip(rs, pct_rank([max(0, r['gained'][w]) for r in rs])): repo_pct[w][r['id']] = v
+    r30 = [r for r in repos or [] if '30d' in (r.get('flags') or {})]
+    base = round(sum(1 for r in r30 if 'stars>activity' in r['flags']['30d']) / len(r30), 3) if r30 else None
+    dupes = near_dupes([p for p, dt, _ in rel if crowd(p) and (NOW - dt).total_seconds() / 86400 <= 30])
+
     nodes, edges = {}, {}
     proj = {hid: {w: {'authors': set(), 'posts': 0, 'nets': set()} for w in PROJECT_WINDOWS} for hid in PROJECT_TOPIC}
     by_topic = {}
@@ -401,8 +502,8 @@ def build(posts, lex, hype_items):
         if not n:
             n = nodes[t['id']] = {'id': t['id'], 'label': t['label'], 'kind': t['kind'], 'parent': t.get('parent'),
                                   'w': {w: {'posts': 0, 'authors': set(), 'nets': {}, 'eng': 0.0, 'eng_xr': 0.0, 'conv': 0, 'nl': set(),
-                                          'obs': {}} for w in WINDOWS},
-                                  'first': None, 'last': None, 'samples': [], 'origin': {}}
+                                          'obs': {}, 'where': {}, 'rp': []} for w in WINDOWS},
+                                  'first': None, 'last': None, 'samples': [], 'origin': {}, 'crowd': [], 'tracker_tag': t.get('tracker_tag')}
         return n
     for p, dt, found in rel:
         age = (NOW - dt).total_seconds() / 86400
@@ -418,6 +519,8 @@ def build(posts, lex, hype_items):
             for w, days in WINDOWS.items():
                 if age <= days:
                     s = n['w'][w]; s['posts'] += 1; s['authors'].add((p['net'], p['author'])); s['nets'][p['net']] = s['nets'].get(p['net'], 0) + 1
+                    wh = s['where'].setdefault(p['net'], [0, set()]); wh[0] += 1; wh[1].add(p['author'])
+                    if (p['net'], p['pid']) in item_pct[w]: s['rp'].append(item_pct[w][(p['net'], p['pid'])])
                     e = math.log1p(max(0, p['score'] or 0) + max(0, p['comments'] or 0))
                     s['eng'] += e
                     if p['net'] != 'Reddit': s['eng_xr'] += e
@@ -426,11 +529,12 @@ def build(posts, lex, hype_items):
                         o = s['obs'].setdefault(p['net'], {'posts': 0, 'score': 0, 'comments': 0})
                         o['posts'] += 1; o['score'] += max(0, p['score'] or 0); o['comments'] += max(0, p['comments'] or 0)
                     if p['net'] in CONVERSATION and p['source'] == 'live': s['conv'] += 1
+            if crowd(p): n['crowd'].append((p, dt))
             n['first'] = min(n['first'] or p['created'], p['created']); n['last'] = max(n['last'] or p['created'], p['created'])
             n['samples'].append((math.log1p(max(0, p['score'] or 0)) - age / 30, p, dt))
             o = n['origin'].get(p['net'])
             if p['source'] != 'tracker' and (o is None or dt < o[0]): n['origin'][p['net']] = (dt, p)
-        if p['net'] in DIGEST: continue                       # a digest lists many stories; co-mention there is not a link
+        if p['net'] in DIGEST | OFFICIAL: continue            # a digest lists many stories, a vendor post many products: co-mention there is not a link
         for i in range(len(ids)):
             for j in range(i + 1, len(ids)):
                 k = (ids[i], ids[j])
@@ -448,11 +552,20 @@ def build(posts, lex, hype_items):
         W = {}
         for w, s in n['w'].items():
             nets = len(s['nets'])
-            other = len([k for k in s['nets'] if k not in DIGEST])
+            other = len([k for k in s['nets'] if k not in DIGEST | OFFICIAL])
             reach = other + len(s['nl'])
+            for rid, ts in repo_topics.items():
+                if n['id'] in ts and rid in repo_pct[w]: s['rp'].append(('repos', repo_pct[w][rid]))
+            top5 = sorted((v for _, v in s['rp']), reverse=True)[:5]
+            parts = {}
+            for typ, v in s['rp']:
+                q = parts.setdefault(typ, {'n': 0, 'best': 0.0}); q['n'] += 1; q['best'] = max(q['best'], round(v, 1))
             W[w] = {'posts': s['posts'], 'authors': len(s['authors']), 'nets': s['nets'], 'eng': round(s['eng'], 1),
                     'eng_ex_reddit': round(s['eng_xr'], 1), 'newsletters': len(s['nl']), 'newsletter_names': sorted(s['nl']),
-                    'reach': reach, 'reach_label': f"{other} network{'s' if other != 1 else ''} + {len(s['nl'])} newsletter{'s' if len(s['nl']) != 1 else ''}",
+                    'reach': reach, 'reach_label': f"{other} network{'s' if other != 1 else ''} + {len(s['nl'])} newsletter{'s' if len(s['nl']) != 1 else ''}"
+                                                   + (' (+ official post)' if 'Official' in s['nets'] else ''),
+                    'reach_pct': round(sum(top5) / len(top5), 1) if top5 else None, 'reach_parts': parts,
+                    'where': {k: {'posts': v[0], 'voices': len(v[1])} for k, v in s['where'].items()},
                     'engagement': s['obs'], 'weight': round(len(s['authors']) * (1 + 0.5 * max(0, nets - 1)), 2)}
         conv1, conv7 = n['w']['1d']['conv'], n['w']['7d']['conv']
         rising = round(conv1 / (conv7 / 7), 2) if conv7 >= 4 and conv1 >= 2 else None
@@ -468,11 +581,22 @@ def build(posts, lex, hype_items):
                    'title': shown(p)[:160], 'source': p['source']}
                   for net, (dt, p) in sorted(n['origin'].items(), key=lambda x: (x[1][0].date(), x[0] in DIGEST, x[1][0]))]
         out_nodes.append({'id': n['id'], 'label': n['label'], 'kind': n['kind'], 'parent': n['parent'], 'w': W, 'rising': rising, 'spread': spread,
-                          'first': (n['first'] or '')[:10], 'last': (n['last'] or '')[:10], 'samples': samples})
+                          'first': (n['first'] or '')[:10], 'last': (n['last'] or '')[:10], 'samples': samples,
+                          'organic': organic(n, dupes, author_total, [r for r in r30 if n['id'] in repo_topics.get(r['id'], ())], base,
+                                             [(h, hype_items[h]) for h in hype_items if PROJECT_TOPIC.get(h) == n['id'] or
+                                              (n['tracker_tag'] and hype_items[h].get('tag') == n['tracker_tag'])])})
     out_nodes.sort(key=lambda x: -x['w']['30d']['weight'])
     out_nodes = [x for x in out_nodes if x['w']['30d']['posts'] >= 2][:160]
     keep = {x['id'] for x in out_nodes}
     score_signal(out_nodes)
+    kinds = {x['id']: x['kind'] for x in out_nodes}
+    for x in out_nodes:                                      # who/where: people and subjects named in the same posts
+        x['with'] = {}
+        for w in WINDOWS:
+            nb = sorted(((b if a == x['id'] else a, e[w]) for (a, b), e in edges.items() if x['id'] in (a, b) and e[w] > 0
+                         and (b if a == x['id'] else a) in keep), key=lambda z: -z[1])
+            x['with'][w] = {'people': [[i, c] for i, c in nb if kinds[i] == 'person'][:3],
+                            'subjects': [[i, c] for i, c in nb if kinds[i] != 'person'][:5]}
     out_edges = [{'a': a, 'b': b, 'w': w} for (a, b), w in edges.items() if a in keep and b in keep and (w['30d'] >= 2 or
                  any(x['id'] in (a, b) and x['parent'] in (a, b) for x in out_nodes))]
     totals = {w: {} for w in WINDOWS}
@@ -482,7 +606,152 @@ def build(posts, lex, hype_items):
             if age <= days: totals[w][p['net']] = totals[w].get(p['net'], 0) + 1
     projects = {hid: {w: {'voices': len(s['authors']), 'posts': s['posts'], 'nets': len(s['nets'])} for w, s in ws.items()}
                 for hid, ws in proj.items()}
-    return out_nodes, out_edges, totals, projects
+    return out_nodes, out_edges, totals, projects, {'citations': cite_table(rel)}
+
+REACH_PCT_METHOD = ('reach_pct (per window) = mean of the five highest item percentiles among the items matching the topic; an item\'s percentile '
+                    'is taken within its own type and window: posts per network (HN points, Mastodon favourites + boosts, Lobsters score, Bluesky likes + reposts; '
+                    'Reddit excluded, its archive scores are ingestion snapshots), papers (HF upvotes), repos (stars gained in the window); raw counts are never summed across types')
+ORGANIC_METHOD = ('organic (30d live conversation by named authors): burst = share of posts in the densest 6 hours; dupe = share of posts (5+ words) whose '
+                  '5-word-shingle Jaccard with a post by a different author is >= 0.6; single_topic = share of authors with 2+ stored posts whose posts all match the topic; '
+                  'link_push = largest share of posts pointing at one target URL; repos = anti-noise flags on matching tracker repos; dossier = HYPE coordination assessment. '
+                  'Label: too few posts (< 10); a signal fires at burst >= 0.5, dupe >= 0.2, single_topic >= 0.5 (5+ authors), link_push >= 0.3 (5+ posts), '
+                  'repos stars>activity on half of 3+ repos, dossier disclosed or measured coordination; strong = two signals or burst >= 0.7, dupe >= 0.4, link_push >= 0.5. '
+                  'Signals, not proof')
+REACH_POST_NETS = ('HN', 'Mastodon', 'Lobsters', 'Bluesky')     # Reddit scores are ingestion snapshots; newsletters/official have none
+LINKS_SINCE = '2026-10-16'                                       # adapters keep target links from this date
+
+def crowd(p):
+    """Live conversation by a named account: the population the coordination signals look at."""
+    return p['source'] == 'live' and p['net'] in CONVERSATION and (p['author'] or '') not in ('', '[deleted]', 'AutoModerator')
+
+def pct_rank(vals):
+    """Share (0-100) of the other values that are strictly lower; ties share the lower rank; zero (or a lone value) scores 0."""
+    srt, n = sorted(vals), len(vals)
+    return [0.0 if v <= 0 or n < 2 else 100.0 * bisect.bisect_left(srt, v) / (n - 1) for v in vals]
+
+def burst_share(times, hours=6):
+    """(share of posts inside the densest `hours` window, window start)."""
+    ts = sorted(times)
+    if not ts: return None, None
+    best, start, j = 0, ts[0], 0
+    for i, t in enumerate(ts):
+        while t - ts[j] > timedelta(hours=hours): j += 1
+        if i - j + 1 > best: best, start = i - j + 1, ts[j]
+    return best / len(ts), start
+
+def shingles(text, k=5):
+    w = re.findall(r'[a-z0-9]+', re.sub(r'https?://\S+', ' ', (text or '').lower()))
+    return {tuple(w[i:i + k]) for i in range(len(w) - k + 1)}
+
+def near_dupes(posts, thr=0.6):
+    """Keys (net, pid) of posts whose 5-word-shingle Jaccard with a post by a different author is >= thr.
+    Posts under five words cannot be compared and are left out (they are not in the result and not in its denominator)."""
+    sh = {(p['net'], p['pid']): (shingles(p['title']), (p['net'], p['author'])) for p in posts}
+    sh = {k: v for k, v in sh.items() if v[0]}
+    index = {}
+    for k, (ss, _) in sh.items():
+        for g in ss: index.setdefault(g, []).append(k)
+    out = set()
+    for k, (ss, au) in sh.items():
+        shared = {}
+        for g in ss:
+            for o in index[g]:
+                if o != k and sh[o][1] != au: shared[o] = shared.get(o, 0) + 1
+        if any(c / (len(ss) + len(sh[o][0]) - c) >= thr for o, c in shared.items()): out.add(k)
+    return out, set(sh)
+
+def norm_link(u):
+    u = re.sub(r'#.*$', '', u or '')
+    u = re.sub(r'([?&])(utm_[a-z]+|ref|s|t)=[^&]*', r'\1', u)
+    return re.sub(r'[?&]+$', '', u).rstrip('/')
+
+ORG_MIN_POSTS = 10
+def organic(n, dupes, author_total, repos, base, dossier):
+    """Organic-vs-orchestrated signals over the topic's 30-day live conversation (named authors only). Signals, not proof."""
+    ps = n['crowd']; cnt = len(ps); flags, strong, rd = [], [], {}
+    out = {'window': '30d', 'posts': cnt}
+    b, at = burst_share([dt for _, dt in ps])
+    out['burst'] = round(b, 3) if b is not None else None
+    out['burst_at'] = iso(at) if at else None
+    if b is not None:
+        if cnt >= ORG_MIN_POSTS and b >= 0.5: flags.append('burst')
+        if cnt >= ORG_MIN_POSTS and b >= 0.7: strong.append('burst')
+        rd['burst'] = (f"{round(100 * b)}% of {cnt} posts fell in the busiest 6 hours (from {iso(at)[:16].replace('T', ' ')}Z). "
+                       + ('High: a synchronized push looks like this, but so does a launch or a news day.' if 'burst' in flags else
+                          'Spread over time, as ongoing discussion usually is.' if b < 0.3 else 'Some clustering, typical of a news day.'))
+    dk, elig = dupes
+    e = [p for p, _ in ps if (p['net'], p['pid']) in elig]
+    if len(e) >= ORG_MIN_POSTS:
+        d = sum(1 for p in e if (p['net'], p['pid']) in dk) / len(e)
+        out['dupe'], out['dupe_n'] = round(d, 3), len(e)
+        if d >= 0.2: flags.append('dupe')
+        if d >= 0.4: strong.append('dupe')
+        rd['dupe'] = (f"{round(100 * d)}% of {len(e)} comparable posts near-duplicate a post by a different author. "
+                      + ('High: copy-paste campaigns look like this; so do many people submitting the same article title.' if d >= 0.2 else 'Low: little copy-paste across authors.'))
+    else:
+        out['dupe'], out['dupe_n'] = None, len(e)
+        rd['dupe'] = f'Too few posts of five or more words to compare ({len(e)}).'
+    authors = {}
+    for p, _ in ps: authors[(p['net'], p['author'])] = authors.get((p['net'], p['author']), 0) + 1
+    el = [a for a in authors if author_total.get(a, 0) >= 2]
+    if len(el) >= 5:
+        st = sum(1 for a in el if authors[a] >= author_total[a]) / len(el)
+        out['single_topic'], out['single_topic_n'] = round(st, 3), len(el)
+        if st >= 0.5: flags.append('single_topic')
+        rd['single_topic'] = (f"{round(100 * st)}% of {len(el)} authors with two or more stored posts posted only about this topic. "
+                              + ('High: new or single-purpose accounts look like this.' if st >= 0.5 else 'Most of them also post about other things.'))
+    else:
+        out['single_topic'], out['single_topic_n'] = None, len(el)
+        rd['single_topic'] = f'Too few authors with two or more stored posts to judge ({len(el)}); one-post authors are not counted.'
+    links = [norm_link(p['extra'].get('link')) for p, _ in ps if (p.get('extra') or {}).get('link')]
+    if len(links) >= ORG_MIN_POSTS:
+        top = max(set(links), key=links.count); lp = links.count(top) / len(links)
+        out['link_push'], out['link_push_n'], out['link_top'] = round(lp, 3), len(links), top
+        if lp >= 0.3 and links.count(top) >= 5: flags.append('link_push')
+        if lp >= 0.5 and links.count(top) >= 5: strong.append('link_push')
+        rd['link_push'] = (f"{round(100 * lp)}% of {len(links)} posts with a known target link point at the same URL. "
+                           + ('High: one link pushed by many accounts looks like this.' if 'link_push' in flags else 'Links are varied.'))
+    else:
+        out['link_push'], out['link_push_n'] = None, len(links)
+        rd['link_push'] = f'Unknown: target links are kept only from {LINKS_SINCE} ({len(links)} posts with one so far).'
+    fl = {}
+    for r in repos:
+        for f in (r.get('flags') or {}).get('30d') or []: fl[f] = fl.get(f, 0) + 1
+    out['repos'] = {'n': len(repos), 'flags': fl, 'baseline_stars_activity': base}
+    if len(repos) >= 3 and fl.get('stars>activity', 0) / len(repos) >= 0.5: flags.append('repos')
+    rd['repos'] = ('No tracked repo matches this topic.' if not repos else
+                   f"{len(repos)} tracked repos ranked in 30d match: {fl.get('stars>activity', 0)} stars>activity, {fl.get('solo', 0)} solo, {fl.get('spike', 0)} spike"
+                   + (f" (stars>activity across all 30d rows: {round(100 * base)}%). " if base is not None else '. ')
+                   + ('Star growth without matching activity in most of them is a star-farming pattern.' if 'repos' in flags else 'Mostly backed by activity.'))
+    out['dossier'] = [{'id': h, 'name': it.get('name') or h, 'assessment': (it.get('coord') or {}).get('assessment'),
+                       'disclosed': bool((it.get('coord') or {}).get('disclosed')), 'evidence': len((it.get('coord') or {}).get('evidence') or [])}
+                      for h, it in dossier]
+    measured = [d for d in out['dossier'] if d['disclosed'] or (re.search(r'coordinat', d['assessment'] or '', re.I) and not re.search(r'not assessed|^no ', d['assessment'] or '', re.I))]
+    if measured: flags.append('dossier')
+    rd['dossier'] = ('No HYPE research project maps to this topic.' if not out['dossier'] else
+                     '; '.join(f"{d['name']}: {d['assessment'] or 'not assessed'}{' (disclosed sponsorship)' if d['disclosed'] else ''}" for d in out['dossier']))
+    out['flags'], out['readings'] = flags, rd
+    out['label'] = ('too few posts' if cnt < ORG_MIN_POSTS else 'strong coordination signals' if strong or len(flags) >= 2 else
+                    'some coordination signals' if flags else 'no coordination signal')
+    return out
+
+def cite_table(rel, top=50):
+    """What the digests link to: domains and X/Twitter handles cited by newsletter items, per window."""
+    out = {}
+    for w, days in WINDOWS.items():
+        dom, xh = {}, {}
+        for p, dt, found in rel:
+            if p['net'] not in DIGEST or (NOW - dt).total_seconds() / 86400 > days: continue
+            ex = p.get('extra') or {}
+            for d in ex.get('domains') or []:
+                q = dom.setdefault(d, [0, set()]); q[0] += 1; q[1].add(p['author'])
+            for h in ex.get('x') or []:
+                q = xh.setdefault(h, [0, set(), {}]); q[0] += 1; q[1].add(p['author'])
+                for t in found.values(): q[2][t['label']] = q[2].get(t['label'], 0) + 1
+        out[w] = {'domains': [[d, c, sorted(nl)] for d, (c, nl) in sorted(dom.items(), key=lambda x: (-x[1][0], x[0]))[:top]],
+                  'x_handles': [[h, c, sorted(nl), [k for k, _ in sorted(tp.items(), key=lambda z: -z[1])[:3]]]
+                                for h, (c, nl, tp) in sorted(xh.items(), key=lambda x: (-x[1][0], x[0]))[:top]]}
+    return out
 
 SIGNAL_WEIGHTS = {'voices': 0.4, 'reach': 0.25, 'rising': 0.2, 'eng': 0.15}
 SIGNAL_METHOD = ('signal (0-100, per window) = 0.40 x pct(voices) + 0.25 x pct(reach) + 0.20 x pct(rising) + 0.15 x pct(engagement excl. Reddit); '
@@ -493,10 +762,7 @@ SIGNAL_METHOD = ('signal (0-100, per window) = 0.40 x pct(voices) + 0.25 x pct(r
 
 def score_signal(nodes):
     """Per-window signal: weighted mean of percentile ranks among the nodes kept on the map. Components are stored next to it."""
-    n = len(nodes)
-    def pct(vals):
-        srt = sorted(vals)
-        return [0.0 if v <= 0 or n < 2 else 100.0 * bisect.bisect_left(srt, v) / (n - 1) for v in vals]
+    pct = pct_rank
     rising = pct([x['rising'] or 0 for x in nodes])
     for w in WINDOWS:
         parts = {'voices': pct([x['w'][w]['authors'] for x in nodes]), 'reach': pct([x['w'][w]['reach'] for x in nodes]),
@@ -509,7 +775,7 @@ def score_signal(nodes):
 PROJECT_WINDOWS = ('7d', '30d')
 
 ADAPTERS = ['Hacker News (Algolia)', 'Lobsters (ai tag)', 'Mastodon (mastodon.social tags)', 'Reddit (arctic-shift archive)',
-            'Reddit (official API)', 'Bluesky (app password)', 'Newsletters (RSS)']
+            'Reddit (official API)', 'Bluesky (app password)', 'Newsletters (RSS)', 'Official feeds (RSS)']
 
 def main():
     offline = '--offline' in sys.argv
@@ -521,7 +787,8 @@ def main():
     if not offline:
         for name, fn in (('Hacker News (Algolia)', fetch_hn), ('Lobsters (ai tag)', fetch_lobsters), ('Mastodon (mastodon.social tags)', fetch_mastodon),
                          ('Reddit (arctic-shift archive)', fetch_reddit_archive), ('Reddit (official API)', fetch_reddit),
-                         ('Bluesky (app password)', fetch_bluesky), ('Newsletters (RSS)', fetch_newsletters)):
+                         ('Bluesky (app password)', fetch_bluesky), ('Newsletters (RSS)', fetch_newsletters),
+                         ('Official feeds (RSS)', fetch_official)):
             try:
                 ps = fn(); store(con, ps)
                 note(name, 'partial' if name in PARTIAL else 'ok', f'{len(ps)} posts fetched' + (f'; {PARTIAL[name]}' if name in PARTIAL else ''))
@@ -541,17 +808,19 @@ def main():
             SOURCES.setdefault(k, {'status': 'unknown', 'detail': 'not fetched in this offline rebuild'})
     stored = load_stored(con)
     posts = stored + internal_posts()
-    nodes, edges, totals, projects = build(posts, lex, hype_items)
+    nodes, edges, totals, projects, extras = build(posts, lex, hype_items, tracker_repos())
     out = {'generated_at': iso(NOW), 'windows': list(WINDOWS), 'sources': SOURCES, 'totals': totals,
-           'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days; ' + SIGNAL_METHOD,
+           'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days; ' + SIGNAL_METHOD
+                     + '; ' + REACH_PCT_METHOD + '; ' + ORGANIC_METHOD,
            'projects_note': 'projects: live sampled feeds only (no tracker, no dossier); voices = distinct (network, author) pairs, nets = distinct networks; 0 means no matching post in our sampled feeds, not zero attention',
            'coverage': ['Sampled feeds, not internet-wide totals: HN stories above 20 points, the Lobsters AI tag, nine Mastodon hashtags on mastodon.social, '
                         'ten AI subreddits via the arctic-shift public archive (up to 1,000 newest posts per subreddit per run, so busy subreddits reach back about a week), '
-                        'eleven public AI newsletter feeds (the digest end point), tracker papers and repos, and the static HYPE research dossier. '
+                        'twelve public AI newsletter feeds (the digest end point), lab and vendor announcement feeds (the Official network: where launches originate), '
+                        'tracker papers and repos, and the static HYPE research dossier. '
                         'Bluesky appears only when an app password is configured. X appears only through the static dossier; it is not collected live.',
                         'Topics come from a reviewable lexicon (topics_lexicon.json), automatic model-version names, and capitalised phrases used by at least three distinct authors (marked emerging).',
                         'A node is only as strong as the posts listed under it; open it to read them.'],
-           'nodes': nodes, 'edges': edges, 'projects': projects}
+           'nodes': nodes, 'edges': edges, 'projects': projects, 'citations': extras['citations']}
     with open(os.path.join(WEB, 'pulse.json'), 'w') as f:
         json.dump(out, f, separators=(',', ':'), ensure_ascii=False)
     print(f'pulse: {len(nodes)} topics, {len(edges)} links, 7d posts by network {totals["7d"]}')

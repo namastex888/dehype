@@ -221,7 +221,7 @@ This subtracts relative positions in **different proxy reference populations**, 
 
 The Pulse tab answers "what is the AI conversation about right now, and where". It is built by `pulse.py` (standard library) from sampled feeds and is separate from the ranking scores above.
 
-**Feeds (samples, never totals).** Hacker News stories above 20 points (Algolia), the Lobsters `ai` tag, nine Mastodon hashtags on mastodon.social, ten AI subreddits through the arctic-shift public Reddit archive (a third-party archive with no uptime guarantee; vote counts there are snapshots), Bluesky searches when an app password is configured, eleven public AI newsletter RSS feeds listed in `newsletters.json` (a separate `Newsletter` network: the point where a topic reached the digests; newsletter issues do not create co-mention links and do not count as conversation for *rising*), plus the tracker's own papers and ranked repos and the static HYPE research dossier. X is not collected. Each feed records `ok`, `partial`, `failed` or `not connected` on the page; a failed feed keeps the posts it stored earlier (45-day retention in `history/signals.sqlite`).
+**Feeds (samples, never totals).** Hacker News stories above 20 points (Algolia), the Lobsters `ai` tag, nine Mastodon hashtags on mastodon.social, ten AI subreddits through the arctic-shift public Reddit archive (a third-party archive with no uptime guarantee; vote counts there are snapshots), Bluesky searches when an app password is configured, twelve public AI newsletter RSS feeds listed in `newsletters.json` (a separate `Newsletter` network: the point where a topic reached the digests; newsletter issues do not create co-mention links and do not count as conversation for *rising*), lab and vendor announcement feeds listed in `official_feeds.json` (a separate `Official` network: OpenAI, Google DeepMind, Google AI and Research, Meta's company newsroom, NVIDIA, Microsoft, Mistral, Hugging Face, Qwen, DeepSeek GitHub releases, and Anthropic through a community RSS mirror of its news page because it publishes no feed; Official items are the origin of a launch, so they can open a spread trace but never count as conversation, never create co-mention links and do not add to reach), plus the tracker's own papers and ranked repos and the static HYPE research dossier. X is not collected. Each feed records `ok`, `partial`, `failed` or `not connected` on the page; a failed feed keeps the posts it stored earlier (45-day retention in `history/signals.sqlite`).
 
 **Topics.** A post maps to topics through three reviewable rules:
 
@@ -252,13 +252,48 @@ The "What matters now" list orders topics by a per-window **signal** from 0 to 1
 ```
 signal      = 0.40 × pct(voices) + 0.25 × pct(reach) + 0.20 × pct(rising) + 0.15 × pct(engagement excl. Reddit)
 pct(x)      = share of the other topics on the map (up to 160, all kinds) with a strictly lower value; ties share the lower rank; a zero value scores 0
-reach       = distinct networks other than newsletters (tracker arXiv/GitHub and dossier platforms count as networks, as in `nets`)
+reach       = distinct networks other than newsletters and Official (tracker arXiv/GitHub and dossier platforms count as networks, as in `nets`)
               + distinct newsletters carrying the topic in the window
 rising      = the node's 24h-vs-7d ratio above (one value for every window); a topic without a rising value scores 0 on this component
 engagement  = Σ log(1 + score + comments) over matching posts outside Reddit (arctic-shift Reddit scores are snapshots taken at ingestion)
 ```
 
-A topic with no voices in the window scores 0. The four percentiles are stored next to the signal (`signal_parts`) and the page always shows the counts behind them (voices, networks, newsletters, rising) rather than the bare number. **Colour on the map is reach** (a single blue ramp in five fixed bins: 1, 2, 3–4, 5–7, 8+), size is still voices, and shape is the kind of topic. Each node also records which newsletters carried it and the raw score and comment sums per network on its sampled live posts (`engagement`; HN points, Mastodon favourites + boosts, Reddit snapshot votes); these are sums over our sample, never platform totals.
+A topic with no voices in the window scores 0. The four percentiles are stored next to the signal (`signal_parts`) and the page always shows the counts behind them (voices, networks, newsletters, rising) rather than the bare number. **Colour on the map is reach** (a single blue ramp in five fixed bins: 1, 2, 3–4, 5–7, 8+; nodes reaching 5 or more also glow), size is still voices, and shape is the kind of topic (circle model, square lab or product, diamond person, hexagon theme, dashed outline emerging). Each node also records which newsletters carried it and the raw score and comment sums per network on its sampled live posts (`engagement`; HN points, Mastodon favourites + boosts, Reddit snapshot votes); these are sums over our sample, never platform totals.
+
+### Who and where
+
+Each topic records, per window, posts and distinct voices per network (`where`), the newsletters that carried it, and the people (`kind: person`) and subjects most often named in the same posts (`with`, from co-mention counts; newsletter and Official items do not create co-mentions). The Pulse tab shows them as a Map or as a sortable Table; the Table and the drawer never rank post authors.
+
+### Reach percentile across papers, posts and repos
+
+```
+reach_pct = mean of the five highest item percentiles among the items that match the topic in the window
+item percentile = share of the other items of the same type and window with a strictly lower value (ties share the lower rank; zero scores 0)
+types     = posts, ranked per network: HN points, Mastodon favourites + boosts, Lobsters score, Bluesky likes + reposts
+            papers: Hugging Face upvotes of tracker papers
+            repos: stars gained in the window (tracker rows, any paradigm view)
+```
+
+Reddit is excluded because arctic-shift scores are snapshots taken at ingestion; newsletter and Official items carry no score. Raw counts are never added across types: a topic is near the top when its best few items are near the top of their own kind. Items without an observed value are left out, so a topic with no scored item has no reach percentile (shown as —). This is separate from the colour on the map (`reach` = networks + newsletters).
+
+### Organic or orchestrated?
+
+Six signals per topic over the 30-day live conversation (HN, Reddit, Mastodon, Lobsters, Bluesky) by named accounts (empty, `[deleted]` and `AutoModerator` authors are left out). They describe patterns that coordinated pushes leave; each one also has innocent causes, so the page phrases them as signals, never as proof.
+
+| Signal | Definition | Fires at | Innocent explanation |
+|---|---|---|---|
+| burst | share of posts inside the densest 6-hour window | ≥ 0.5 (strong ≥ 0.7) | a launch or news day |
+| dupe | share of posts with 5+ words whose 5-word-shingle Jaccard (lowercase, URLs removed) with a post by a **different** author is ≥ 0.6; posts under 5 words are left out of numerator and denominator; needs 10 comparable posts | ≥ 0.2 (strong ≥ 0.4) | many people submitting the same article title |
+| single_topic | among the topic's authors with **two or more** stored live posts in 30 days (all posts count, including HN stories later dropped as not AI), the share whose posts all match this topic; one-post authors cannot be told apart from ordinary drive-by posters and are not counted; needs 5 such authors | ≥ 0.5 | specialists who only post about one project |
+| link_push | largest share of posts pointing at one target URL (fragment and utm/ref parameters removed); needs 10 posts with a known link. Target links are kept from 2026-10-16 on, so older posts are unknown, not zero | ≥ 0.3 with 5+ posts (strong ≥ 0.5) | an official announcement everybody links |
+| repos | tracker repos ranked in the 30-day window that match the topic (by text, or by paradigm for a theme with `tracker_tag`), with their anti-noise flags (`stars>activity`, `solo`, `spike`); the share of `stars>activity` across all 30-day rows is shown as a baseline | `stars>activity` on half of 3+ repos | young repos whose activity has not caught up |
+| dossier | the HYPE research dossier's coordination assessment for projects that map to the topic | disclosed sponsorship or a measured coordination assessment | — |
+
+Label: **too few posts** under 10 posts; **strong coordination signals** when two signals fire or one reaches its strong level; **some coordination signals** for one; otherwise **no coordination signal**. Thresholds are deliberately conservative and unvalidated; a label is a reason to read the posts, not a finding.
+
+### Newsletter citations
+
+When a newsletter item is parsed, the links in its HTML are read before the HTML is stripped: the cited domains and the X/Twitter handles (`x.com/<handle>/…`) are stored with the item. `pulse.json` `citations` lists, per window, the top 50 domains and handles with the number of items citing them, which newsletters cited them and (for handles) the topics of those items. Newsletter infrastructure (Substack, beehiiv, trackers) and the newsletter's own site are skipped; sponsor links are not, so advertisers can appear. Handles are public accounts cited by publications, a candidate follow list for the owner (see `docs/SIGNALS_PLAN.md`); the page does not rank them.
 
 ### Live column on the Hype tab
 

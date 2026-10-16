@@ -21,7 +21,7 @@ class PulseTest(unittest.TestCase):
         pulse.EMERGING_STOP.update(x.lower() for x in LEX.get('emerging_stop', []))
 
     def build(self, posts):
-        nodes, edges, totals, self.projects = pulse.build(posts, LEX, HYPE)
+        nodes, edges, totals, self.projects, self.extras = pulse.build(posts, LEX, HYPE, getattr(self, 'repos', None))
         return {n['id']: n for n in nodes}, edges, totals
 
     def test_version_codename_and_parent(self):
@@ -157,6 +157,104 @@ class PulseTest(unittest.TestCase):
         self.assertEqual(self.projects['pi'], {'7d': {'voices': 0, 'posts': 0, 'nets': 0}, '30d': {'voices': 0, 'posts': 0, 'nets': 0}})
         self.assertEqual(self.projects['claude-code']['7d'], {'voices': 2, 'posts': 2, 'nets': 2})
         self.assertEqual(self.projects['claude-code']['30d'], {'voices': 2, 'posts': 3, 'nets': 2})
+
+    # ---- v3: sources, common reach, organic-vs-orchestrated signals
+    def test_official_feed_parsing_rss_and_atom(self):
+        now = pulse.NOW
+        rss = f"""<?xml version="1.0"?><rss version="2.0"><channel><title>Lab</title>
+          <item><title>Introducing Gemma 9</title><link>https://lab.test/gemma-9</link><pubDate>{(now - timedelta(hours=5)).strftime('%a, %d %b %Y %H:%M:%S +0000')}</pubDate>
+          <description>&lt;p&gt;Gemma 9 is &lt;a href="https://x.com/googlegemma/status/1"&gt;here&lt;/a&gt;&lt;/p&gt;</description></item>
+          <item><title>Old post</title><link>https://lab.test/old</link><pubDate>Mon, 01 Jan 2024 00:00:00 +0000</pubDate></item>
+        </channel></rss>""".encode()
+        ps = pulse.parse_feed(rss, 'Lab blog', 'Official', now - timedelta(days=30))
+        self.assertEqual(len(ps), 1)                                          # date filter, not a head count
+        self.assertEqual((ps[0]['net'], ps[0]['author'], ps[0]['url']), ('Official', 'Lab blog', 'https://lab.test/gemma-9'))
+        self.assertEqual(pulse.shown(ps[0]), 'Introducing Gemma 9')           # body kept for matching only
+        atom = f"""<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><entry><title>v2.0</title>
+          <link rel="alternate" href="https://github.com/org/repo/releases/tag/v2.0"/><updated>{pulse.iso(now - timedelta(hours=5))}</updated>
+          <content type="html">Release of DeepSeek 5</content></entry></feed>""".encode()
+        ps = pulse.parse_feed(atom, 'Repo releases', 'Official', now - timedelta(days=30))
+        self.assertEqual(ps[0]['url'], 'https://github.com/org/repo/releases/tag/v2.0')
+        n, _, _ = self.build(ps + [p('HN', 1, 'DeepSeek 5 weights are out', 'a', 1)])
+        self.assertIsNone(n['deepseek']['rising'])
+        self.assertEqual(n['deepseek']['w']['7d']['reach'], 1)               # an official post is the origin, not spread
+        self.assertEqual(n['deepseek']['spread'][0]['net'], 'Official')
+
+    def test_newsletter_citations_skip_infrastructure_and_own_site(self):
+        body = ('<a href="https://www.anthropic.com/news/x">a</a> <a href="https://x.com/karpathy/status/9?s=20">k</a>'
+                '<a href="https://twitter.com/i/web/status/1">i</a> <a href="https://substackcdn.com/img.png">c</a>'
+                '<a href="https://mynews.test/sub">own</a> <a href="https://github.com/a/b">g</a>')
+        doms, xs = pulse.citations(body, ('mynews.test',))
+        self.assertEqual(doms, ['anthropic.com', 'github.com'])
+        self.assertEqual(xs, ['karpathy'])
+        nl = pulse.post('Newsletter', 'n1', 'https://mynews.test/1', 'Claude news ␟ body', 'My News', pulse.iso(pulse.NOW - timedelta(hours=3)),
+                        extra={'domains': doms, 'x': xs})
+        self.build([nl])
+        c = self.extras['citations']['7d']
+        self.assertEqual(c['x_handles'][0][:3], ['karpathy', 1, ['My News']])
+        self.assertIn('Claude', c['x_handles'][0][3])
+
+    def test_burst_share(self):
+        t0 = pulse.NOW - timedelta(days=10)
+        times = [t0 + timedelta(minutes=10 * i) for i in range(6)] + [t0 + timedelta(days=d) for d in range(1, 5)]
+        share, start = pulse.burst_share(times)
+        self.assertAlmostEqual(share, 0.6)
+        self.assertEqual(start, t0)
+
+    def test_dupe_counts_only_other_authors(self):
+        txt = 'Grok 5 is the best model ever released buy now'
+        posts = [p('Reddit', i, txt + ('!' if i else ''), f'acct{i}', 2) for i in range(3)] + \
+                [p('Reddit', 10 + i, txt, 'same', 3) for i in range(2)] + [p('Reddit', 20, 'A completely different take on Grok 5 here today', 'x', 3)]
+        dk, elig = pulse.near_dupes(posts)
+        self.assertEqual({k[1] for k in dk}, {'0', '1', '2', '10', '11'})   # 10/11 copy acct0-2, who are other authors
+        self.assertEqual(len(elig), 6)
+        dk2, _ = pulse.near_dupes([p('Reddit', 1, txt, 'same', 1), p('Mastodon', 2, txt, 'other', 1)][:1] + [p('Reddit', 3, txt, 'same', 1)])
+        self.assertEqual(dk2, set())                                         # one author repeating themself is not a campaign
+
+    def test_single_topic_and_link_push(self):
+        link = {'link': 'https://grok.test/launch?utm_source=x'}
+        mono = [pulse.post('Reddit', f'm{i}', f'https://r.test/m{i}', f'Grok 5 thoughts number {i} from me today', f'mono{i // 2}',
+                           pulse.iso(pulse.NOW - timedelta(hours=5 + 30 * i)), 1, 1, extra=link) for i in range(10)]
+        mixed = [pulse.post('Reddit', f'x{i}', f'https://r.test/x{i}', f'Grok 5 and the weather number {i} with friends', f'mixed{i}',
+                            pulse.iso(pulse.NOW - timedelta(hours=7 + 30 * i)), 1, 1, extra={'link': f'https://site{i}.test/'}) for i in range(4)]
+        other = [pulse.post('Reddit', f'o{i}', f'https://r.test/o{i}', f'Kimi update {i} is interesting stuff today', f'mixed{i}',
+                            pulse.iso(pulse.NOW - timedelta(hours=9 + 30 * i)), 1, 1) for i in range(4)]
+        n, _, _ = self.build(mono + mixed + other)
+        o = n['grok']['organic']
+        self.assertEqual(o['posts'], 14)
+        self.assertEqual(o['single_topic_n'], 9)                             # authors with 2+ stored posts: 5 mono, 4 mixed (Grok + Kimi)
+        self.assertAlmostEqual(o['single_topic'], round(5 / 9, 3))
+        self.assertAlmostEqual(o['link_push'], round(10 / 14, 3))           # utm stripped before comparing
+        self.assertIn('link_push', o['flags'])
+        self.assertEqual(o['label'], 'strong coordination signals')
+        n2, _, _ = self.build(mixed)
+        self.assertEqual(n2['grok']['organic']['label'], 'too few posts')
+
+    def test_reach_percentile_per_type_and_repo_flags(self):
+        posts = [p('HN', i, f'Gemma story {i} about AI', f'h{i}', 2, score=10 * i) for i in range(1, 6)] + \
+                [p('HN', 9, 'Unrelated AI story', 'z', 2, score=1000)] + \
+                [pulse.post('arXiv', 'a1', 'https://arxiv.org/abs/a1', 'A Gemma paper', 'lab', pulse.iso(pulse.NOW - timedelta(hours=3)), 50, 0, source='tracker'),
+                 pulse.post('arXiv', 'a2', 'https://arxiv.org/abs/a2', 'Another paper on AI', 'lab', pulse.iso(pulse.NOW - timedelta(hours=3)), 5, 0, source='tracker')]
+        self.repos = [{'id': 'o/gemma-tools', 'text': 'gemma-tools: tools for Gemma', 'tag': 'other', 'gained': {'7d': 500, '30d': 900},
+                       'flags': {'7d': [], '30d': ['stars>activity']}},
+                      {'id': 'o/x', 'text': 'x: unrelated', 'tag': 'other', 'gained': {'7d': 10, '30d': 20}, 'flags': {'30d': []}}]
+        n, _, _ = self.build(posts)
+        w = n['gemma']['w']['7d']
+        self.assertEqual(w['reach_parts']['papers'], {'n': 1, 'best': 100.0})
+        self.assertEqual(w['reach_parts']['repos'], {'n': 1, 'best': 100.0})
+        self.assertEqual(w['reach_parts']['posts']['n'], 5)
+        self.assertEqual(w['reach_parts']['posts']['best'], 80.0)            # 4 of the 5 other HN stories score lower; the 1000-pt one does not match
+        self.assertAlmostEqual(w['reach_pct'], round((100 + 100 + 80 + 60 + 40) / 5, 1))   # mean of the top five, all types
+        self.assertEqual(n['gemma']['organic']['repos']['flags'], {'stars>activity': 1})
+        self.assertEqual(w['where']['HN'], {'posts': 5, 'voices': 5})
+
+    def test_jev_pattern_matches_run_py(self):
+        with open(os.path.join(os.path.dirname(pulse.__file__), 'run.py')) as f: src = f.read()
+        pat = next(t['pattern'] for t in LEX['topics'] if t['id'] == 'jev')
+        self.assertIn(f"JEV_RX = r'{pat}'", src)
+        n, _, _ = self.build([p('HN', 1, 'Show HN: JevBench for decision models', 'a', 1), p('HN', 2, 'OpenJev ships', 'b', 2),
+                              p('HN', 3, 'Jevons paradox and GPUs', 'c', 2)])
+        self.assertEqual(n['jev']['w']['7d']['posts'], 2)                      # HN keeps JEV stories without another AI keyword
 
 
 if __name__ == '__main__':

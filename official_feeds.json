@@ -1,0 +1,19 @@
+{
+  "_doc": "Lab and vendor announcement feeds read by pulse.py as the 'Official' network: where launches originate. Each URL was fetched and parsed on 2026-10-16; feeds that failed (no RSS, 404, HTML) are not listed. 'mirror': true marks a community RSS mirror of a first-party page that has no feed of its own (links and dates point at the vendor's page). Only item title, date and link are published. Add or fix entries by pull request.",
+  "feeds": [
+    {"name": "Anthropic news", "url": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_news.xml", "site": "https://www.anthropic.com/news", "mirror": true},
+    {"name": "OpenAI news", "url": "https://openai.com/news/rss.xml", "site": "https://openai.com/news/"},
+    {"name": "Google DeepMind blog", "url": "https://deepmind.google/blog/rss.xml", "site": "https://deepmind.google/blog/"},
+    {"name": "Google AI blog", "url": "https://blog.google/technology/ai/rss/", "site": "https://blog.google/technology/ai/"},
+    {"name": "Google Research blog", "url": "https://research.google/blog/rss/", "site": "https://research.google/blog/"},
+    {"name": "Meta Newsroom (whole company)", "url": "https://about.fb.com/news/feed/", "site": "https://about.fb.com/news/"},
+    {"name": "NVIDIA blog", "url": "https://blogs.nvidia.com/feed/", "site": "https://blogs.nvidia.com/"},
+    {"name": "NVIDIA newsroom", "url": "https://nvidianews.nvidia.com/releases.xml", "site": "https://nvidianews.nvidia.com/"},
+    {"name": "Microsoft Source (AI)", "url": "https://news.microsoft.com/source/topics/ai/feed/", "site": "https://news.microsoft.com/source/topics/ai/"},
+    {"name": "Mistral AI news", "url": "https://mistral.ai/rss.xml", "site": "https://mistral.ai/news"},
+    {"name": "Hugging Face blog", "url": "https://huggingface.co/blog/feed.xml", "site": "https://huggingface.co/blog"},
+    {"name": "Qwen blog", "url": "https://qwenlm.github.io/blog/index.xml", "site": "https://qwenlm.github.io/blog/"},
+    {"name": "DeepSeek-V3 releases (GitHub)", "url": "https://github.com/deepseek-ai/DeepSeek-V3/releases.atom", "site": "https://github.com/deepseek-ai/DeepSeek-V3"},
+    {"name": "DeepSeek-R1 releases (GitHub)", "url": "https://github.com/deepseek-ai/DeepSeek-R1/releases.atom", "site": "https://github.com/deepseek-ai/DeepSeek-R1"}
+  ]
+}

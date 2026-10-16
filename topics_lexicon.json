@@ -1,5 +1,5 @@
 {
-  "_doc": "Reviewable topic lexicon for pulse.py. kind: model | lab | product | technique | person. Persons are public AI figures named in posts (people mentioned, never post authors); they match case-sensitively on the full name, plus a surname only where it is unambiguous in AI conversation, and 'parent' links them to their organisation. 'versioned' families also create automatic version topics such as 'Opus 5.5'. Aliases match case-insensitively on word boundaries unless 'case': true. Add or fix entries by pull request; every node on the Pulse map links back to the posts that matched it.",
+  "_doc": "Reviewable topic lexicon for pulse.py. kind: model | lab | product | technique | person. Persons are public AI figures named in posts (people mentioned, never post authors); they match case-sensitively on the full name, plus a surname only where it is unambiguous in AI conversation, and 'parent' links them to their organisation. 'versioned' families also create automatic version topics such as 'Opus 5.5'. Aliases match case-insensitively on word boundaries unless 'case': true. 'pattern' is a raw case-insensitive regex used instead of aliases (the JEV entry copies run.py's JEV_RX so the Pulse topic and the tracker's JEV paradigm match the same words, including OpenJev or JevBench); 'tracker_tag' links a theme to the tracker paradigm whose repos it inherits. 'hn_ai': true lets a theme whose words are AI-specific (JEV) count as an AI signal for general-interest Hacker News stories; other themes need an AI keyword or a model/product name. Add or fix entries by pull request; every node on the Pulse map links back to the posts that matched it.",
   "topics": [
     {"id": "anthropic", "label": "Anthropic", "kind": "lab", "aliases": ["Anthropic"]},
     {"id": "openai", "label": "OpenAI", "kind": "lab", "aliases": ["OpenAI", "Open AI"]},
@@ -45,6 +45,7 @@
     {"id": "jobs-economy", "label": "AI jobs & economy", "kind": "technique", "aliases": ["layoffs", "jobs", "AI bubble", "valuation", "funding round", "IPO"]},
     {"id": "image-video-gen", "label": "Image & video generation", "kind": "technique", "aliases": ["image generation", "image model", "video generation", "video model", "text-to-video", "diffusion"]},
     {"id": "voice-audio", "label": "Voice & audio AI", "kind": "technique", "aliases": ["text-to-speech", "TTS", "voice agent", "speech model", "music generation"]},
+    {"id": "jev", "label": "JEV decision models", "kind": "technique", "pattern": "jev(?!ons|gen)|typesafe|type-?safe ai|(?:typed|system[- ]one) decision models?|system[- ]one models?", "tracker_tag": "JEV", "hn_ai": true},
 
     {"id": "sam-altman", "label": "Sam Altman", "kind": "person", "parent": "openai", "aliases": ["Sam Altman", "Altman"], "case": true},
     {"id": "greg-brockman", "label": "Greg Brockman", "kind": "person", "parent": "openai", "aliases": ["Greg Brockman", "Brockman"], "case": true},

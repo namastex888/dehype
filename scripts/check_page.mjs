@@ -79,6 +79,19 @@ try {
     for (const id of Object.keys(H.items || {}))
       need(['7d', '30d'].every(w => Number.isFinite(P.projects?.[id]?.[w]?.voices)), `pulse.json projects lacks hype id ${id}`);
   } else warn.push('pulse.json predates the signal field (no signal / projects); the next pulse.py run adds them');
+  // v3: who/where, common reach percentile, organic-vs-orchestrated signals, newsletter citations (required once method names reach_pct)
+  if (/reach_pct/.test(P.method || '')) {
+    const LABELS = ['too few posts', 'no coordination signal', 'some coordination signals', 'strong coordination signals'];
+    for (const n of P.nodes) {
+      need(P.windows.every(w => n.w[w].where && (n.w[w].reach_pct === null || Number.isFinite(n.w[w].reach_pct)) && n.with?.[w]),
+        `pulse node ${n.id} lacks where / reach_pct / with`);
+      const o = n.organic;
+      need(o && LABELS.includes(o.label) && Number.isFinite(o.posts) && o.readings && Array.isArray(o.flags), `pulse node ${n.id} lacks organic signals`);
+      for (const k of ['burst', 'dupe', 'single_topic', 'link_push'])
+        need(o && (o[k] === null || (o[k] >= 0 && o[k] <= 1)), `pulse node ${n.id} organic.${k} out of range`);
+    }
+    need(P.windows.every(w => Array.isArray(P.citations?.[w]?.domains) && Array.isArray(P.citations?.[w]?.x_handles)), 'pulse.json citations missing a window');
+  } else warn.push('pulse.json predates reach_pct / organic signals; the next pulse.py run adds them');
   pulseNote = `pulse ${P.nodes.length} topics${P.projects ? `, ${Object.keys(P.projects).length} projects` : ''}`;
 } catch (e) { if (e.code !== 'ENOENT') fail.push(`pulse.json unreadable: ${e.message}`); }
 
