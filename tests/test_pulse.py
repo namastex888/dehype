@@ -256,6 +256,31 @@ class PulseTest(unittest.TestCase):
                               p('HN', 3, 'Jevons paradox and GPUs', 'c', 2)])
         self.assertEqual(n['jev']['w']['7d']['posts'], 2)                      # HN keeps JEV stories without another AI keyword
 
+    # ---- review hotfix
+    def test_own_site_subdomains_and_tco_are_not_citations(self):
+        f = {'name': 'Rundown', 'url': 'https://rss.beehiiv.com/feeds/x.xml', 'site': ['therundown.ai', 'rundown.ai']}
+        body = ('<a href="https://app.therundown.ai/x">a</a><a href="https://www.rundown.ai/y">b</a><a href="https://t.co/abc">c</a>'
+                '<a href="https://openai.com/news/z">d</a>')
+        self.assertEqual(pulse.citations(body, tuple(pulse.own_hosts(f)))[0], ['openai.com'])
+
+    def test_official_items_are_not_voices(self):
+        off = pulse.post('Official', 'o1', 'https://lab.test/1', 'Gemma 9 released ␟ body', 'Lab blog', pulse.iso(pulse.NOW - timedelta(hours=5)),
+                         source='official')
+        legacy = {**pulse.post('Official', 'o2', 'https://lab.test/2', 'Gemma 9 docs', 'Lab blog', pulse.iso(pulse.NOW - timedelta(hours=4)))}
+        n, _, _ = self.build([off, legacy, p('HN', 1, 'Gemma 9 is fast', 'a', 1), p('Reddit', 2, 'Gemma 9 local test', 'b', 1)])
+        w = n['gemma']['w']['7d']
+        self.assertEqual(w['authors'], 2)                                     # HN + Reddit; the vendor feed is not a voice
+        self.assertEqual(w['posts'], 4)
+        self.assertIsNone(w['where']['Official']['voices'])
+        self.assertEqual(n['gemma']['spread'][0]['net'], 'Official')
+
+    def test_rising_below_one_scores_zero_in_signal(self):
+        slow = [p('Reddit', f's{i}', 'Kimi notes', f's{i}', 30 + 6 * i) for i in range(18)] + [p('Reddit', f't{i}', 'Kimi now', f't{i}', 2) for i in range(2)]
+        fast = [p('Reddit', f'g{i}', 'Gemma now', f'g{i}', 2) for i in range(4)] + [p('Reddit', 'g9', 'Gemma before', 'gz', 100)]
+        n, _, _ = self.build(slow + fast)
+        self.assertAlmostEqual(n['moonshot-kimi']['rising'], 0.7)            # 2 today vs 20/7 a day: slower than usual
+        self.assertEqual(n['moonshot-kimi']['w']['7d']['signal_parts']['rising'], 0)
+        self.assertGreater(n['gemma']['w']['7d']['signal_parts']['rising'], 0)
 
 if __name__ == '__main__':
     unittest.main()

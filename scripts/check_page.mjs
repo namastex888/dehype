@@ -90,8 +90,10 @@ try {
       for (const k of ['burst', 'dupe', 'single_topic', 'link_push'])
         need(o && (o[k] === null || (o[k] >= 0 && o[k] <= 1)), `pulse node ${n.id} organic.${k} out of range`);
     }
-    need(P.windows.every(w => Array.isArray(P.citations?.[w]?.domains) && Array.isArray(P.citations?.[w]?.x_handles)), 'pulse.json citations missing a window');
+    need(P.windows.every(w => Array.isArray(P.citations?.[w]?.domains)), 'pulse.json citations missing a window');
   } else warn.push('pulse.json predates reach_pct / organic signals; the next pulse.py run adds them');
+  // privacy: cited X handles are a ranking of (often pseudonymous) accounts; they stay in history/citations.json, never on the site
+  need(!/"x_handles"/.test(readFileSync(join(web, 'pulse.json'), 'utf8')), 'pulse.json publishes x_handles (keep them in history/citations.json)');
   pulseNote = `pulse ${P.nodes.length} topics${P.projects ? `, ${Object.keys(P.projects).length} projects` : ''}`;
 } catch (e) { if (e.code !== 'ENOENT') fail.push(`pulse.json unreadable: ${e.message}`); }
 

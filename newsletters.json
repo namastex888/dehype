@@ -1,17 +1,17 @@
 {
-  "_doc": "Public RSS/Atom feeds of AI newsletters read by pulse.py (verified 2026-10-16; Agent Uptime added 2026-10-16. Not added: AI Minds has no public RSS feed we could find, Claw's Newsletter returns 404). Each issue or item is one post on the 'Newsletter' network: the end point of a topic's spread trace. Only title, date and public link are published. Newsletters without a feed need email ingestion (see docs/SIGNALS_PLAN.md).",
+  "_doc": "Public RSS/Atom feeds of AI newsletters read by pulse.py (verified 2026-10-16; Agent Uptime added 2026-10-16. Not added: AI Minds has no public RSS feed we could find, Claw's Newsletter returns 404). Each issue or item is one post on the 'Newsletter' network: the end point of a topic's spread trace. Only title, date and public link are published. 'site' is the newsletter's own domain (or a list); links to it or its subdomains are not counted as citations. Newsletters without a feed need email ingestion (see docs/SIGNALS_PLAN.md).",
   "feeds": [
-    {"name": "The Rundown AI", "url": "https://rss.beehiiv.com/feeds/2R3C6Bt5wj.xml", "cadence": "daily"},
-    {"name": "The Neuron", "url": "https://rss.beehiiv.com/feeds/N4eCstxvgX.xml", "cadence": "daily"},
-    {"name": "Latent Space / AINews", "url": "https://www.latent.space/feed", "cadence": "daily"},
-    {"name": "TLDR AI", "url": "https://tldr.tech/api/rss/ai", "cadence": "daily"},
-    {"name": "The Decoder", "url": "https://the-decoder.com/feed/", "cadence": "many per day"},
-    {"name": "Techmeme", "url": "https://www.techmeme.com/feed.xml", "cadence": "many per day"},
-    {"name": "AlphaSignal", "url": "https://alphasignal.ai/feed.xml", "cadence": "many per day"},
-    {"name": "Don't Worry About the Vase (Zvi)", "url": "https://thezvi.substack.com/feed", "cadence": "near daily"},
-    {"name": "Simon Willison", "url": "https://simonwillison.net/atom/everything/", "cadence": "many per day"},
-    {"name": "Import AI", "url": "https://importai.substack.com/feed", "cadence": "weekly"},
-    {"name": "Interconnects", "url": "https://www.interconnects.ai/feed", "cadence": "every few days"},
-    {"name": "Agent Uptime", "url": "https://agentuptime.substack.com/feed", "cadence": "irregular"}
+    {"name": "The Rundown AI", "url": "https://rss.beehiiv.com/feeds/2R3C6Bt5wj.xml", "cadence": "daily", "site": ["therundown.ai", "rundown.ai"]},
+    {"name": "The Neuron", "url": "https://rss.beehiiv.com/feeds/N4eCstxvgX.xml", "cadence": "daily", "site": "theneuron.ai"},
+    {"name": "Latent Space / AINews", "url": "https://www.latent.space/feed", "cadence": "daily", "site": ["latent.space", "news.smol.ai"]},
+    {"name": "TLDR AI", "url": "https://tldr.tech/api/rss/ai", "cadence": "daily", "site": "tldr.tech"},
+    {"name": "The Decoder", "url": "https://the-decoder.com/feed/", "cadence": "many per day", "site": "the-decoder.com"},
+    {"name": "Techmeme", "url": "https://www.techmeme.com/feed.xml", "cadence": "many per day", "site": "techmeme.com"},
+    {"name": "AlphaSignal", "url": "https://alphasignal.ai/feed.xml", "cadence": "many per day", "site": "alphasignal.ai"},
+    {"name": "Don't Worry About the Vase (Zvi)", "url": "https://thezvi.substack.com/feed", "cadence": "near daily", "site": "thezvi.substack.com"},
+    {"name": "Simon Willison", "url": "https://simonwillison.net/atom/everything/", "cadence": "many per day", "site": "simonwillison.net"},
+    {"name": "Import AI", "url": "https://importai.substack.com/feed", "cadence": "weekly", "site": "importai.substack.com"},
+    {"name": "Interconnects", "url": "https://www.interconnects.ai/feed", "cadence": "every few days", "site": "interconnects.ai"},
+    {"name": "Agent Uptime", "url": "https://agentuptime.substack.com/feed", "cadence": "irregular", "site": "agentuptime.substack.com"}
   ]
 }
