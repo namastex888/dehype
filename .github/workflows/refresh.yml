@@ -38,6 +38,16 @@ jobs:
           # A fine-grained read-only PAT raises GitHub limits (5,000/h); the job token (1,000/h) is the fallback.
           GH_TOKEN: ${{ secrets.TRENDING_GH_TOKEN || github.token }}
         run: python run.py
+      - name: Collect conversation for the Pulse topic map
+        # optional secrets enable Bluesky and the official Reddit API; arctic-shift, HN, Lobsters and Mastodon need none
+        env:
+          BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
+          BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
+          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+          REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
+        continue-on-error: true   # a Pulse failure must not block the data commit
+        run: python pulse.py
       - name: Save pipeline state
         if: success()
         uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -54,15 +64,6 @@ jobs:
           path: history
           retention-days: 30
           if-no-files-found: ignore
-      - name: Collect conversation for the Pulse topic map
-        # optional secrets enable Bluesky and the official Reddit API; arctic-shift, HN, Lobsters and Mastodon need none
-        env:
-          BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
-          BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
-          REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-          REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
-        run: python pulse.py
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'

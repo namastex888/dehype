@@ -229,15 +229,17 @@ The Pulse tab answers "what is the AI conversation about right now, and where". 
 2. model-version names built from versioned families (`Opus 5.5`, `Gemini 4 Argon`, `GPT 6 Astra`): one- or two-digit versions only, a trailing tier word (Pro, Flash, ...) or a capitalised codename joins the name;
 3. emerging phrases: capitalised multi-word or CamelCase phrases from live conversation said by at least three distinct authors, excluding hashtags, phrases made only of common words, phrases already covered by rules 1-2, and a stoplist in the lexicon. They are drawn with a dashed outline.
 
-General-interest Hacker News stories count only when they match a topic or an AI keyword.
+General-interest Hacker News stories count only when they use an AI keyword or name an AI model, product or version (a lab or theme alias alone, such as "court" or "Microsoft", is not enough). Emerging phrases can be person names; private individuals are added to the stoplist when noticed. Mastodon and Bluesky posts have no title, so their samples show up to 200 characters of the public post text. Newsletter bodies are used for matching only; the page shows the issue title and link.
 
 **Metrics per window (24h, 7d, 30d).**
 
 ```
-voices  = distinct (network, author) pairs among matching posts
+voices  = distinct (network, author) pairs among matching posts (for tracker items the author is the lab or repo owner; for newsletters, the newsletter)
 weight  = voices × (1 + 0.5 × (networks − 1))          node area grows with √weight
 rising  = conversation posts in the last 24h ÷ (conversation posts in 7d ÷ 7)
-          shown only when 7d ≥ 4 and 24h ≥ 2 posts; tracker and dossier posts are excluded
+          live conversation only (HN, Reddit, Mastodon, Lobsters, Bluesky); tracker, dossier and newsletter items are excluded;
+          shown only when 7d ≥ 4 and 24h ≥ 2 such posts
+spread  = first item per network; a newsletter never takes the earliest slot of a day (many feeds give a date without a time)
 edge    = number of posts that match both topics (co-mention); parent links (Opus 5.5 → Claude Opus) are always drawn
 ```
 

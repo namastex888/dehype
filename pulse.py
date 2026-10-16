@@ -195,7 +195,7 @@ def fetch_newsletters(days=30):
             date = _rss_date(it.findtext('pubDate') or it.findtext('a:published', namespaces=ns) or it.findtext('a:updated', namespaces=ns))
             if not date or parse_dt(date) < cutoff: continue
             body = it.findtext('c:encoded', namespaces=ns) or it.findtext('description') or it.findtext('a:content', namespaces=ns) or it.findtext('a:summary', namespaces=ns) or ''
-            text = (title + ' — ' + strip_html(body))[:1500]
+            text = (title + ' \u241f ' + strip_html(body))[:1500]          # U+241F separator: body kept for matching only
             out.append(post('Newsletter', link or f"{nl['name']}:{title}", link, text, nl['name'], date))
     if failed: PARTIAL['Newsletters (RSS)'] = 'unreachable: ' + ', '.join(failed)
     if failed and not out: raise ConnectionError(PARTIAL['Newsletters (RSS)'])
@@ -261,7 +261,7 @@ def store(con, posts):
     for p in posts:
         con.execute('INSERT OR REPLACE INTO signals VALUES(?,?,?,?,?,?,?,?,?,?)',
                     (p['net'], p['pid'], p['url'], p['title'], p['author'], p['created'], p['score'], p['comments'], p['source'], iso(NOW)))
-    con.execute('DELETE FROM signals WHERE created < ?', (iso(NOW - timedelta(days=RETAIN_DAYS)),))
+    con.execute('DELETE FROM signals WHERE created IS NULL OR created < ?', (iso(NOW - timedelta(days=RETAIN_DAYS)),))
     con.commit()
 
 def load_stored(con):
@@ -282,7 +282,8 @@ me million model models more most much must my need never new news next nine no 
 other our out over own part people per phone plan post power pro real report said same say says see seven she should show six small so
 some spend start state states still study such take tech tells ten than that the their them then there these they thing think this
 those three through time to today too top two under up us use used user users using very via want was way we week well were what when
-where which while who why will with without work world would year years yet you your employees company companies version'''.split())
+where which while who why will with without work world would year years yet you your employees company companies version music image
+video audio voice code model release app api update review demo test tests paper study chat beta'''.split())
 
 EMERGING_STOP = set()
 
@@ -326,7 +327,9 @@ def match_topics(text, topics, fams, vrx):
         canon, parent = fams[fam.lower()]
         if not re.match(r'^\d{1,2}(\.\d{1,2})?$', ver): continue          # 2026, 1000 etc. are not model versions
         # a trailing word is a tier (Pro, Flash) or a capitalised codename (Argon, Astra); anything else is ordinary text
-        if sub and not (sub.lower() in VARIANTS or (sub[0].isupper() and sub.lower() not in COMMON and sub not in STOP_PHRASE)): sub = None
+        nxt = text[m.end():m.end() + 20]
+        if sub and not (sub.lower() in VARIANTS or (sub[0].isupper() and sub.lower() not in COMMON and sub not in STOP_PHRASE
+                                                    and not re.match(r'[\s-]+[A-Z][a-z]', nxt))): sub = None   # 'Opus 5.5 Music Video' is not a codename
         label = f'{canon} {ver}' + (f' {sub.title()}' if sub else '')
         tid = 'v:' + re.sub(r'[^a-z0-9.]+', '-', label.lower())
         found[tid] = {'id': tid, 'label': label, 'kind': 'version', 'parent': parent}
@@ -356,7 +359,7 @@ def emerging_phrases(posts, known_labels, covered=None, min_authors=3, limit=30)
 def shown(p):
     """Display text: newsletters keep their body only for matching; the page shows the issue title."""
     t = p['title'] or ''
-    return t.split(' — ', 1)[0] if p['net'] in DIGEST else t
+    return t.split('\u241f', 1)[0].strip() if p['net'] in DIGEST else t
 
 def build(posts, lex, hype_items):
     topics, fams, vrx, kw = compile_lexicon(lex, hype_items)
@@ -367,12 +370,15 @@ def build(posts, lex, hype_items):
         if not dt or dt > NOW + timedelta(hours=1) or dt < NOW - timedelta(days=30): continue
         text = p['title'] or ''
         found = match_topics(text, topics, fams, vrx)
-        if p['net'] == 'HN' and p['source'] == 'live' and not found and not kw.search(text): continue   # HN is general-interest
+        # HN is general-interest: keep a story only if it names an AI model/product/version or uses an AI keyword
+        if p['net'] == 'HN' and p['source'] == 'live' and not kw.search(text) and not any(t['kind'] in ('model', 'version', 'product') for t in found.values()): continue
         rel.append((p, dt, found))
     labels = {t['label'].lower() for t in topics} | {w.lower() for t in topics for w in t['label'].split()}
+    vwords = [set(t['label'].lower().split()) for _, _, f in rel for t in f.values() if t['kind'] == 'version']
     def covered(ph):
         r = [t.get('rx') or t.get('rx_case') for t in topics]
-        return bool(vrx.search(ph)) or any(x and x.fullmatch(ph) for x in r)
+        words = set(ph.lower().replace('-', ' ').split())
+        return bool(vrx.search(ph)) or any(x and x.fullmatch(ph) for x in r) or any(words <= v for v in vwords)
     for ph in emerging_phrases([p for p, _, _ in rel], labels, covered):
         prx = re.compile(r'(?<![\w-])' + re.escape(ph).replace(r'\ ', r'[\s-]') + r'(?![\w-])')
         tid = 'e:' + re.sub(r'[^a-z0-9.]+', '-', ph.lower())
@@ -384,7 +390,7 @@ def build(posts, lex, hype_items):
         n = nodes.get(t['id'])
         if not n:
             n = nodes[t['id']] = {'id': t['id'], 'label': t['label'], 'kind': t['kind'], 'parent': t.get('parent'),
-                                  'w': {w: {'posts': 0, 'authors': set(), 'nets': {}, 'eng': 0.0} for w in WINDOWS},
+                                  'w': {w: {'posts': 0, 'authors': set(), 'nets': {}, 'eng': 0.0, 'conv': 0} for w in WINDOWS},
                                   'first': None, 'last': None, 'samples': [], 'origin': {}}
         return n
     for p, dt, found in rel:
@@ -396,6 +402,7 @@ def build(posts, lex, hype_items):
                 if age <= days:
                     s = n['w'][w]; s['posts'] += 1; s['authors'].add((p['net'], p['author'])); s['nets'][p['net']] = s['nets'].get(p['net'], 0) + 1
                     s['eng'] += math.log1p(max(0, p['score'] or 0) + max(0, p['comments'] or 0))
+                    if p['net'] in CONVERSATION and p['source'] == 'live': s['conv'] += 1
             n['first'] = min(n['first'] or p['created'], p['created']); n['last'] = max(n['last'] or p['created'], p['created'])
             n['samples'].append((math.log1p(max(0, p['score'] or 0)) - age / 30, p, dt))
             o = n['origin'].get(p['net'])
@@ -420,8 +427,7 @@ def build(posts, lex, hype_items):
             nets = len(s['nets'])
             W[w] = {'posts': s['posts'], 'authors': len(s['authors']), 'nets': s['nets'], 'eng': round(s['eng'], 1),
                     'weight': round(len(s['authors']) * (1 + 0.5 * max(0, nets - 1)), 2)}
-        conv1 = sum(c for net, c in W['1d']['nets'].items() if net in CONVERSATION)
-        conv7 = sum(c for net, c in W['7d']['nets'].items() if net in CONVERSATION)
+        conv1, conv7 = n['w']['1d']['conv'], n['w']['7d']['conv']
         rising = round(conv1 / (conv7 / 7), 2) if conv7 >= 4 and conv1 >= 2 else None
         n['samples'].sort(key=lambda x: -x[0])
         seen_u, samples = set(), []
@@ -431,8 +437,9 @@ def build(posts, lex, hype_items):
             samples.append({'net': p['net'], 'title': shown(p)[:200], 'url': p['url'], 'date': iso(dt)[:10],
                             'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']})
             if len(samples) >= 8: break
-        spread = [{'net': net, 'at': iso(dt), 'author': p['author'], 'url': p['url'], 'title': shown(p)[:160], 'source': p['source']}
-                  for net, (dt, p) in sorted(n['origin'].items(), key=lambda x: x[1][0])]
+        spread = [{'net': net, 'at': iso(dt), 'day_only': dt.hour == dt.minute == dt.second == 0, 'author': p['author'], 'url': p['url'],
+                   'title': shown(p)[:160], 'source': p['source']}
+                  for net, (dt, p) in sorted(n['origin'].items(), key=lambda x: (x[1][0].date(), x[0] in DIGEST, x[1][0]))]
         out_nodes.append({'id': n['id'], 'label': n['label'], 'kind': n['kind'], 'parent': n['parent'], 'w': W, 'rising': rising, 'spread': spread,
                           'first': (n['first'] or '')[:10], 'last': (n['last'] or '')[:10], 'samples': samples})
     out_nodes.sort(key=lambda x: -x['w']['30d']['weight'])
@@ -446,6 +453,9 @@ def build(posts, lex, hype_items):
         for w, days in WINDOWS.items():
             if age <= days: totals[w][p['net']] = totals[w].get(p['net'], 0) + 1
     return out_nodes, out_edges, totals
+
+ADAPTERS = ['Hacker News (Algolia)', 'Lobsters (ai tag)', 'Mastodon (mastodon.social tags)', 'Reddit (arctic-shift archive)',
+            'Reddit (official API)', 'Bluesky (app password)', 'Newsletters (RSS)']
 
 def main():
     offline = '--offline' in sys.argv
@@ -473,14 +483,17 @@ def main():
                 if k not in ('Tracker (papers + repos)', 'HYPE research dossier'):
                     SOURCES[k] = {'status': v['status'], 'detail': v['detail'].split(' [as of last live run]')[0] + ' [as of last live run]'}
         except (OSError, ValueError, KeyError): pass
+        for k in ADAPTERS:
+            SOURCES.setdefault(k, {'status': 'unknown', 'detail': 'not fetched in this offline rebuild'})
     stored = load_stored(con)
     posts = stored + internal_posts()
     nodes, edges, totals = build(posts, lex, hype_items)
     out = {'generated_at': iso(NOW), 'windows': list(WINDOWS), 'sources': SOURCES, 'totals': totals,
            'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days',
            'coverage': ['Sampled feeds, not internet-wide totals: HN stories above 20 points, the Lobsters AI tag, nine Mastodon hashtags on mastodon.social, '
-                        'ten AI subreddits via the arctic-shift public archive, eleven public AI newsletter feeds (the digest end point), tracker papers and repos, and the static HYPE research dossier. '
-                        'Bluesky appears only when an app password is configured. X is not collected (no free route within its terms).',
+                        'ten AI subreddits via the arctic-shift public archive (up to 1,000 newest posts per subreddit per run, so busy subreddits reach back about a week), '
+                        'eleven public AI newsletter feeds (the digest end point), tracker papers and repos, and the static HYPE research dossier. '
+                        'Bluesky appears only when an app password is configured. X appears only through the static dossier; it is not collected live.',
                         'Topics come from a reviewable lexicon (topics_lexicon.json), automatic model-version names, and capitalised phrases used by at least three distinct authors (marked emerging).',
                         'A node is only as strong as the posts listed under it; open it to read them.'],
            'nodes': nodes, 'edges': edges}

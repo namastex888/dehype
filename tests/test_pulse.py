@@ -42,7 +42,7 @@ class PulseTest(unittest.TestCase):
         self.assertNotIn('v:gpt-5-is', n)
 
     def test_weight_counts_distinct_voices_and_network_spread(self):
-        posts = [p('Mastodon', i, 'Anthropic news', 'same-bot', 1) for i in range(6)] + [p('HN', 9, 'Anthropic raises', 'x', 1)]
+        posts = [p('Mastodon', i, 'Anthropic news', 'same-bot', 1) for i in range(6)] + [p('HN', 9, 'Anthropic raises funds for AI', 'x', 1)]
         n, _, _ = self.build(posts)
         w = n['anthropic']['w']['7d']
         self.assertEqual(w['posts'], 7)
@@ -67,11 +67,40 @@ class PulseTest(unittest.TestCase):
         self.assertNotIn('HN', {k for k in totals['7d'] if totals['7d'][k] > 2})
 
     def test_rising_needs_volume(self):
-        posts = [p('HN', i, 'MCP servers everywhere', f'a{i}', 2) for i in range(4)] + [p('HN', 10, 'MCP spec update', 'z', 100)]
+        posts = [p('Reddit', i, 'MCP servers everywhere', f'a{i}', 2) for i in range(4)] + [p('Reddit', 10, 'MCP spec update', 'z', 100)]
         n, _, _ = self.build(posts)
         self.assertGreaterEqual(n['mcp']['rising'], 2)
-        n2, _, _ = self.build([p('HN', 1, 'MCP note', 'a', 2), p('HN', 2, 'MCP note 2', 'b', 50)])
+        n2, _, _ = self.build([p('Reddit', 1, 'MCP note', 'a', 2), p('Reddit', 2, 'MCP note 2', 'b', 50)])
         self.assertIsNone(n2['mcp']['rising'])
+
+    def test_hn_needs_ai_signal_not_just_a_lab_or_theme(self):
+        posts = [p('HN', 1, 'Supreme Court rules on database', 'a', 1), p('HN', 2, 'Microsoft killed FoxPro', 'b', 1),
+                 p('HN', 3, 'Supreme Court and AI copyright', 'c', 1), p('HN', 4, 'Court filing on AI training data', 'd', 2)]
+        n, _, _ = self.build(posts)
+        self.assertEqual(n['policy-law']['w']['7d']['posts'], 2)       # only the AI stories
+        self.assertNotIn('microsoft', n)
+
+    def test_digest_never_takes_the_earliest_slot_of_a_day(self):
+        nl = pulse.post('Newsletter', 'n1', 'https://nl.test/1', 'Opus 5.5 is coming \u241f long body text', 'Digest',
+                        pulse.iso(pulse.NOW.replace(hour=0, minute=0, second=0, microsecond=0)))
+        posts = [nl, p('Reddit', 2, 'Opus 5.5 rumour', 'r', 0.2), p('HN', 3, 'Opus 5.5 leak', 'h', 0.1)]
+        n, edges, _ = self.build(posts)
+        tr = n['v:opus-5.5']['spread']
+        self.assertEqual(tr[-1]['net'], 'Newsletter')
+        self.assertTrue(tr[-1]['day_only'])
+        self.assertTrue(all(s['title'] == 'Opus 5.5 is coming' for s in n['v:opus-5.5']['samples'] if s['net'] == 'Newsletter'))
+
+    def test_codename_not_taken_from_ordinary_words(self):
+        n, _, _ = self.build([p('Reddit', i, 'Opus 5.5 Music Video', f'a{i}', 1) for i in range(2)] +
+                             [p('Reddit', 5 + i, 'Qwen 2.1 Image edit', f'b{i}', 1) for i in range(2)])
+        self.assertIn('v:opus-5.5', n)
+        self.assertFalse(any(k.startswith('v:opus-5.5-') or k.startswith('v:qwen-2.1-') for k in n))
+
+    def test_rising_ignores_dossier_posts(self):
+        dossier = [pulse.post('Reddit', f'd{i}', f'https://x.test/{i}', 'Grok 5 hype', f'u{i}', pulse.iso(pulse.NOW - timedelta(hours=1)),
+                              source='dossier') for i in range(5)]
+        n, _, _ = self.build(dossier + [p('Reddit', 9, 'Grok 5 note', 'z', 100)])
+        self.assertIsNone(n['grok']['rising'])
 
 
 if __name__ == '__main__':
