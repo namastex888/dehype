@@ -1,288 +1,655 @@
-<!doctype html><html lang=en><head><meta charset=utf-8><title>AI research trend tracker</title>
-<meta name=viewport content="width=device-width,initial-scale=1">
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trend Observatory</title>
+<meta name="description" content="Open AI research observatory: papers, GitHub repos and sampled attention, scored with public methods. Unknown stays unknown.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-body{font-family:system-ui,sans-serif;margin:20px;color:#222}
-h1{margin:0 0 4px;font-size:22px}.meta{color:#666;font-size:13px}
-.tabs{display:flex;gap:6px;margin:14px 0 6px;flex-wrap:wrap}
-.tabs button{border:1px solid #3b6fb6;background:#fff;color:#3b6fb6;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:14px}
-.tabs#views button{font-size:12px;padding:3px 10px;border-color:#888;color:#555}.tabs#views button.on{background:#555;color:#fff}
-.tabs button.on{background:#3b6fb6;color:#fff}.top button{font-size:16px;padding:8px 22px}
-input#q{padding:7px;width:360px;font-size:14px;margin:6px 10px 6px 0}
-table{border-collapse:collapse;width:100%;font-size:12.5px}
-th,td{border-bottom:1px solid #e3e3e3;padding:5px 5px;text-align:left;vertical-align:top}
-th{background:#f3f6fb;position:sticky;top:0}td.n,th.n{text-align:right;white-space:nowrap}
-.up{color:#1a8f2e;font-weight:600}.dn{color:#c62828;font-weight:600}.eq{color:#999}.new{background:#2962ff;color:#fff;border-radius:3px;padding:0 4px;font-size:11px}
-.tag{border-radius:10px;padding:1px 7px;font-size:11px;white-space:nowrap;background:#eee}
-.t-agents{background:#e3f2fd}.t-harness{background:#fff3e0}.t-JEPA{background:#ede7f6}.t-JEV{background:#fce4ec}.t-world{background:#e8f5e9}
-.score{font-weight:700}.dim{color:#999}.fav{color:#e6a700}
-.conf{display:inline-block;height:6px;width:36px;background:#eee;border-radius:3px;overflow:hidden;vertical-align:middle}
-.conf>i{display:block;height:100%;background:#3b6fb6}
-.help{display:inline-block;border:1px solid #888;border-radius:50%;width:16px;height:16px;text-align:center;font-size:11px;line-height:16px;cursor:help;color:#555;position:relative}
-.help .tip{display:none;position:absolute;left:20px;top:-4px;width:560px;background:#222;color:#eee;padding:10px;border-radius:6px;font-size:12px;line-height:1.45;text-align:left;z-index:9;font-weight:normal}
-.help:hover .tip{display:block}
-details{font-size:12px;color:#555;margin-top:16px}
-.tabs button:disabled{opacity:.35;cursor:not-allowed}
-#hnote{display:none;background:#fffbea;border:1px solid #f0dc8c;border-radius:6px;padding:7px 10px;font-size:12px;color:#5a4a00;margin:6px 0;line-height:1.45}
-#hnote b{color:#3d3200}
-.gap{display:inline-block;min-width:44px;text-align:center;border-radius:10px;padding:1px 6px;font-weight:700;font-size:11.5px}
-.g-attention_ahead{background:#fdecea;color:#c62828}.g-similar{background:#f1f1f1;color:#555}.g-evidence_ahead{background:#e3f2fd;color:#1565c0}
-.gap.low{opacity:.6;border:1px dashed currentColor}
-.lk{font-size:10.5px;color:#3b6fb6;border:1px solid #c9d7ee;border-radius:3px;padding:0 3px;margin-left:3px;text-decoration:none;white-space:nowrap}
-.ad{background:#fff3e0;color:#b25e00;border-radius:3px;padding:0 4px;font-size:10.5px;margin-left:4px}
-tr.hr{cursor:pointer}tr.hr:hover td{background:#f7f9fd}tr.hr.open td{background:#eef3fb}
-th.s{cursor:pointer;text-decoration:underline dotted}
-tr.card>td{background:#fbfcfe;padding:10px 14px 14px;border-bottom:2px solid #3b6fb6}
-.cg{display:grid;grid-template-columns:1fr 1fr;gap:6px 26px;font-size:12.5px;line-height:1.45}
-.cg h4{margin:8px 0 3px;font-size:12.5px;color:#3b6fb6;text-transform:uppercase;letter-spacing:.03em}
-.cg ul{margin:2px 0;padding-left:16px}.cg li{margin:2px 0}
-.cg table{font-size:11.5px}.cg td,.cg th{padding:2px 4px}
-.src a{font-size:10.5px;margin-right:4px}
-a.sc{color:inherit;text-decoration:none;border-bottom:1px dotted #9ab}a.sc:hover{color:#3b6fb6}
-.rs{color:#888;font-size:12px}.g-insufficient{background:#f1f1f1;color:#777;border:1px dashed #bbb}
-.fl{background:#fff3e0;color:#9a5300;border-radius:3px;padding:0 4px;font-size:10.5px;margin-left:3px;white-space:nowrap}
-.px{color:#b26a00;font-size:10.5px;margin-left:2px;cursor:help}
-#md{max-width:900px;line-height:1.55;font-size:14.5px;display:none}
-#md h1{font-size:22px;margin:18px 0 6px}#md h2{font-size:18px;margin:26px 0 6px;padding-top:6px;border-top:1px solid #e3e3e3}
-#md h3{font-size:15px;margin:18px 0 4px}#md code{background:#f3f4f6;padding:1px 4px;border-radius:3px;font-size:12.5px}
-#md pre{background:#f6f8fa;padding:10px 12px;border-radius:6px;overflow-x:auto;font-size:12.5px;line-height:1.45}
-#md pre code{background:none;padding:0}#md table{width:auto;font-size:13px;margin:6px 0}#md th,#md td{border:1px solid #e3e3e3;padding:4px 8px}
-#md th{position:static}
-#md blockquote{border-left:3px solid #c9d7ee;margin:8px 0;padding:2px 12px;color:#555}
-#mdtoc{font-size:13px;margin:6px 0 10px;color:#555;line-height:1.8}#mdtoc a{margin-right:10px;white-space:nowrap}
-</style></head><body>
-<h1>AI research trend tracker <span class=help>?<span class=tip>
-<b>Scores are versioned 0–100 discovery proxies, never star totals or validated capability.</b> Full formulas: <a href="#methodology" style="color:#9cf">Methodology tab</a>.<br>
-Present compatible signals are normalized against their reference and combined with the documented weights over the signals present.<br>
-<b>Repos/Papers</b>: raw scores shrink toward the reference median raw score: <code>score = prior + coverage * (raw - prior)</code>.<br>
-<b>HYPE Attention/Discovery</b>: mid-rank percentiles of raw scores shrink toward fixed neutral 50: <code>score = 50 + coverage * (pct - 50)</code>. Attention uses window candidates; Discovery uses the available-proxy cohort.<br>
-Evidence coverage is weighted completeness, not calibrated truth confidence.<br>
-<b>Repos</b>: star growth/day 25% · issue activity 15% · PR volume 10% · created-PR cohort merge fraction 10% · commits 15% · contributors 10% · contributor growth 15%.
-These are discovery activity proxies, not technical or economic validation. Historical v2 archives retain their original formulas.<br>
-<b>Papers</b>: HF upvote momentum 40% · linked-repo activity 35% · HN mention momentum 25%. <span class=px>~</span> = rate proxy.<br>
-Arrows compare ranks only among items in both runs and ignore tiny changes. — = no data.</span></span></h1>
-<div class=meta>Last updated: <b id=upd>…</b> · <span id=prevrun></span> · <span id=tracked></span> · <a href="#methodology" id=ver>scoring v2</a></div>
-<div class="tabs top" id=tabs></div>
-<div class=tabs id=wins></div>
-<div class=tabs id=views style="font-size:12px"></div>
-<div id=hnote></div>
-<div id=tablewrap><input id=q placeholder="Filter rows: title, author, lab, repo, project, tag…"> <span id=cnt class=meta></span>
-<table><thead id=th></thead><tbody id=tb></tbody></table>
-<details open><summary>Data sources (this run)</summary><ul id=src></ul></details></div>
-<div id=md></div>
+:root{
+ --bg:#05080d;--surface-1:#0a0e14;--surface-2:#0f151e;--surface-3:#151d29;--line:#1c2633;--line-2:#263343;
+ --text-primary:#e6edf5;--text-secondary:#9aa8b8;--text-muted:#5f6e80;
+ --accent:#3fd0ff;--accent-dim:#3fd0ff22;--accent-2:#7c8cff;
+ --series-1:#3987e5;--series-2:#d95926;--series-3:#199e70;--series-4:#c98500;--series-5:#d55181;--series-6:#9085e9;
+ --good:#0ca30c;--warning:#fab219;--serious:#ec835a;--critical:#d03b3b;
+ --grid:#ffffff0d;--glow:0 0 0 1px #3fd0ff33,0 0 24px #3fd0ff14;
+ --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;--sans:Inter,system-ui,-apple-system,Segoe UI,sans-serif;
+ color-scheme:dark}
+:root[data-theme="light"]{
+ --bg:#eef2f6;--surface-1:#fcfcfb;--surface-2:#f4f6f8;--surface-3:#e9edf2;--line:#dde3ea;--line-2:#cbd4de;
+ --text-primary:#0b0f14;--text-secondary:#46525f;--text-muted:#7a8592;
+ --accent:#0a7fb0;--accent-dim:#0a7fb01a;--accent-2:#4a5bd6;
+ --series-1:#2a78d6;--series-2:#eb6834;--series-3:#1baf7a;--series-4:#eda100;--series-5:#e87ba4;--series-6:#6250d6;
+ --grid:#0000000d;--glow:0 0 0 1px #0a7fb033;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text-primary);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+body{background-image:radial-gradient(1200px 500px at 80% -10%,#3fd0ff10,transparent 60%),radial-gradient(900px 400px at -10% 10%,#7c8cff0c,transparent 60%),linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:auto,auto,32px 32px,32px 32px;min-height:100vh}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.mono,.n,.kpi b,.chip,.seg button,code{font-family:var(--mono)}
+.dim{color:var(--text-muted)}.sec{color:var(--text-secondary)}
+.wrap{max-width:1440px;margin:0 auto;padding:0 20px}
+.wrap>*,.panel,.kpi,.chart{min-width:0}
+/* top bar */
+header.top{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.bar{display:flex;align-items:center;gap:18px;height:56px}
+.logo{display:flex;align-items:center;gap:10px;font:600 13px/1 var(--mono);letter-spacing:.14em;white-space:nowrap}
+.logo .mk{width:22px;height:22px;border:1.5px solid var(--accent);border-radius:6px;display:grid;place-items:center;box-shadow:var(--glow)}
+.logo .mk i{width:8px;height:8px;background:var(--accent);border-radius:2px;animation:pulse 2.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.logo .mk i{animation:none}}
+nav.tabs{display:flex;gap:2px;margin-left:8px}
+nav.tabs button{background:none;border:0;color:var(--text-secondary);font:500 13px var(--sans);padding:8px 12px;border-radius:8px;cursor:pointer;position:relative}
+nav.tabs button:hover{color:var(--text-primary);background:var(--surface-2)}
+nav.tabs button.on{color:var(--text-primary)}
+nav.tabs button.on::after{content:"";position:absolute;left:12px;right:12px;bottom:-11px;height:2px;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+.status{margin-left:auto;display:flex;align-items:center;gap:14px;font:12px var(--mono);color:var(--text-secondary);white-space:nowrap}
+.status .led{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.iconbtn{background:var(--surface-2);border:1px solid var(--line);color:var(--text-secondary);border-radius:8px;height:30px;padding:0 10px;cursor:pointer;font:12px var(--mono)}
+.iconbtn:hover{color:var(--text-primary);border-color:var(--line-2)}
+/* hero / search */
+.hero{padding:28px 0 8px}
+.hero h1{margin:0 0 4px;font:600 22px/1.25 var(--sans);letter-spacing:-.01em}
+.hero p{margin:0;color:var(--text-secondary);max-width:860px}
+.ask{margin-top:18px;position:relative}
+.ask input{width:100%;height:52px;border-radius:12px;border:1px solid var(--line-2);background:var(--surface-1);color:var(--text-primary);font:15px var(--sans);padding:0 120px 0 46px;outline:none;transition:border-color .15s,box-shadow .15s}
+.ask input:focus{border-color:var(--accent);box-shadow:var(--glow)}
+.ask .ic{position:absolute;left:16px;top:16px;width:20px;height:20px;color:var(--accent)}
+.ask kbd{position:absolute;right:14px;top:15px;font:11px var(--mono);color:var(--text-muted);border:1px solid var(--line-2);border-radius:6px;padding:3px 7px}
+.parsed{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:24px;align-items:center;font-size:12px}
+.parsed .lbl{color:var(--text-muted);font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase;margin-right:2px}
+.pchip{font:12px var(--mono);background:var(--accent-dim);color:var(--accent);border:1px solid #3fd0ff40;border-radius:999px;padding:2px 9px}
+.pchip.t{background:var(--surface-2);color:var(--text-primary);border-color:var(--line-2)}
+.examples{display:inline-flex;flex-wrap:wrap;gap:6px}.examples button{background:none;border:1px dashed var(--line-2);color:var(--text-secondary);border-radius:999px;padding:2px 10px;font:12px var(--mono);cursor:pointer}
+.examples button:hover{color:var(--accent);border-color:var(--accent)}
+/* controls */
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:14px 0 6px}
+.seg{display:inline-flex;background:var(--surface-1);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{background:none;border:0;color:var(--text-secondary);font-size:12px;padding:5px 10px;border-radius:7px;cursor:pointer}
+.seg button:hover:not(:disabled){color:var(--text-primary);background:var(--surface-3)}
+.seg button.on{background:var(--surface-3);color:var(--text-primary);box-shadow:inset 0 0 0 1px var(--line-2)}
+.seg button:disabled{opacity:.35;cursor:not-allowed}
+.seg button small{color:var(--text-muted);margin-left:4px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;background:var(--surface-1);border:1px solid var(--line);color:var(--text-secondary);font-size:12px;padding:4px 10px;border-radius:999px;cursor:pointer}
+.chip:hover{color:var(--text-primary);border-color:var(--line-2)}
+.chip.on{color:var(--text-primary);border-color:var(--accent);background:var(--accent-dim)}
+.chip .sw{width:8px;height:8px;border-radius:2px}
+.facet{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary)}
+.facet select{background:var(--surface-1);color:var(--text-primary);border:1px solid var(--line);border-radius:8px;font:12px var(--mono);padding:4px 6px}
+.ctl-l{font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+/* notice */
+.notice{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);background:var(--surface-1);border-left:2px solid var(--warning);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--text-secondary);margin:6px 0 0}
+.notice b{color:var(--text-primary);font-weight:600}
+/* panels */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0 12px}
+.panel{background:linear-gradient(180deg,var(--surface-1),color-mix(in srgb,var(--surface-1) 70%,var(--bg)));border:1px solid var(--line);border-radius:14px;position:relative}
+.panel::before{content:"";position:absolute;inset:-1px;border-radius:14px;padding:1px;background:linear-gradient(135deg,#3fd0ff30,transparent 30%,transparent 70%,#7c8cff20);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.kpi{padding:14px 16px}
+.kpi .k{font:11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}
+.kpi b{display:block;font-size:26px;font-weight:500;margin-top:4px;letter-spacing:-.02em}
+.kpi .s{font-size:12px;color:var(--text-secondary)}
+.charts{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,1fr);gap:12px;margin-bottom:12px}
+.chart{padding:14px 16px 10px;min-width:0}
+.chart h3,.tablehead h3{margin:0;font:600 13px var(--sans)}
+.chart .sub{font-size:12px;color:var(--text-muted);margin:2px 0 8px}
+.chart svg{display:block;width:100%;height:auto;overflow:visible}
+.chart svg text{font:11px var(--mono);fill:var(--text-secondary)}
+.chart svg .ax{stroke:var(--line-2)}.chart svg .gl{stroke:var(--grid);stroke:var(--line)}
+.chart svg .hit{fill:transparent;cursor:pointer}
+.chart svg .pt{transition:r .1s}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--text-secondary);margin-top:6px}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+/* table */
+.tablecard{overflow:hidden;margin-bottom:24px}
+.tablehead{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tablehead .cnt{font-size:12px;color:var(--text-secondary)}
+.tscroll{overflow:auto;max-height:78vh}
+table.t{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+table.t th{position:sticky;top:0;background:var(--surface-2);z-index:2;text-align:left;font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;user-select:none}
+table.t th.s{cursor:pointer}table.t th.s:hover{color:var(--text-primary)}
+table.t th.on{color:var(--accent)}
+table.t td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+table.t tbody tr{cursor:pointer;transition:background .1s}
+table.t tbody tr:hover td{background:var(--surface-2)}
+table.t tbody tr.sel td{background:var(--accent-dim)}
+table.t td.n,table.t th.n{text-align:right;white-space:nowrap}
+.ttl{font-weight:500;color:var(--text-primary)}
+.ttl a{color:var(--text-primary)}.ttl a:hover{color:var(--accent)}
+.desc{color:var(--text-muted);font-size:12px;margin-top:2px;max-width:560px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.rk{font:12px var(--mono);color:var(--text-muted);display:flex;gap:6px;justify-content:flex-end;align-items:center}
+.up{color:#3ccf7a}.dn{color:#ff7a7a}.eq{color:var(--text-muted)}
+.new{font:10px var(--mono);color:var(--accent);border:1px solid #3fd0ff55;border-radius:4px;padding:0 4px;letter-spacing:.04em}
+.rs{color:var(--text-muted)}
+.score{font:600 14px var(--mono);color:var(--text-primary)}
+.px{color:var(--warning);margin-left:2px;font-weight:400}
+.cov{display:inline-flex;align-items:center;gap:6px;color:var(--text-secondary);font:12px var(--mono)}
+.cov .bar{width:44px;height:4px;background:var(--surface-3);border-radius:2px;overflow:hidden}
+.cov .bar i{display:block;height:100%;background:var(--accent);border-radius:2px}
+.tag{display:inline-flex;align-items:center;gap:5px;font:11px var(--mono);color:var(--text-secondary);white-space:nowrap}
+.tag i{width:7px;height:7px;border-radius:2px}
+.fl{display:inline-block;font:10px var(--mono);color:var(--serious);border:1px solid #ec835a55;border-radius:4px;padding:0 4px;margin:2px 4px 0 0}
+.fav{color:var(--warning)}
+.gap{font:12px var(--mono);padding:1px 6px;border-radius:5px;border:1px solid var(--line-2)}
+.gap.g-attention_ahead{color:#ffb08a;border-color:#d9592666}.gap.g-evidence_ahead{color:#8fc1ff;border-color:#3987e566}.gap.g-similar{color:var(--text-secondary)}.gap.g-insufficient{color:var(--text-muted);border-style:dashed}
+.ad{font:10px var(--mono);color:var(--warning);border:1px solid #fab21955;border-radius:4px;padding:0 4px;margin-left:6px}
+/* drawer */
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,100vw);background:var(--surface-1);border-left:1px solid var(--line-2);z-index:50;transform:translateX(100%);transition:transform .22s ease;overflow:auto;box-shadow:-20px 0 60px #0008}
+.drawer.on{transform:none}
+.drawer .dh{position:sticky;top:0;background:var(--surface-1);padding:16px 20px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start;z-index:2}
+.drawer .dh h2{margin:0;font:600 17px/1.3 var(--sans);flex:1}
+.drawer .db{padding:16px 20px 40px;font-size:13px}
+.drawer h4{font:500 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);margin:20px 0 8px}
+.drawer ul{margin:0;padding-left:18px}.drawer li{margin:3px 0}
+.drawer table{width:100%;border-collapse:collapse;font-size:12px}
+.drawer table td,.drawer table th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.drawer table th{color:var(--text-muted);font:500 11px var(--mono)}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kv div{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.kv span{display:block;font:10px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.kv b{font:500 16px var(--mono)}
+.scrim{position:fixed;inset:0;background:#0006;z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+/* popover + tooltip */
+.pop{position:absolute;right:20px;top:58px;width:min(520px,calc(100vw - 32px));background:var(--surface-1);border:1px solid var(--line-2);border-radius:12px;padding:14px 16px;z-index:60;display:none;box-shadow:0 20px 50px #0009;font-size:12.5px}
+.pop.on{display:block}
+.pop li{margin:5px 0;list-style:none}.pop ul{padding:0;margin:0}
+.st{display:inline-flex;align-items:center;gap:5px;font:11px var(--mono);padding:0 6px;border-radius:4px;border:1px solid}
+.st.ok{color:var(--good);border-color:#0ca30c66}.st.warn{color:var(--warning);border-color:#fab21966}.st.bad{color:var(--critical);border-color:#d03b3b66}
+#tip{position:fixed;pointer-events:none;z-index:80;background:var(--surface-3);border:1px solid var(--line-2);color:var(--text-primary);border-radius:8px;padding:7px 9px;font:12px/1.4 var(--sans);max-width:300px;opacity:0;transition:opacity .08s;box-shadow:0 8px 24px #0008}
+#tip .m{font-family:var(--mono);color:var(--text-secondary)}
+/* methodology */
+#md{display:none;grid-template-columns:240px minmax(0,1fr);gap:28px;padding:20px 0 60px}
+#md nav{position:sticky;top:76px;align-self:start;max-height:calc(100vh - 96px);overflow:auto;font-size:12.5px;border-left:1px solid var(--line);padding-left:12px}
+#md nav a{display:block;color:var(--text-secondary);padding:3px 0}#md nav a:hover{color:var(--accent)}
+#md article{max-width:860px;font-size:14.5px;line-height:1.7}
+#md article h1,#md article h2,#md article h3{font-family:var(--sans);letter-spacing:-.01em;scroll-margin-top:80px}
+#md article h2{border-top:1px solid var(--line);padding-top:22px;margin-top:34px}
+#md article code{background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:12.5px}
+#md article pre{background:var(--surface-1);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto}
+#md article table{border-collapse:collapse;font-size:13px;display:block;overflow:auto}
+#md article td,#md article th{border:1px solid var(--line);padding:6px 8px;vertical-align:top}
+#md article blockquote{border-left:2px solid var(--accent);margin:0;padding-left:14px;color:var(--text-secondary)}
+#md .hl{background:var(--accent-dim);border-radius:6px}
+footer{border-top:1px solid var(--line);padding:22px 0 40px;color:var(--text-muted);font-size:12px}
+footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between}
+.empty{padding:40px;text-align:center;color:var(--text-muted)}
+@media (max-width:1100px){.charts{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.charts .chart:nth-child(2){grid-column:1/-1;order:-1}}
+@media (max-width:760px){
+ .wrap{padding:0 16px}.bar{gap:10px;height:auto;padding:10px 0;flex-wrap:wrap}
+ nav.tabs{order:3;width:100%;margin:0;overflow-x:auto}nav.tabs button.on::after{bottom:-4px}
+ .status .hide-s{display:none}
+ .kpis{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.charts{grid-template-columns:minmax(0,1fr)}
+ .status #upd{display:none}.parsed .hint{display:none}.charts .chart:nth-child(2){grid-column:auto}
+ .hero h1{font-size:19px}.ask input{padding-right:16px;font-size:14px}.ask kbd{display:none}
+ #md{grid-template-columns:1fr}#md nav{display:none}
+ .kv{grid-template-columns:1fr 1fr}
+ table.t .hs{display:none}
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap bar">
+ <div class="logo"><span class="mk"><i></i></span>TREND//OBSERVATORY</div>
+ <nav class="tabs" id="tabs" aria-label="Sections"></nav>
+ <div class="status">
+  <span class="hide-s" id="upd" title="last data refresh"></span>
+  <button class="iconbtn" id="srcbtn" aria-haspopup="true" title="data source health"><span class="led" id="srcled"></span><span id="srcsum">sources</span></button>
+  <button class="iconbtn" id="theme" title="toggle light/dark">◐</button>
+ </div>
+</div>
+<div class="pop" id="pop" role="dialog" aria-label="Data sources"></div>
+</header>
+
+<main class="wrap" id="app">
+ <section class="hero" id="hero">
+  <h1 id="h1"></h1><p id="lede"></p>
+  <div class="ask">
+   <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/><path d="M11 7.5v.01M8.2 9.2l.01 0" opacity=".6"/></svg>
+   <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Ask: “agent repos over 1k stars this month”, “jepa papers from meta”, “new world models”…" aria-label="Search">
+   <kbd>⌘K</kbd>
+  </div>
+  <div class="parsed" id="parsed"></div>
+ </section>
+ <section class="controls" id="controls">
+  <div class="seg" id="wins" role="group" aria-label="Window"></div>
+  <div class="chips" id="views" role="group" aria-label="Paradigm"></div>
+  <div class="facet"><span class="ctl-l">coverage ≥</span><select id="mincov"><option value="0">any</option><option value="0.5">50%</option><option value="0.6">60%</option><option value="0.75">75%</option></select></div>
+  <button class="chip" id="onlynew">new only</button>
+  <button class="chip" id="noflag">hide flagged</button>
+ </section>
+ <div class="notice" id="note"></div>
+ <section class="kpis" id="kpis"></section>
+ <section class="charts" id="charts"></section>
+ <section class="panel tablecard" id="tablecard">
+  <div class="tablehead"><h3 id="ttitle"></h3><span class="cnt" id="cnt"></span><span style="margin-left:auto" class="dim mono" id="sortinfo"></span></div>
+  <div class="tscroll"><table class="t"><thead id="th"></thead><tbody id="tb"></tbody></table></div>
+ </section>
+ <section id="md"></section>
+</main>
+<footer><div class="wrap">
+ <div>Code MIT · data CC BY 4.0 · <a href="https://github.com/namastex888/trending-research" target="_blank" rel="noopener">source on GitHub</a> · <a href="#methodology">methodology</a></div>
+ <div id="foot"></div>
+</div></footer>
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Details"></aside>
+<div id="tip" role="tooltip"></div>
+
 <script>
-let D=null, H=null, M=null, tab='papers', win='7d', view='all', hsort='score', msec='';const opened=new Set();
-function readHash(){const h=decodeURIComponent(location.hash.slice(1)).split('/');
- if(h[0]=='methodology'){tab='methodology';msec=h[1]||'';return}
- if(['papers','repos','hype'].includes(h[0]))tab=h[0];if(h[1])win=h[1];if(h[2])view=h.slice(2).join('/');}
-{readHash();
- const u=new URLSearchParams(location.search);if(u.get('open'))u.get('open').split(',').forEach(x=>opened.add(x));if(u.get('q'))document.getElementById('q').value=u.get('q');}
+'use strict';
+// ------------------------------------------------------------------ state
+let D=null,H=null,M=null;
+const S={tab:'papers',win:'7d',view:'all',q:'',mincov:0,onlyNew:false,noFlag:false,sort:null,sel:null,msec:''};
 const WN=['1d','7d','30d','90d','180d','1y','overall'];
+const REPO='https://github.com/namastex888/trending-research/blob/dev/';
+const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const num=v=>v==null?'<span class=dim>—</span>':Number(v).toLocaleString('en-US');
-const tagc=t=>'tag t-'+(t||'').split(/[\/ ]/)[0];
-function mv(r){const m=r.mv;
- if(!m){if(r.prev==null)return '<span class=new>new</span>';const d=r.prev-r.rank;return d>0?`<span class=up>▲${d}</span>`:d<0?`<span class=dn>▼${-d}</span>`:'<span class=eq>=</span>'}
- const t=m.why?` title="${esc(m.why)}"`:'';
- return m.s=='up'?`<span class=up>▲${m.d}</span>`:m.s=='down'?`<span class=dn>▼${m.d}</span>`:m.s=='same'?`<span class=eq title="within hysteresis (rank or score change too small)">=</span>`:
-  m.s=='reset'?`<span class=rs${t}>·</span>`:`<span class=new${t}>new</span>`}
+const DASH='<span class=dim>—</span>';
+const num=v=>v==null?DASH:Number(v).toLocaleString('en-US');
+const nv=num;
+const safe=u=>/^https?:\/\//i.test(u||'')?esc(u):'';
+const A=(u,t)=>safe(u)?`<a href="${safe(u)}" target=_blank rel=noopener>${t}</a>`:t;
+const srcs=l=>(l||[]).filter(safe).map((u,i)=>`<a href="${safe(u)}" target=_blank rel=noopener title="${esc(u)}">[${i+1}]</a>`).join(' ');
+const day=s=>s?String(s).slice(0,10):null;
+const pct=c=>c==null?null:Math.round(100*c);
+const median=a=>{a=a.filter(x=>x!=null).sort((x,y)=>x-y);if(!a.length)return null;const m=a.length>>1;return a.length%2?a[m]:(a[m-1]+a[m])/2};
+const TAGS=['JEPA','JEV','world/action models','harness/context','agents','other'];
+const TAGC={'JEPA':'var(--series-1)','JEV':'var(--series-2)','world/action models':'var(--series-3)','harness/context':'var(--series-4)','agents':'var(--series-5)','other':'var(--series-6)'};
+const tagc=t=>TAGC[t]||'var(--text-muted)';
+const tag=t=>t?`<span class=tag><i style="background:${tagc(t)}"></i>${esc(t)}</span>`:DASH;
+
+// ------------------------------------------------------------------ honesty vocabulary (ported unchanged)
 const KIND={'rate-proxy':'rate proxy: per-day-since-release average (no earlier snapshot), counts as half evidence','since-release':'rate since release (younger than the momentum horizon)','measured':'real delta from snapshots / stargazer timestamps','blended':'real snapshot delta blended with the since-release rate (our history is shorter than the window)'};
 const FLAG={'stars>activity':'star growth capped: not matched by issue/PR/commit activity','solo':'stars but ≤1 contributor (no outside contributors)','spike':'one-off spike: star rate not sustained across 7/30/90d','single-post':'HN attention is a single post','few-votes':'fewer than 10 upvotes: small sample, counts as part of a signal','single-platform':'all sampled attention on one platform','few-voices':'only a few unique authors in the sample'};
+const UNQ='verification: unqualified · freshness: unknown · source independence: unqualified';
 function flags(f){return (f||[]).map(x=>`<span class=fl title="${esc(FLAG[x]||x)}">${esc(x)}</span>`).join('')}
-function sc(v,sec,r,prior){if(v==null)return '<span class=dim title="no signal present">—</span>';
- const t=`score ${v}${r&&r.pct!=null?` · percentile ${r.pct}`:''}${r&&r.raw!=null?` · raw ${r.raw} before shrinkage`:''}${r&&r.coverage!=null?` · evidence coverage ${Math.round(100*r.coverage)}%`:''}${prior!=null?` · prior ${prior}`:''}${r&&r.kind?` · momentum: ${r.kind}`:''} · verification: unqualified · freshness: unknown · source independence: unqualified · click for the formula`;
- return `<a class=sc href="#methodology/${sec}" title="${esc(t)}">${v}</a>`}
-function ago(iso){if(!iso)return '—';const d=(Date.now()-Date.parse(iso))/864e5;return d<1?Math.round(d*24)+'h ago':Math.round(d)+'d ago'}
-function coverage(c,sec){if(c==null)return '<span class=dim>—</span>';const pct=Math.round(100*c);return `<a href="#methodology/${sec||'evidence-coverage-and-shrinkage'}" style="text-decoration:none;white-space:nowrap" title="evidence coverage ${pct}%: weighted signal completeness, not truth probability; verification, freshness and independence are separate"><span class=conf><i style="width:${pct}%"></i></span> <span class=dim>${pct}%</span></a>`}
-const PH=['#','Title','Lab / authors','Score','Coverage','HF ▲','Stars / code','Mentions (HN)','Days','Tag'];
-const RH=['#','Repo','Owner','Score','Coverage','Stars gained','Issues','PRs / merged cohort','Commits','Contributors','Paper','Last push','Tag'];
-function prow(r){const au=r.lab?esc(r.lab):esc((r.authors||[]).join(', '))+(r.n_authors>4?' et al.':'');
- return `<tr><td class=n>${r.rank} ${mv(r)}</td><td>${r.fav?'<span class=fav title="DeepSeek / MIT / RLM">★</span> ':''}<a href="https://arxiv.org/abs/${r.id}" target=_blank>${esc(r.title)}</a> <span class=dim>${r.id}</span></td>
- <td>${au||'—'}${flags(r.flags)}</td><td class="n score">${sc(r.score,'papers-score',r,D.priors&&D.priors.papers)}${r.kind=='rate-proxy'?`<span class=px title="${KIND['rate-proxy']}">~</span>`:''}</td><td class=n>${coverage(r.coverage)}</td>
- <td class=n>${r.upvotes==null?'<span class=dim>—</span>':`<a href="https://huggingface.co/papers/${r.id}" target=_blank>${num(r.upvotes)}</a>`}</td>
- <td class=n>${r.code?`<a href="${esc(r.code)}" target=_blank>${r.stars==null?'code':num(r.stars)+' ★'}</a>`:'<span class=dim>—</span>'}</td>
- <td class=n>${r.mentions==null?'<span class=dim>—</span>':`<a href="https://hn.algolia.com/?q=${r.id}" target=_blank title="${r.hn_points??0} story points">${r.mentions}</a>`}</td>
- <td class=n>${r.days}</td><td><span class="${tagc(r.tag)}">${esc(r.tag)}</span></td></tr>`}
-function rrow(r){
- const iss=(r.issues_opened==null&&r.issues_closed==null)?'<span class=dim>—</span>':`${num(r.issues_opened)}/${num(r.issues_closed)}`;
- const prs=r.prs_opened==null?'<span class=dim>—</span>':`${num(r.prs_opened)} / ${r.prs_merged_in_opened_cohort==null?'<span class=dim title="created-and-merged intersection unobserved">—</span>':num(r.prs_merged_in_opened_cohort)} <span class=dim title="merged events (may include PRs created before lookback); not the cohort numerator">(${nv(r.prs_merged)} events)</span>`;
- const cg=r.contrib_gained==null?'':` <span class=dim>(${r.contrib_gained>=0?'+':''}${num(r.contrib_gained)})</span>`;
- return `<tr><td class=n>${r.rank} ${mv(r)}</td><td>${r.fav?'<span class=fav>★</span> ':''}<a href="${esc(r.url)}" target=_blank>${esc(r.id)}</a><div class=dim>${esc(r.desc)}</div></td>
- <td>${esc(r.owner)}${flags(r.flags)}</td><td class="n score">${sc(r.score,'repo-trust-index',r,D.priors&&D.priors.repos)}${r.kind=='rate-proxy'?`<span class=px title="${KIND['rate-proxy']}">~</span>`:''}</td><td class=n>${coverage(r.coverage)}</td>
- <td class=n>${r.gained==null?`<span class=dim title="${r.kind=='rate-proxy'?'no stargazer timestamps or earlier snapshot: score uses stars/age as a rate proxy':'no growth history yet'}">—</span>`:`<span title="${esc((r.src||'')+(r.gspan?` over ${r.gspan} days`:''))}">${r.gained>=0?'+':''}${num(r.gained)}</span>${r.src=='snapshots'&&r.gspan?` <span class=dim>/${r.gspan}d</span>`:''}`}</td>
- <td class=n title="opened / closed in lookback">${iss}</td>
- <td class=n>${prs}</td><td class=n>${num(r.commits)}</td>
- <td class=n>${r.contributors==null?'<span class=dim>—</span>':num(r.contributors)}${cg}</td>
- <td>${r.paper?`<a href="https://arxiv.org/abs/${r.paper}" target=_blank title="${esc(r.paper_title||'')}">${r.paper}</a>`:'<span class=dim>—</span>'}</td>
- <td class=n>${ago(r.pushed)}</td><td><span class="${tagc(r.tag)}">${esc(r.tag)}</span></td></tr>`}
-function render(){
- document.getElementById('tabs').innerHTML=[['papers','Papers'],['repos','GitHub'],['hype','HYPE'],['methodology','Methodology']].map(([k,l])=>`<button class="${k==tab?'on':''}" onclick="tab='${k}';msec='';render()">${l}</button>`).join('');
- document.getElementById('hnote').style.display=tab=='hype'||D.archive_note&&tab!='methodology'?'block':'none';
- const isM=tab=='methodology';
- for(const id of ['wins','views','tablewrap'])document.getElementById(id).style.display=isM?'none':'';
- document.getElementById('md').style.display=isM?'block':'none';
- if(isM)return renderMethod();
- if(tab=='hype')return renderHype();
- document.getElementById('hnote').textContent=D.archive_note||'';
- document.getElementById('upd').textContent=D.generated_local;
- document.getElementById('tracked').textContent=`tracking ${D.tracked.papers} papers, ${D.tracked.repos} repos · run took ${D.run_seconds}s`;
- document.getElementById('prevrun').textContent=D.movement_note||(D.previous_run?'movement vs run of '+D.previous_run.replace('T',' '):'first run (all entries marked new)');
- document.getElementById('ver').textContent='scoring v'+(D.scoring_version||'1');
- document.getElementById('src').innerHTML=Object.entries(D.sources).map(([k,v])=>`<li><b>${esc(k)}</b>: ${esc(v.status)} — ${esc(v.detail)}</li>`).join('');
- if(!WN.includes(win))win='7d';
- if(!D.views.includes(view))view='all';history.replaceState(null,'','#'+tab+'/'+win+'/'+view);
- const V=D[tab][win];
- document.getElementById('wins').innerHTML=WN.map(w=>{const n=D[tab][w]?.[view]?.rows.length??0;return `<button class="${w==win?'on':''}" onclick="win='${w}';render()">${w} <span class=dim>(${n})</span></button>`}).join('');
- document.getElementById('views').innerHTML='<span class=meta style="align-self:center">Paradigm:</span>'+D.views.map(v=>`<button class="${v==view?'on':''}" onclick="view='${v}';render()">${v=='all'?'all (top 100)':esc(v)}</button>`).join('');
- const H=tab=='papers'?PH:RH;document.getElementById('th').innerHTML='<tr>'+H.map((h,i)=>`<th class="${i==0||(tab=='repos'?i>=3&&i<=9:i>=3&&i<=8)?'n':''}">${h=='Score'?`<a href="#methodology/${tab=='papers'?'papers-score':'repo-trust-index'}" title="how this score is computed">Score</a>`:h}</th>`).join('')+'</tr>';
- const q=document.getElementById('q').value.toLowerCase().trim();
- const cur=V?.[view]||{rows:[],candidates:0};
- let rows=cur.rows.map(v=>({...D[tab].items[v.id],...v})).sort((a,b)=>a.rank-b.rank);
- if(q)rows=rows.filter(r=>JSON.stringify(r).toLowerCase().includes(q));
- document.getElementById('tb').innerHTML=rows.map(tab=='papers'?prow:rrow).join('')||'<tr><td colspan=14 class=dim>No rows</td></tr>';
- document.getElementById('cnt').textContent=`${rows.length} rows shown (top ${cur.rows.length} of ${cur.candidates} candidates in window${view=='all'?'':', ranked within '+view})`;
-}
-// ---------------------------------------------------------------- HYPE tab
-const dash='<span class=dim>—</span>';
-const nv=v=>v==null?dash:num(v);
-const safe=u=>/^https?:\/\//i.test(u||'')?esc(u):'';
-const A=(u,t,cls)=>safe(u)?`<a href="${safe(u)}" target=_blank${cls?` class=${cls}`:''}>${t}</a>`:t;
-const srcs=l=>(l||[]).filter(safe).map((u,i)=>`<a href="${safe(u)}" target=_blank title="${esc(u)}">[${i+1}]</a>`).join('');
-const day=s=>s?String(s).slice(0,10):null;
+function mv(r){const m=r.mv;
+ if(!m){if(r.prev==null)return '<span class=new>NEW</span>';const d=r.prev-r.rank;return d>0?`<span class=up>▲${d}</span>`:d<0?`<span class=dn>▼${-d}</span>`:'<span class=eq>=</span>'}
+ const t=m.why?` title="${esc(m.why)}"`:'';
+ return m.s=='up'?`<span class=up>▲${m.d}</span>`:m.s=='down'?`<span class=dn>▼${m.d}</span>`:m.s=='same'?`<span class=eq title="within hysteresis (rank or score change too small)">=</span>`:
+  m.s=='reset'?`<span class=rs${t}>·</span>`:`<span class=new${t}>NEW</span>`}
+const mvDelta=r=>{const m=r.mv;if(m){return m.s=='up'?m.d:m.s=='down'?-m.d:m.s=='same'?0:null}return r.prev==null?null:r.prev-r.rank};
+const isNew=r=>r.mv?r.mv.s=='new':r.prev==null;
+function scoreTitle(r,prior){return `score ${r.score}${r.pct!=null?` · percentile ${r.pct}`:''}${r.raw!=null?` · raw ${r.raw} before shrinkage`:''}${r.coverage!=null?` · evidence coverage ${pct(r.coverage)}%`:''}${prior!=null?` · prior ${prior}`:''}${r.kind?` · momentum: ${r.kind}`:''} · ${UNQ}`}
+function sc(v,r,prior){if(v==null)return '<span class=dim title="no signal present">—</span>';
+ return `<span class=score title="${esc(scoreTitle({...r,score:v},prior))}">${v}</span>${r&&r.kind=='rate-proxy'?`<span class=px title="${esc(KIND['rate-proxy'])}">~</span>`:''}`}
+function cov(c){if(c==null)return DASH;const p=pct(c);return `<span class=cov title="evidence coverage ${p}%: weighted signal completeness, not truth probability; verification, freshness and independence are separate"><span class=bar><i style="width:${p}%"></i></span>${p}%</span>`}
+function ago(iso){if(!iso)return DASH;const d=(Date.now()-Date.parse(iso))/864e5;return d<1?Math.round(d*24)+'h':Math.round(d)+'d'}
 function since(iso){if(!iso)return null;return Math.max(0,Math.floor((Date.now()-Date.parse(iso))/864e5))}
-function gapb(r,it){const g=r.gap;if(g==null)return `<span class="gap g-insufficient" title="no discovery proxy score; missing evidence is not low value">—</span>`;
- const c=r.label;
- const lbl={attention_ahead:'attention percentile ahead',similar:'similar proxy percentiles',evidence_ahead:'discovery percentile ahead',insufficient:'insufficient coverage'}[c];
+
+// ------------------------------------------------------------------ smart search: question -> filters (local, deterministic, no model)
+const SYN={'jepa':'JEPA','jev':'JEV','world model':'world/action models','world models':'world/action models','world-model':'world/action models','action model':'world/action models','robot':'world/action models','robotics':'world/action models','vla':'world/action models',
+ 'harness':'harness/context','harnesses':'harness/context','context':'harness/context','memory':'harness/context','mcp':'harness/context','agent':'agents','agents':'agents','agentic':'agents'};
+const WINW={'today':'1d','24h':'1d','day':'1d','this week':'7d','week':'7d','weekly':'7d','this month':'30d','month':'30d','quarter':'90d','this year':'1y','year':'1y','all time':'overall','ever':'overall'};
+const FIELDS={star:'stars',stars:'stars',score:'score',coverage:'coverage',cov:'coverage',upvote:'upvotes',upvotes:'upvotes',votes:'upvotes',hf:'upvotes',gained:'gained',gain:'gained',contributors:'contributors',commits:'commits',mentions:'mentions',days:'days',age:'days',attention:'score',discovery:'discovery',gap:'gap'};
+const STOP=new Set('a an the of on in for with and or to me show find list papers paper repos repo github hype projects project about that are is top best new rising trending recent latest from by over under more less than at least most fewest sort what which'.split(' '));
+function nval(n,u){n=parseFloat(n);u=(u||'').toLowerCase();return u=='k'?n*1e3:u=='m'?n*1e6:u=='%'?n/100:n}
+function parseQuery(raw){
+ const P={raw,label:null,tab:null,win:null,tag:null,nums:[],who:null,terms:[],isNew:false,rising:false,sort:null};
+ let s=' '+raw.toLowerCase().replace(/[“”"]/g,' ')+' ';
+ const take=(re,fn)=>{s=s.replace(re,(...m)=>{fn(...m);return ' '})};
+ take(/\b(attention|hype)\s+(?:runs?\s+)?ahead\b/g,()=>{P.label='attention_ahead';P.tab='hype'});take(/\b(discovery|evidence)\s+ahead\b/g,()=>{P.label='evidence_ahead';P.tab='hype'});take(/\b(insufficient|low coverage)\b/g,()=>P.label='insufficient');
+ take(/\b(papers?|arxiv)\b/g,()=>P.tab='papers');take(/\b(repos?|github|repositor(?:y|ies)|code)\b/g,()=>P.tab=P.tab||'repos');take(/\b(hype|attention|buzz)\b(?!\s*(?:>|<|=))/g,()=>P.tab='hype');
+ take(/\b(1d|7d|30d|90d|180d|1y|overall)\b/g,(m,w)=>P.win=w);
+ for(const k of Object.keys(WINW).sort((a,b)=>b.length-a.length))take(new RegExp('\\b(?:this |last |past )?'+k.replace(/ /g,'\\s+')+'\\b','g'),()=>P.win=WINW[k]);
+ take(/\b(?:last|past)\s+(\d+)\s+days?\b/g,(m,n)=>{n=+n;P.win=n<=1?'1d':n<=7?'7d':n<=30?'30d':n<=90?'90d':n<=180?'180d':'1y'});
+ const F='(stars?|score|coverage|cov|upvotes?|votes|hf|gained|gain|contributors|commits|mentions|days|age|attention|discovery|gap)';
+ const OP={'>':'>','>=':'>=','<':'<','<=':'<=','=':'=',over:'>',above:'>','more than':'>','at least':'>=',under:'<',below:'<','less than':'<','fewer than':'<','at most':'<='};
+ take(new RegExp('\\b'+F+'\\s*(>=|<=|>|<|=)\\s*(\\d+(?:\\.\\d+)?)\\s*(k|m|%)?','g'),(m,f,o,n,u)=>P.nums.push({f:FIELDS[f],op:o,v:nval(n,u)}));
+ take(new RegExp('(>=|<=|>|<|over|above|more than|at least|under|below|less than|fewer than|at most)\\s*(\\d+(?:\\.\\d+)?)\\s*(k|m|%)?\\s*'+F+'\\b','g'),(m,o,n,u,f)=>P.nums.push({f:FIELDS[f],op:OP[o],v:nval(n,u)}));
+ take(/\b(most|top)\s+(starred|stars|upvoted|gained|contributors|commits)\b/g,(m,a,b)=>P.sort={stars:'stars',starred:'stars',upvoted:'upvotes',gained:'gained',contributors:'contributors',commits:'commits'}[b]);
+ take(/\b(?:from|by)\s+([a-z0-9][\w.\-@]*(?:\s+(?!with\b|in\b|over\b|under\b|and\b|this\b|last\b|more\b|less\b)[a-z0-9][\w.\-]*){0,2})/g,(m,w)=>P.who=w.trim());
+ take(/\b(new|newly|fresh|just appeared)\b/g,()=>P.isNew=true);
+ take(/\b(rising|risers|climbing|movers|gainers|up)\b/g,()=>P.rising=true);
+ for(const k of Object.keys(SYN).sort((a,b)=>b.length-a.length))take(new RegExp('\\b'+k.replace(/[-/]/g,'\\$&').replace(/ /g,'\\s+')+'\\b','g'),()=>P.tag=P.tag||SYN[k]);
+ if(P.nums.some(n=>['gap','discovery'].includes(n.f))&&!P.tab)P.tab='hype';
+ P.terms=s.split(/[^a-z0-9.+#\-_/]+/).filter(w=>w&&w.length>1&&!STOP.has(w));
+ return P}
+function lev1(a,b){if(Math.abs(a.length-b.length)>1)return false;let i=0,j=0,e=0;while(i<a.length&&j<b.length){if(a[i]==b[j]){i++;j++;continue}if(++e>1)return false;if(a.length>b.length)i++;else if(b.length>a.length)j++;else{i++;j++}}return e+(a.length-i)+(b.length-j)<=1}
+const HAY=new Map();
+function hay(r){const k=S.tab+'|'+r.id;let h=HAY.get(k);if(h)return h;
+ const t=[r.id,r.title,r.name,r.desc,r.owner,r.lab,(r.authors||[]).join(' '),r.tag,r.category,r.summary,r.paper_title].filter(Boolean).join(' ').toLowerCase();
+ h={t,w:t.split(/[^a-z0-9.+#\-_]+/).filter(x=>x.length>3)};HAY.set(k,h);return h}
+function termHit(r,term){const h=hay(r);if(h.t.includes(term))return 2;if(term.length>=5&&h.w.some(w=>lev1(w,term)||(w.length>term.length&&lev1(w.slice(0,term.length),term))))return 1;return 0}
+function getF(r,f){if(f=='discovery')return r._disc;return r[f]}
+function cmp(a,op,b){return a==null?false:op=='>'?a>b:op=='>='?a>=b:op=='<'?a<b:op=='<='?a<=b:a==b}
+
+// ------------------------------------------------------------------ data access
+function rowsFor(tab,win,view){
+ if(tab=='hype'){if(!H||!H.windows[win]?.enabled)return {rows:[],candidates:0};const cur=H[win]?.[view]||{rows:[],candidates:0};
+  return {candidates:cur.candidates,rows:cur.rows.map(r=>{const it=H.items[r.id],m=it.win[win]||{};return {...r,name:it.name,category:it.category,summary:it.summary,tag:it.tag,_disc:it.discovery.score,_dcov:it.discovery.coverage,mentions:m.mentions,voices:m.voices,platforms:m.platforms,first_seen:it.first_seen,days:since(it.first_seen)}})}}
+ const cur=D[tab]?.[win]?.[view]||{rows:[],candidates:0};
+ return {candidates:cur.candidates,rows:cur.rows.map(v=>({...D[tab].items[v.id],...v}))}}
+function applyFilters(rows,P){
+ let out=rows;
+ if(S.mincov)out=out.filter(r=>(r.coverage??0)>=S.mincov);
+ if(S.onlyNew||P.isNew)out=out.filter(isNew);
+ if(S.noFlag)out=out.filter(r=>!(r.flags&&r.flags.length));
+ for(const c of P.nums)out=out.filter(r=>cmp(getF(r,c.f),c.op,c.v));
+ if(P.who){const re=new RegExp('(^|[^a-z0-9])'+P.who.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-z0-9])');out=out.filter(r=>re.test([r.lab,r.owner,(r.authors||[]).join(' '),r.id,r.name].filter(Boolean).join(' · ').toLowerCase()))}
+ if(P.label)out=out.filter(r=>r.label==P.label);
+ if(P.rising)out=out.filter(r=>(mvDelta(r)??0)>0||isNew(r));
+ if(P.terms.length){out=out.map(r=>{let s=0;for(const t of P.terms){const h=termHit(r,t);if(!h)return null;s+=h}return {...r,_rel:s}}).filter(Boolean)}
+ return out}
+
+// ------------------------------------------------------------------ columns
+const C={
+ papers:[
+  {k:'rank',l:'#',n:1,v:r=>r.rank,h:r=>`<span class=rk>${mv(r)}<b>${r.rank}</b></span>`},
+  {k:'title',l:'Paper',v:r=>r.title,h:r=>`<div class=ttl>${r.fav?'<span class=fav title="DeepSeek / MIT / RLM">★</span> ':''}${esc(r.title)}</div><div class=desc>${esc(r.lab||((r.authors||[]).slice(0,4).join(', ')+(r.n_authors>4?' et al.':'')))} · <span class=mono>${esc(r.id)}</span></div>${flags(r.flags)}`},
+  {k:'score',l:'Score',n:1,v:r=>r.score,h:r=>sc(r.score,r,D.priors?.papers)},
+  {k:'coverage',l:'Coverage',n:1,v:r=>r.coverage,h:r=>cov(r.coverage),hs:1},
+  {k:'upvotes',l:'HF ▲',n:1,v:r=>r.upvotes,h:r=>num(r.upvotes)},
+  {k:'stars',l:'Code ★',n:1,v:r=>r.stars,h:r=>r.code?num(r.stars):DASH,hs:1},
+  {k:'mentions',l:'HN',n:1,v:r=>r.mentions,h:r=>num(r.mentions),hs:1},
+  {k:'days',l:'Age',n:1,v:r=>r.days,h:r=>r.days==null?DASH:r.days+'d',hs:1},
+  {k:'tag',l:'Paradigm',v:r=>r.tag,h:r=>tag(r.tag),hs:1}],
+ repos:[
+  {k:'rank',l:'#',n:1,v:r=>r.rank,h:r=>`<span class=rk>${mv(r)}<b>${r.rank}</b></span>`},
+  {k:'id',l:'Repository',v:r=>r.id,h:r=>`<div class=ttl>${r.fav?'<span class=fav>★</span> ':''}${esc(r.id)}</div><div class=desc>${esc(r.desc||'')}</div>${flags(r.flags)}`},
+  {k:'score',l:'Score',n:1,v:r=>r.score,h:r=>sc(r.score,r,D.priors?.repos)},
+  {k:'coverage',l:'Coverage',n:1,v:r=>r.coverage,h:r=>cov(r.coverage),hs:1},
+  {k:'gained',l:'★ gained',n:1,v:r=>r.gained,h:r=>r.gained==null?`<span class=dim title="${r.kind=='rate-proxy'?'no stargazer timestamps or earlier snapshot: score uses stars/age as a rate proxy':'no growth history yet'}">—</span>`:`<span title="${esc((r.src||'')+(r.gspan?` over ${r.gspan} days`:''))}">${r.gained>=0?'+':''}${num(r.gained)}</span>`},
+  {k:'stars',l:'Stars',n:1,v:r=>r.stars,h:r=>num(r.stars),hs:1},
+  {k:'contributors',l:'Contrib.',n:1,v:r=>r.contributors,h:r=>num(r.contributors),hs:1},
+  {k:'pushed',l:'Push',n:1,v:r=>r.pushed?-Date.parse(r.pushed):null,h:r=>ago(r.pushed),hs:1},
+  {k:'tag',l:'Paradigm',v:r=>r.tag,h:r=>tag(r.tag),hs:1}],
+ hype:[
+  {k:'rank',l:'#',n:1,v:r=>r.rank,h:r=>`<span class=rk>${mv(r)}<b>${r.rank}</b></span>`},
+  {k:'name',l:'Project',v:r=>r.name,h:r=>{const it=H.items[r.id];return `<div class=ttl>${esc(it.name)}${it.coord.disclosed?'<span class=ad title="disclosed sponsored content — see details">sponsored</span>':''}</div><div class=desc>${esc(it.category||'')}</div>${flags(r.flags)}`}},
+  {k:'score',l:'Attention',n:1,v:r=>r.score,h:r=>sc(r.score,r,50)},
+  {k:'_disc',l:'Discovery',n:1,v:r=>r._disc,h:r=>{const d=H.items[r.id].discovery;return sc(d.score,d,50)}},
+  {k:'gap',l:'Gap',n:1,v:r=>r.gap,h:r=>gapb(r)},
+  {k:'mentions',l:'Sampled posts',n:1,v:r=>r.mentions,h:r=>`<span title="sampled posts in window (not a global count)">${nv(r.mentions)}</span>`,hs:1},
+  {k:'voices',l:'Voices',n:1,v:r=>r.voices,h:r=>nv(r.voices),hs:1},
+  {k:'platforms',l:'Platforms',n:1,v:r=>r.platforms?.length,h:r=>r.platforms?`<span title="${esc(r.platforms.join(', '))}">${r.platforms.length}</span>`:DASH,hs:1},
+  {k:'tag',l:'Paradigm',v:r=>r.tag,h:r=>tag(r.tag),hs:1}]};
+function gapb(r){const g=r.gap;if(g==null)return `<span class="gap g-insufficient" title="no discovery proxy score; missing evidence is not low value">—</span>`;
+ const c=r.label,lbl={attention_ahead:'attention percentile ahead',similar:'similar proxy percentiles',evidence_ahead:'discovery percentile ahead',insufficient:'insufficient coverage'}[c];
  const why=c=='insufficient'?` · requires both coverage values ≥ ${Math.round(100*H.gap_min_coverage)}%`:'';
- return `<a href="#methodology/attention-discovery-gap" style="text-decoration:none"><span class="gap g-${c}" title="${lbl}: attention − discovery = ${g}; different proxy cohorts, heuristic only, not validation${why}">${g>0?'+':''}${g}${c=='insufficient'?' ?':''}</span></a>`}
-const HH=[['#'],['Project'],['Attention','score'],['Coverage'],['Discovery','discovery'],['Coverage'],['Gap','gap'],['Mentions'],['Voices'],['Platforms'],['First seen'],['Days'],['Tag']];
-function hrow(r){const it=H.items[r.id],m=it.win[win]||{},L=it.links;
- const main=L.site||L.repo||L.paper||L.hf||L.x_handle;
- const sm=[['x_handle','X'],['repo','repo'],['paper','paper'],['hf','HF']].filter(([k])=>L[k]).map(([k,t])=>A(L[k],t,'lk')).join('');
- const o=opened.has(r.id);
- return `<tr class="hr${o?' open':''}" onclick="tog('${r.id}')"><td class=n>${r.rank} ${mv(r)}</td>
- <td>${A(main,'<b>'+esc(it.name)+'</b>')}${sm}${it.coord.disclosed?'<span class=ad title="disclosed sponsored content — see card">sponsored (disclosed)</span>':''}<div class=dim>${esc(it.category||'')}</div></td>
- <td class="n score">${sc(r.score,'hype-attention-score',r,50)}${flags(r.flags)}</td><td class=n>${coverage(r.coverage)}</td>
- <td class="n score">${sc(it.discovery.score,'hype-discovery-score',it.discovery,50)}</td><td class=n>${coverage(it.discovery.coverage)}</td><td class=n>${gapb(r,it)}</td>
- <td class=n title="sampled posts in window (not a global count)">${nv(m.mentions)}</td><td class=n>${nv(m.voices)}</td>
- <td class=n title="${esc((m.platforms||[]).join(', '))}">${m.platforms?m.platforms.length:dash}</td>
- <td class=n>${it.first_seen?A(it.first_seen_url,day(it.first_seen)):dash}</td><td class=n>${nv(since(it.first_seen))}</td>
- <td><span class="${tagc(it.tag)}">${esc(it.tag)}</span></td></tr>`+(o?card(r,it):'')}
-function tog(id){opened.has(id)?opened.delete(id):opened.add(id);renderHype()}
-function hs(k){hsort=k;renderHype()}
-function fmtv(v){return typeof v=='number'?num(v):esc(typeof v=='object'?JSON.stringify(v):String(v))}
-function card(r,it){const v=it.viral,c=it.coord,ri=it.evidence_in,d=it.discovery,m=it.win[win]||{};
+ return `<span class="gap g-${c}" title="${esc(lbl)}: attention − discovery = ${g}; different proxy cohorts, heuristic only, not validation${why}">${g>0?'+':''}${g}${c=='insufficient'?' ?':''}</span>`}
+
+// ------------------------------------------------------------------ tooltip + svg helpers
+const tip=$('tip');
+function showTip(e,html){tip.innerHTML=html;tip.style.opacity=1;const x=Math.min(e.clientX+14,innerWidth-tip.offsetWidth-8),y=Math.min(e.clientY+14,innerHeight-tip.offsetHeight-8);tip.style.left=x+'px';tip.style.top=y+'px'}
+function hideTip(){tip.style.opacity=0}
+function bindTips(root,map){root.querySelectorAll('[data-t]').forEach(el=>{const k=el.dataset.t;el.addEventListener('mousemove',e=>showTip(e,map[k]));el.addEventListener('mouseleave',hideTip);
+ if(el.dataset.id)el.addEventListener('click',()=>openDetail(el.dataset.id))})}
+function niceTicks(lo,hi,n){const span=hi-lo||1,step0=span/n,mag=10**Math.floor(Math.log10(step0)),st=[1,2,2.5,5,10].map(x=>x*mag).find(x=>x>=step0);const t=[];for(let v=Math.ceil(lo/st)*st;v<=hi+1e-9;v+=st)t.push(+v.toFixed(6));return t}
+// horizontal bars, one hue per entity identity (labelled), value labels at the end
+function barsH(items,{fmt=v=>v.toLocaleString('en-US'),hl=null}={}){
+ const W=360,rh=24,pad={l:122,r:44},Hh=items.length*rh+6,max=Math.max(1,...items.map(d=>d.v));
+ const map={};let g='';
+ items.forEach((d,i)=>{const y=i*rh+4,w=Math.max(2,(W-pad.l-pad.r)*d.v/max),dim=hl&&hl!=d.key?' opacity=".35"':'';map['b'+i]=d.tip;
+  g+=`<g${dim}><text x="${pad.l-8}" y="${y+14}" text-anchor="end">${esc(d.label.length>17?d.label.slice(0,16)+'…':d.label)}</text>
+  <rect x="${pad.l}" y="${y+4}" width="${w}" height="14" rx="4" fill="${d.c}"/>
+  <text x="${pad.l+w+6}" y="${y+15}" style="fill:var(--text-primary)">${fmt(d.v)}</text>
+  <rect class=hit data-t="b${i}" ${d.id?`data-id="${esc(d.id)}"`:''} x="0" y="${y}" width="${W}" height="${rh}"/></g>`});
+ return {svg:`<svg viewBox="0 0 ${W} ${Hh}" role="img">${g}</svg>`,map}}
+// scatter: single series (+ optional "hollow" subset), one shared axis scale per dimension
+function scatter(pts,{x,y,xl,yl,diag=false,xfmt=v=>v,yfmt=v=>v,ann=[]}){
+ const W=520,Hh=300,p={l:44,r:16,t:12,b:38};
+ const sx=v=>p.l+(v-x[0])/(x[1]-x[0])*(W-p.l-p.r),sy=v=>Hh-p.b-(v-y[0])/(y[1]-y[0])*(Hh-p.t-p.b);
+ let g='';
+ for(const t of niceTicks(y[0],y[1],5))g+=`<line class=gl x1="${p.l}" x2="${W-p.r}" y1="${sy(t)}" y2="${sy(t)}"/><text x="${p.l-8}" y="${sy(t)+4}" text-anchor="end">${yfmt(t)}</text>`;
+ for(const t of niceTicks(x[0],x[1],6))g+=`<text x="${sx(t)}" y="${Hh-p.b+16}" text-anchor="middle">${xfmt(t)}</text>`;
+ g+=`<line class=ax x1="${p.l}" x2="${W-p.r}" y1="${Hh-p.b}" y2="${Hh-p.b}"/>`;
+ if(diag){const lo=Math.max(x[0],y[0]),hi=Math.min(x[1],y[1]);g+=`<line x1="${sx(lo)}" y1="${sy(lo)}" x2="${sx(hi)}" y2="${sy(hi)}" stroke="var(--text-muted)" stroke-dasharray="4 4"/>`}
+ for(const a of ann)g+=`<text x="${a.x=='l'?p.l+8:W-p.r-8}" y="${a.y=='t'?p.t+12:Hh-p.b-8}" text-anchor="${a.x=='l'?'start':'end'}" style="fill:var(--text-muted);font-size:10px;letter-spacing:.06em">${esc(a.t)}</text>`;
+ g+=`<text x="${(W+p.l)/2}" y="${Hh-4}" text-anchor="middle" style="fill:var(--text-muted)">${esc(xl)}</text><text transform="translate(11 ${(Hh-p.b+p.t)/2}) rotate(-90)" text-anchor="middle" style="fill:var(--text-muted)">${esc(yl)}</text>`;
+ const map={};
+ const order=pts.slice().sort((a,b)=>(a.hl?1:0)-(b.hl?1:0));
+ order.forEach((d,i)=>{const cx=sx(d.x),cy=sy(d.y);map['p'+i]=d.tip;
+  g+=`<circle class=pt cx="${cx}" cy="${cy}" r="${d.hl?5.5:4}" fill="${d.hollow?'none':d.hl?'var(--accent)':'var(--series-1)'}" stroke="${d.hollow?'var(--series-1)':'var(--surface-1)'}" stroke-width="${d.hollow?1.5:2}" opacity="${d.dim?.25:d.hl?1:.85}"/>
+  <circle class=hit data-t="p${i}" data-id="${esc(d.id)}" cx="${cx}" cy="${cy}" r="9"/>`});
+ return {svg:`<svg viewBox="0 0 ${W} ${Hh}" role="img">${g}</svg>`,map}}
+function domainOf(vals,lo=0,hi=100,padv=4){vals=vals.filter(v=>v!=null);if(!vals.length)return [lo,hi];return [Math.max(lo,Math.floor((Math.min(...vals)-padv)/5)*5),Math.min(hi,Math.ceil((Math.max(...vals)+padv)/5)*5)]}
+
+// ------------------------------------------------------------------ render
+const TABS=[['papers','Papers'],['repos','Repos'],['hype','Hype'],['methodology','Method']];
+function writeHash(){const h=S.tab=='methodology'?'#methodology'+(S.msec?'/'+S.msec:''):'#'+S.tab+'/'+S.win+'/'+encodeURIComponent(S.view);const u=new URL(location.href);u.hash=h;if(S.q)u.searchParams.set('q',S.q);else u.searchParams.delete('q');history.replaceState(null,'',u)}
+function readHash(){const h=decodeURIComponent(location.hash.slice(1)).split('/');
+ if(h[0]=='methodology'){S.tab='methodology';S.msec=h[1]||'';return}
+ if(['papers','repos','hype'].includes(h[0]))S.tab=h[0];if(h[1])S.win=h[1];if(h[2])S.view=h.slice(2).join('/')}
+function setTab(t){if(S.tab==t)return;S.tab=t;S.sort=null;S.msec='';closeDetail();render();window.scrollTo({top:0})}
+function render(){
+ $('tabs').innerHTML=TABS.map(([k,l])=>`<button class="${k==S.tab?'on':''}" data-tab="${k}">${l}</button>`).join('');
+ $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+ const isM=S.tab=='methodology';
+ for(const id of ['hero','controls','note','kpis','charts','tablecard'])$(id).style.display=isM?'none':'';
+ $('md').style.display=isM?'grid':'none';
+ if(isM){writeHash();return renderMethod()}
+ if(S.tab=='hype'&&!H){$('tb').innerHTML='<tr><td class=empty>Loading HYPE data…</td></tr>';loadHype().then(render);return}
+ const P=parseQuery(S.q);
+ if(P.tab&&P.tab!=S.tab){S.tab=P.tab;S.sort=null;return render()}
+ const meta=S.tab=='hype'?H:D;
+ const wins=S.tab=='hype'?WN.filter(w=>H.windows[w]):D.windows;
+ if(P.win&&wins.includes(P.win)&&(S.tab!='hype'||H.windows[P.win].enabled))S.win=P.win;
+ if(!wins.includes(S.win)||(S.tab=='hype'&&!H.windows[S.win].enabled))S.win=S.tab=='hype'?'overall':'7d';
+ if(!meta.views.includes(S.view))S.view='all';
+ writeHash();
+ // header copy
+ const H1={papers:'Which AI papers are gaining real momentum?',repos:'Which AI repositories show activity, not just stars?',hype:'Where does attention run ahead of evidence?'};
+ const LEDE={papers:`${num(D.tracked.papers)} papers tracked across arXiv and Hugging Face. Ranked by upvote momentum, linked-code activity and HN mentions, shrunk toward the prior when evidence is thin.`,
+  repos:`${num(D.tracked.repos)} repositories tracked. The activity discovery index rewards star growth only when issues, PRs, commits and contributors move with it.`,
+  hype:`${H?.n_projects} researched projects. Sampled attention is compared with available discovery proxies; the gap is a lead to investigate, not a verdict.`};
+ $('h1').textContent=H1[S.tab];$('lede').textContent=LEDE[S.tab];
+ $('upd').textContent='updated '+(meta.generated_local||'').replace(/\s*\(.*\)/,'');
+ // windows / paradigms
+ $('wins').innerHTML=wins.map(w=>{const en=S.tab!='hype'||H.windows[w].enabled;const n=en?(rowsFor(S.tab,w,S.view).rows.length):0;
+  return `<button class="${w==S.win?'on':''}" data-w="${w}" ${en?'':`disabled title="${esc(H.windows[w]?.reason||'no data')}"`}>${w}<small>${en?n:'—'}</small></button>`}).join('');
+ $('wins').querySelectorAll('button:not(:disabled)').forEach(b=>b.onclick=()=>{S.win=b.dataset.w;render()});
+ $('views').innerHTML=meta.views.map(v=>`<button class="chip ${v==S.view?'on':''}" data-v="${esc(v)}">${v=='all'?'':`<span class=sw style="background:${tagc(v)}"></span>`}${v=='all'?'all paradigms':esc(v)}</button>`).join('');
+ $('views').querySelectorAll('button').forEach(b=>b.onclick=()=>{S.view=b.dataset.v;render()});
+ $('onlynew').classList.toggle('on',S.onlyNew);$('noflag').classList.toggle('on',S.noFlag);$('mincov').value=String(S.mincov);
+ // notice
+ $('note').innerHTML=S.tab=='hype'?'<b>Read as leads, not verdicts.</b> Sampled attention and discovery proxies are not capability, adoption or economic validation. Usage operations, users and customers stay separate. Coverage is completeness, not truth confidence.'
+  :`<b>Historical scoring v${esc(D.scoring_version)} archive.</b> ${esc(D.archive_note||'')}`;
+ // rows
+ const vw=P.tag&&S.view=='all'&&meta.views.includes(P.tag)?P.tag:S.view;
+ const base=rowsFor(S.tab,S.win,vw);
+ let rows=applyFilters(base.rows,P);
+ const sortKey=S.sort?.k||(P.sort)||(P.terms.length?'_rel':P.rising?'_mv':null);
+ if(sortKey){const col=C[S.tab].find(c=>c.k==sortKey);const val=sortKey=='_rel'?r=>r._rel:sortKey=='_mv'?r=>isNew(r)?-1:mvDelta(r):col?col.v:r=>r[sortKey];
+  const dir=S.sort?.d??(sortKey=='rank'||sortKey=='days'?1:-1);
+  rows=rows.slice().sort((a,b)=>{const x=val(a),y=val(b);if(x==null&&y==null)return a.rank-b.rank;if(x==null)return 1;if(y==null)return -1;return (typeof x=='string'?x.localeCompare(y):x-y)*dir||a.rank-b.rank})}
+ else rows=rows.slice().sort((a,b)=>a.rank-b.rank);
+ renderParsed(P,rows.length,base.rows.length,rows.length||!S.q?null:otherTabs(P).filter(([t])=>!P.tab||t==S.tab));
+ renderKpis(base,rows);
+ renderCharts(base.rows,rows);
+ renderTable(rows,base,sortKey);
+ renderSources();
+ if(S.sel)openDetail(S.sel,true)}
+function otherTabs(P){const out=[];for(const t of ['papers','repos','hype']){if(t=='hype'&&!H)continue;if(t==S.tab&&S.win=='overall')continue;const m=t=='hype'?H:D;
+  const ws=t=='hype'?WN.filter(w=>H.windows[w]?.enabled):D.windows;const w=t==S.tab?'overall':ws.includes(S.win)?S.win:(ws.includes('overall')?'overall':ws[0]);
+  const v=P.tag&&m.views.includes(P.tag)?P.tag:'all';const sv=S.tab;S.tab=t;const n=applyFilters(rowsFor(t,w,v).rows,P).length;S.tab=sv;if(n)out.push([t,w,n])}return out}
+function renderParsed(P,n,tot,other){
+ const c=[];if(P.tab)c.push(['tab',P.tab]);if(P.win)c.push(['window',P.win]);if(P.tag)c.push(['paradigm',P.tag]);
+ for(const x of P.nums)c.push([x.f,x.op+' '+(x.f=='coverage'?Math.round(x.v*100)+'%':x.v.toLocaleString('en-US'))]);
+ if(P.who)c.push(['from',P.who]);if(P.label)c.push(['gap',P.label.replace('_',' ')]);if(P.isNew)c.push(['only','new entries']);if(P.rising)c.push(['only','rising']);if(P.sort)c.push(['sort','most '+P.sort]);
+ for(const t of P.terms)c.push(['text',t]);
+ if(!S.q){const ex={papers:['agent papers this week','jepa from meta','world models upvotes > 100','new harness papers'],repos:['agent repos over 1k stars this month','most gained world models','rising harness 30d','browser'],hype:['attention ahead','gap > 20','coding agents','overall discovery > 60']}[S.tab];
+  $('parsed').innerHTML=`<span class=lbl>try</span><span class=examples>${ex.map(e=>`<button data-ex="${esc(e)}">${esc(e)}</button>`).join(' ')}</span><span class="dim hint" style="margin-left:auto;font-size:11px">smart search parses your question into filters · runs in your browser · no LLM</span>`;
+  $('parsed').querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{$('q').value=b.dataset.ex;S.q=b.dataset.ex;render()});return}
+ $('parsed').innerHTML=`<span class=lbl>understood</span>${c.map(([k,v])=>`<span class="pchip${k=='text'?' t':''}">${esc(k)}: ${esc(v)}</span>`).join('')||'<span class=dim>nothing to filter on</span>'}<span class=dim style="margin-left:6px">→ ${n} of ${tot} rows</span>${other&&other.length?`<span class=lbl style="margin-left:10px">found in</span>${other.map(([t,w,k])=>`<button class=chip data-go="${t}|${w}">${k} in ${t} · ${w} →</button>`).join('')}`:''}`;
+ $('parsed').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const [t,w]=b.dataset.go.split('|');S.tab=t;S.win=w;S.sort=null;render()})}
+function kpi(k,v,s){return `<div class="panel kpi"><div class=k>${k}</div><b>${v}</b><div class=s>${s}</div></div>`}
+function renderKpis(base,rows){
+ const R=base.rows,nNew=R.filter(isNew).length,mc=median(R.map(r=>r.coverage)),ms=median(R.map(r=>r.score));
+ let h;
+ if(S.tab=='hype'){const lab=k=>R.filter(r=>r.label==k).length;
+  h=kpi('Projects in window',num(R.length),`of ${H.n_projects} researched · ${S.win}`)+kpi('Attention ahead',num(lab('attention_ahead')),'attention percentile leads discovery')+kpi('Discovery ahead',num(lab('evidence_ahead')),'discovery percentile leads attention')+kpi('Insufficient',num(lab('insufficient')+R.filter(r=>r.gap==null).length),`coverage < ${Math.round(100*H.gap_min_coverage)}% or no proxy · not low value`)}
+ else{const third=S.tab=='repos'?(()=>{const g=R.filter(r=>r.gained!=null);return kpi('Stars gained',g.length?'+'+num(g.reduce((a,r)=>a+r.gained,0)):'—',`sum over ${g.length} of ${R.length} with observed growth`)})()
+   :(()=>{const u=R.filter(r=>r.upvotes!=null);return kpi('HF upvotes',num(u.reduce((a,r)=>a+r.upvotes,0)),`sum over ${u.length} papers in view`)})();
+  h=kpi('Ranked in view',num(R.length),`top of ${num(base.candidates)} candidates · ${S.win}`)+kpi('Median score',ms==null?'—':ms.toFixed(1),`prior ${D.priors?.[S.tab]??'—'} · shrunk by coverage`)+third+kpi('New this run',num(nNew),`median coverage ${mc==null?'—':pct(mc)+'%'}`)}
+ $('kpis').innerHTML=h}
+function renderCharts(all,shown){
+ const ids=new Set(shown.map(r=>r.id)),filtered=shown.length!=all.length;let html='',maps=[];
+ // 1. paradigm mix
+ const mix=TAGS.map(t=>({key:t,label:t,v:all.filter(r=>r.tag==t).length,c:tagc(t)})).filter(d=>d.v);
+ mix.forEach(d=>d.tip=`<b>${esc(d.label)}</b><div class=m>${d.v} of ${all.length} ranked rows</div>`);
+ const b1=barsH(mix,{hl:S.view!='all'?S.view:null});maps.push(b1.map);
+ html+=`<div class="panel chart"><h3>Paradigm mix</h3><div class=sub>ranked rows by subject · ${esc(S.win)}</div>${b1.svg}</div>`;
+ // 2. scatter
+ let sp;
+ if(S.tab=='hype'){const P=all.filter(r=>r._disc!=null&&r.score!=null),no=all.length-P.length;
+  const pts=P.map(r=>({id:r.id,x:r._disc,y:r.score,hollow:r.label=='insufficient',hl:filtered&&ids.has(r.id),dim:filtered&&!ids.has(r.id),
+   tip:`<b>${esc(r.name)}</b><div class=m>attention ${r.score} · discovery ${r._disc} · gap ${r.gap>0?'+':''}${r.gap}</div><div class=m>${esc((r.label||'').replace('_',' '))}</div>`}));
+  const dom=domainOf(P.flatMap(r=>[r._disc,r.score]));
+  sp=scatter(pts,{x:dom,y:dom,xl:'discovery score (proxy percentile, shrunk)',yl:'attention score',diag:true,ann:[{x:'l',y:'t',t:'ATTENTION AHEAD'},{x:'r',y:'b',t:'DISCOVERY AHEAD'}]});
+  html+=`<div class="panel chart"><h3>Attention vs discovery</h3><div class=sub>above the diagonal: talked about more than evidenced${no?` · ${no} without a discovery proxy not shown`:''}</div>${sp.svg}<div class=legend><span><i style="background:var(--series-1)"></i>both coverages ≥ ${Math.round(100*H.gap_min_coverage)}%</span><span><i style="border:1.5px solid var(--series-1)"></i>insufficient coverage</span>${filtered?'<span><i style="background:var(--accent)"></i>matches your search</span>':''}</div></div>`}
+ else{const P=all.filter(r=>r.score!=null&&r.coverage!=null);
+  const pts=P.map(r=>({id:r.id,x:100*r.coverage,y:r.score,hl:filtered&&ids.has(r.id),dim:filtered&&!ids.has(r.id),tip:`<b>${esc(r.title||r.id)}</b><div class=m>score ${r.score} · raw ${r.raw??'—'} · coverage ${pct(r.coverage)}%</div><div class=m>rank #${r.rank}${r.kind?' · '+esc(r.kind):''}</div>`}));
+  sp=scatter(pts,{x:domainOf(pts.map(p=>p.x)),y:domainOf(pts.map(p=>p.y)),xl:'evidence coverage (%)',yl:'score',xfmt:v=>v+'%'});
+  html+=`<div class="panel chart"><h3>Score × evidence coverage</h3><div class=sub>thin evidence pulls scores toward the prior (${D.priors?.[S.tab]??'—'}) · click a dot for details</div>${sp.svg}<div class=legend><span><i style="background:var(--series-1)"></i>ranked ${S.tab}</span>${filtered?'<span><i style="background:var(--accent)"></i>matches your search</span>':''}</div></div>`}
+ maps.push(sp.map);
+ // 3. leaders
+ let lead,title,sub,fmt=v=>v.toLocaleString('en-US');
+ const src=shown.length?shown:all;
+ if(S.tab=='repos'){lead=src.filter(r=>r.gained!=null&&r.gained>0).sort((a,b)=>b.gained-a.gained).slice(0,8).map(r=>({id:r.id,label:r.id.split('/')[1]||r.id,v:r.gained,c:'var(--series-1)',tip:`<b>${esc(r.id)}</b><div class=m>+${num(r.gained)} stars${r.gspan?` over ${r.gspan}d`:''} · ${esc(r.src||'')}</div>`}));title='Star growth leaders';sub='observed gains from our own snapshots';fmt=v=>'+'+v.toLocaleString('en-US')}
+ else if(S.tab=='papers'){lead=src.filter(r=>r.upvotes).sort((a,b)=>b.upvotes-a.upvotes).slice(0,8).map(r=>({id:r.id,label:r.title,v:r.upvotes,c:'var(--series-1)',tip:`<b>${esc(r.title)}</b><div class=m>${num(r.upvotes)} HF upvotes · ${esc(r.id)}</div>`}));title='Most upvoted';sub='Hugging Face upvotes in view'}
+ else{lead=src.filter(r=>r.mentions).sort((a,b)=>b.mentions-a.mentions).slice(0,8).map(r=>({id:r.id,label:r.name,v:r.mentions,c:'var(--series-1)',tip:`<b>${esc(r.name)}</b><div class=m>${num(r.mentions)} sampled posts · ${nv(r.voices)} voices</div>`}));title='Most sampled posts';sub='sampled, not platform-wide totals'}
+ const b3=lead.length?barsH(lead,{fmt}):{svg:'<div class=empty>no observed values</div>',map:{}};maps.push(b3.map);
+ html+=`<div class="panel chart"><h3>${title}</h3><div class=sub>${sub}${filtered?' · within your search':''}</div>${b3.svg}</div>`;
+ $('charts').innerHTML=html;
+ $('charts').querySelectorAll('.chart').forEach((el,i)=>bindTips(el,maps[i]))}
+function renderTable(rows,base,sortKey){
+ const cols=C[S.tab];
+ $('ttitle').textContent={papers:'Ranked papers',repos:'Ranked repositories',hype:'Researched projects'}[S.tab];
+ $('cnt').textContent=`${rows.length} shown · ${base.rows.length} ranked in ${S.win}${S.view=='all'?'':' within '+S.view} · ${num(base.candidates)} candidates`;
+ $('sortinfo').textContent=sortKey?`sorted by ${sortKey=='_rel'?'relevance':sortKey=='_mv'?'movement':(cols.find(c=>c.k==sortKey)?.l||sortKey)}`:'sorted by rank';
+ $('th').innerHTML='<tr>'+cols.map(c=>`<th class="s${c.n?' n':''}${c.hs?' hs':''}${S.sort?.k==c.k?' on':''}" data-k="${c.k}">${c.l}${S.sort?.k==c.k?(S.sort.d>0?' ↑':' ↓'):''}</th>`).join('')+'</tr>';
+ $('th').querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;S.sort=S.sort?.k==k?{k,d:-S.sort.d}:{k,d:k=='rank'||k=='title'||k=='id'||k=='name'||k=='tag'?1:-1};render()});
+ $('tb').innerHTML=rows.map(r=>`<tr data-id="${esc(r.id)}" class="${S.sel==r.id?'sel':''}">`+cols.map(c=>`<td class="${c.n?'n':''}${c.hs?' hs':''}">${c.h(r)}</td>`).join('')+'</tr>').join('')||`<tr><td colspan=${cols.length} class=empty>No rows match. Unknown values are never treated as zero, so numeric filters exclude rows where the value is unobserved.</td></tr>`;
+ $('tb').querySelectorAll('tr[data-id]').forEach(tr=>tr.onclick=e=>{if(e.target.closest('a'))return;openDetail(tr.dataset.id)})}
+
+// ------------------------------------------------------------------ detail drawer
+function closeDetail(){S.sel=null;$('drawer').classList.remove('on');$('scrim').classList.remove('on');document.querySelectorAll('tr.sel').forEach(t=>t.classList.remove('sel'))}
+function openDetail(id,quiet){
+ const r=rowsFor(S.tab,S.win,S.view).rows.find(x=>x.id==id)||(S.tab!='hype'&&D[S.tab].items[id]?{...D[S.tab].items[id],id}:null);
+ if(!r){closeDetail();return}
+ S.sel=id;document.querySelectorAll('#tb tr').forEach(t=>t.classList.toggle('sel',t.dataset.id==id));
+ let head,body;
+ if(S.tab=='papers'){head=esc(r.title);
+  body=`<div class=sec>${esc((r.authors||[]).join(', '))}${r.n_authors>(r.authors||[]).length?' et al.':''}${r.lab?' · <b>'+esc(r.lab)+'</b>':''}</div>
+  <p><a href="https://arxiv.org/abs/${esc(r.id)}" target=_blank rel=noopener>arXiv ${esc(r.id)}</a> · <a href="https://huggingface.co/papers/${esc(r.id)}" target=_blank rel=noopener>Hugging Face</a>${r.code?' · '+A(r.code,'code'):''} · <a href="https://hn.algolia.com/?q=${esc(r.id)}" target=_blank rel=noopener>HN search</a></p>
+  <div class=kv><div><span>score</span><b>${r.score??'—'}</b></div><div><span>raw</span><b>${r.raw??'—'}</b></div><div><span>coverage</span><b>${r.coverage==null?'—':pct(r.coverage)+'%'}</b></div>
+  <div><span>HF upvotes</span><b>${num(r.upvotes)}</b></div><div><span>code stars</span><b>${num(r.stars)}</b></div><div><span>HN mentions</span><b>${num(r.mentions)}</b></div></div>
+  <h4>How to read this score</h4><ul><li>Rank ${r.rank??'—'} ${r.rank!=null?mv(r):''} ${r.mv?.why?'<span class=dim>— '+esc(r.mv.why)+'</span>':''}</li><li>Momentum: ${esc(r.kind||'—')} <span class=dim>${esc(KIND[r.kind]||'')}</span></li>
+  <li>Published ${esc(r.published||'—')} · ${r.days??'—'} days old · paradigm ${tag(r.tag)}</li>${(r.flags||[]).map(f=>`<li><span class=fl>${esc(f)}</span> ${esc(FLAG[f]||'')}</li>`).join('')}
+  <li class=dim>${UNQ}. Coverage is completeness, not truth confidence. <a href="#methodology/papers-score">Formula</a></li></ul>`}
+ else if(S.tab=='repos'){head=esc(r.id);
+  body=`<div class=sec>${esc(r.desc||'')}</div><p>${A(r.url,'GitHub')}${r.paper?` · <a href="https://arxiv.org/abs/${esc(r.paper)}" target=_blank rel=noopener title="${esc(r.paper_title||'')}">paper ${esc(r.paper)}</a>`:''}</p>
+  <div class=kv><div><span>score</span><b>${r.score??'—'}</b></div><div><span>coverage</span><b>${r.coverage==null?'—':pct(r.coverage)+'%'}</b></div><div><span>stars</span><b>${num(r.stars)}</b></div>
+  <div><span>★ gained</span><b>${r.gained==null?'—':(r.gained>=0?'+':'')+num(r.gained)}</b></div><div><span>forks</span><b>${num(r.forks)}</b></div><div><span>contributors</span><b>${num(r.contributors)}</b></div></div>
+  <h4>Activity in lookback</h4><table><tr><th>issues opened / closed</th><td>${nv(r.issues_opened)} / ${nv(r.issues_closed)}</td></tr>
+  <tr><th>PRs opened / merged in that cohort</th><td>${nv(r.prs_opened)} / ${r.prs_merged_in_opened_cohort==null?'<span class=dim title="created-and-merged intersection unobserved">—</span>':num(r.prs_merged_in_opened_cohort)} <span class=dim>(${nv(r.prs_merged)} merge events, not the cohort numerator)</span></td></tr>
+  <tr><th>commits</th><td>${nv(r.commits)}</td></tr><tr><th>contributors gained</th><td>${r.contrib_gained==null?DASH:(r.contrib_gained>=0?'+':'')+num(r.contrib_gained)}</td></tr>
+  <tr><th>created · last push</th><td>${esc(r.created||'—')} · ${r.pushed?ago(r.pushed)+' ago':'—'}</td></tr></table>
+  <h4>How to read this score</h4><ul><li>Rank ${r.rank??'—'} ${r.rank!=null?mv(r):''} ${r.mv?.why?'<span class=dim>— '+esc(r.mv.why)+'</span>':''}</li><li>Momentum: ${esc(r.kind||'—')} <span class=dim>${esc(KIND[r.kind]||'')}</span>${r.gspan?` · growth over ${r.gspan}d from ${esc(r.src||'')}`:''}</li>
+  ${(r.flags||[]).map(f=>`<li><span class=fl>${esc(f)}</span> ${esc(FLAG[f]||'')}</li>`).join('')}<li class=dim>${UNQ}. <a href="#methodology/repo-trust-index">Formula</a></li></ul>`}
+ else{const it=H.items[id];head=esc(it.name);body=hypeCard(r,it)}
+ $('drawer').innerHTML=`<div class=dh><h2>${head}</h2><button class=iconbtn id=dclose aria-label="Close">esc ✕</button></div><div class=db>${body}</div>`;
+ $('dclose').onclick=closeDetail;$('drawer').classList.add('on');$('scrim').classList.add('on');
+ if(!quiet)$('drawer').scrollTop=0}
+function hypeCard(r,it){const v=it.viral,c=it.coord,ri=it.evidence_in,d=it.discovery,m=it.win[S.win]||{};
  const z=x=>x==null?'<span class=dim>missing</span>':x.toFixed(2);
- const coord=(()=>{let h='';const measured=/coordinat/i.test(c.assessment||'')&&!/not assessed|^no /i.test(c.assessment||'');
-  if(measured)h+=`<li><b>Pattern looks coordinated</b> (research assessment: ${esc(c.assessment)})</li>`;
-  else h+=`<li>No measured coordination signals — research status: <i>${esc(c.assessment||'—')}</i>.</li>`;
-  if(c.disclosed)h+=c.evidence.map(e=>`<li><b>Disclosed sponsorship:</b> “${esc(e.t)}” ${e.d?esc(e.d):''} ${A(e.url,'evidence')}</li>`).join('');
-  else if(c.evidence.length)h+='<li>Promotion context noted (not evidence of payment):<ul>'+c.evidence.map(e=>`<li>${esc(e.t)} ${A(e.url,'source')}</li>`).join('')+'</ul></li>';
-  return h+`<li class=dim>${esc(c.limitations||'')}</li>`})();
- const tr=it.traction.map(s=>`<li><b>${esc(s.type.replace(/_/g,' '))}</b>: ${fmtv(s.value)} <span class=dim>${esc(s.unit||'')}</span> · <i>${esc((s.ver||'').replace(/_/g,' '))}</i>${s.asof?' · '+esc(s.asof):''} ${A(s.url,'source')}${s.notes?`<div class=dim>${esc(s.notes)}</div>`:''}</li>`).join('')||'<li class=dim>none recorded</li>';
+ const measured=/coordinat/i.test(c.assessment||'')&&!/not assessed|^no /i.test(c.assessment||'');
+ let coord=measured?`<li><b>Pattern looks coordinated</b> (research assessment: ${esc(c.assessment)})</li>`:`<li>No measured coordination signals — research status: <i>${esc(c.assessment||'—')}</i>.</li>`;
+ if(c.disclosed)coord+=c.evidence.map(e=>`<li><b>Disclosed sponsorship:</b> “${esc(e.t)}” ${e.d?esc(e.d):''} ${A(e.url,'evidence')}</li>`).join('');
+ else if(c.evidence.length)coord+='<li>Promotion context noted (not evidence of payment):<ul>'+c.evidence.map(e=>`<li>${esc(e.t)} ${A(e.url,'source')}</li>`).join('')+'</ul></li>';
+ coord+=`<li class=dim>${esc(c.limitations||'')}</li>`;
+ const L=it.links,links=[['site','site'],['repo','repo'],['paper','paper'],['hf','HF'],['x_handle','X']].filter(([k])=>L[k]).map(([k,t])=>A(L[k],t)).join(' · ');
+ const tr=it.traction.map(s=>`<li><b>${esc(s.type.replace(/_/g,' '))}</b>: ${typeof s.value=='number'?num(s.value):esc(typeof s.value=='object'?JSON.stringify(s.value):String(s.value))} <span class=dim>${esc(s.unit||'')}</span> · <i>${esc((s.ver||'').replace(/_/g,' '))}</i>${s.asof?' · '+esc(s.asof):''} ${A(s.url,'source')}${s.notes?`<div class=dim>${esc(s.notes)}</div>`:''}</li>`).join('')||'<li class=dim>none recorded</li>';
  const sk=it.skeptic.map(s=>`<li>${esc(s.claim)} <span class=dim>— ${esc(s.by||'')}${s.d?', '+esc(s.d):''}</span> ${A(s.url,'source')}</li>`).join('')||'<li class=dim>none recorded</li>';
- const po=it.posts.map(p=>`<tr><td>${esc(p.pl)}</td><td>${esc(p.au||'—')}</td><td style="white-space:nowrap">${esc(p.d)}</td><td class=n>${p.likes!=null?num(p.likes)+' ♥':p.score!=null?num(p.score)+' pts':'—'}</td><td class=n>${p.cm!=null?num(p.cm):p.rp!=null?num(p.rp):'—'}</td><td>${A(p.url,esc(p.t||'post'))}</td></tr>`).join('');
+ const po=it.posts.map(p=>`<tr><td>${esc(p.pl)}</td><td>${esc(p.au||'—')}</td><td style="white-space:nowrap">${esc(p.d)}</td><td>${p.likes!=null?num(p.likes)+' ♥':p.score!=null?num(p.score)+' pts':'—'}</td><td>${A(p.url,esc(p.t||'post'))}</td></tr>`).join('');
  const rl={gh_trust:'GitHub activity discovery index',paper:'Paper attention (HF upvotes)',discussion:'Discussion attention (sampled HN comments)'};
  const rv={gh_trust:ri.gh_trust&&`${ri.gh_trust.v} <span class=dim>(${esc(ri.gh_trust.repo)}, ${esc(ri.gh_trust.src)}, coverage ${Math.round(100*(ri.gh_trust.coverage||0))}%)</span>`,
-  paper:ri.paper&&A(ri.paper.url,num(ri.paper.v)+' upvotes')+` <span class=dim>arXiv ${esc(ri.paper.id)}</span>`,
-  discussion:ri.discussion&&`${num(ri.discussion.v)} comments <span class=dim>on ${ri.discussion.stories} sampled HN stories</span>`};
+  paper:ri.paper&&A(ri.paper.url,num(ri.paper.v)+' upvotes')+` <span class=dim>arXiv ${esc(ri.paper.id)}</span>`,discussion:ri.discussion&&`${num(ri.discussion.v)} comments <span class=dim>on ${ri.discussion.stories} sampled HN stories</span>`};
  const usage=d.metrics.map(s=>`<li><b>${esc(s.metric_family||'unknown family')}</b>: ${nv(s.value)} ${esc(s.unit||'unit unknown')} · ${esc(s.type)} ${A(s.url,'source')}<div class=dim>Period ${esc(s.period?.start||'—')} → ${esc(s.period?.end||'—')}; scope ${esc(s.scope||'—')}; compatible-cohort unit ${nv(s.normalized)}${s.cohort?'':' (unqualified cohort)'}${s.vendor?' · vendor claim':''}</div></li>`).join('')||'<li class=dim>— unobserved; not zero users or customers</li>';
- return `<tr class=card><td colspan=13><div class=cg><div>
- <h4>Summary</h4>${esc(it.summary||'—')} <span class=src>${srcs(it.summary_urls)}</span>
+ return `<div class=sec>${esc(it.category||'')}</div><p>${links||''}</p>
+ <div class=kv><div><span>attention</span><b>${r.score??'—'}</b></div><div><span>discovery</span><b>${d.score??'—'}</b></div><div><span>gap</span><b>${r.gap==null?'—':(r.gap>0?'+':'')+r.gap}</b></div>
+ <div><span>sampled posts</span><b>${nv(m.mentions)}</b></div><div><span>voices</span><b>${nv(m.voices)}</b></div><div><span>platforms</span><b>${m.platforms?m.platforms.length:'—'}</b></div></div>
+ <h4>Summary</h4>${esc(it.summary||'—')} <span class=dim>${srcs(it.summary_urls)}</span>
  <h4>Timeline</h4><ul><li><b>First seen</b>: ${it.first_seen?esc(day(it.first_seen))+' '+A(it.first_seen_url,'source'):'—'} <span class=dim>(${esc(it.first_seen_meaning||'')})</span></li>
- <li><b>Peak</b>: ${it.peak?esc(day(it.peak)):'—'} <span class=dim>${it.peak?'':'('+esc(it.peak_reason||'unknown')+')'}</span></li>
- <li><b>Now</b>: ${esc(it.status||'—')} <span class=src>${srcs(it.status_urls)}</span></li></ul>
+ <li><b>Peak</b>: ${it.peak?esc(day(it.peak)):'—'} <span class=dim>${it.peak?'':'('+esc(it.peak_reason||'unknown')+')'}</span></li><li><b>Now</b>: ${esc(it.status||'—')} <span class=dim>${srcs(it.status_urls)}</span></li></ul>
  <h4>How it went viral</h4><ul><li>Origin platform: ${v.platform?esc(v.platform):'—'} · post: ${v.post?A(v.post,'link'):'—'} · account: ${v.account?esc(v.account):'—'} · followers: ${v.followers!=null?num(v.followers):'—'}${v.platform?'':` <span class=dim>(${esc(v.reason||'not established')})</span>`}</li>
- ${v.cand_platform?`<li>Earliest post observed in the sample (not proven origin): ${esc(v.cand_platform)} · ${esc(v.cand_account||'—')} ${A(v.cand_post,'post')}</li>`:''}
- <li class=dim>Platforms with sampled posts (overall): ${esc((it.win.overall.platforms||[]).join(', ')||'—')}</li></ul>
+ ${v.cand_platform?`<li>Earliest post observed in the sample (not proven origin): ${esc(v.cand_platform)} · ${esc(v.cand_account||'—')} ${A(v.cand_post,'post')}</li>`:''}<li class=dim>Platforms with sampled posts (overall): ${esc((it.win.overall.platforms||[]).join(', ')||'—')}</li></ul>
  <h4>Was it intentional?</h4><ul>${coord}</ul>
- ${it.qual_gap?`<h4>Research analyst: hype vs evidence (#${it.qual_gap.pos})</h4>${esc(it.qual_gap.text)} <span class=src>${srcs(it.qual_gap.urls)}</span>`:''}
- ${it.notes.gap?`<div class=dim style="margin-top:4px">Research note: ${esc(it.notes.gap)}</div>`:''}
- </div><div>
- <h4>Score breakdown (${esc(win)})</h4><table>
- <tr><th>Hype component</th><th>weight</th><th>value</th><th>z</th></tr>
+ ${it.qual_gap?`<h4>Research analyst: hype vs evidence (#${it.qual_gap.pos})</h4>${esc(it.qual_gap.text)} <span class=dim>${srcs(it.qual_gap.urls)}</span>`:''}${it.notes.gap?`<div class=dim style="margin-top:4px">Research note: ${esc(it.notes.gap)}</div>`:''}
+ <h4>Score breakdown (${esc(S.win)})</h4><table><tr><th>Attention component</th><th>weight</th><th>value</th><th>z</th></tr>
  <tr><td>Mention velocity</td><td>${H.weights.hype.velocity*100}%</td><td>${r.vel} posts/day <span class=dim>(${nv(m.mentions)} sampled)</span></td><td>${z(r.z.velocity)}</td></tr>
  <tr><td>Acceleration</td><td>${H.weights.hype.acceleration*100}%</td><td class=dim>no growth series</td><td>${z(r.z.acceleration)}</td></tr>
  <tr><td>Unique voices</td><td>${H.weights.hype.voices*100}%</td><td>${nv(m.voices)}</td><td>${z(r.z.voices)}</td></tr>
  <tr><td>Cross-platform spread</td><td>${H.weights.hype.spread*100}%</td><td>${m.platforms?m.platforms.length:'—'} <span class=dim>${esc((m.platforms||[]).join(', '))}</span></td><td>${z(r.z.spread)}</td></tr>
  <tr><th>Discovery component</th><th>relative weight</th><th>value</th><th>z</th></tr>
- ${Object.keys(rl).map(k=>`<tr><td>${rl[k]}</td><td>${Math.round(H.weights.discovery[k]/Object.values(H.weights.discovery).reduce((a,b)=>a+b,0)*100)}%</td><td>${rv[k]||'<span class=dim>—</span>'}</td><td>${z(d.z[k])}</td></tr>`).join('')}
- </table>
- <div class=dim style="margin-top:4px">Attention ${r.score} = 50 + ${Math.round(100*r.coverage)}% × (percentile ${r.pct??'—'} − 50), raw ${r.raw??'—'}.
- Discovery ${d.score??'—'} = 50 + ${Math.round(100*d.coverage)}% × (percentile ${d.pct??'—'} − 50), raw ${d.raw??'—'}. Cohort: ${esc(d.cohort.join(', ')||'no observed proxy')} (${d.cohort_size} projects). Gap ${r.gap??'—'} → <b>${esc(r.label)}</b>; not technical/economic validation. <a href="#methodology/attention-discovery-gap">Method</a></div>
- <h4>Evidence dimensions (separate from completeness)</h4><div>Verification: unqualified · Freshness: unknown · Source independence: unqualified. Coverage does not establish truth.</div>
+ ${Object.keys(rl).map(k=>`<tr><td>${rl[k]}</td><td>${Math.round(H.weights.discovery[k]/Object.values(H.weights.discovery).reduce((a,b)=>a+b,0)*100)}%</td><td>${rv[k]||DASH}</td><td>${z(d.z[k])}</td></tr>`).join('')}</table>
+ <div class=dim style="margin-top:6px">Attention ${r.score} = 50 + ${Math.round(100*r.coverage)}% × (percentile ${r.pct??'—'} − 50), raw ${r.raw??'—'}. Discovery ${d.score??'—'} = 50 + ${Math.round(100*d.coverage)}% × (percentile ${d.pct??'—'} − 50), raw ${d.raw??'—'}. Cohort: ${esc(d.cohort.join(', ')||'no observed proxy')} (${d.cohort_size} projects). Gap ${r.gap??'—'} → <b>${esc(r.label)}</b>; not technical/economic validation. <a href="#methodology/attention-discovery-gap">Method</a></div>
+ <h4>Evidence dimensions</h4><div>Verification: unqualified · Freshness: unknown · Source independence: unqualified. Coverage does not establish truth.</div>
  <h4>Usage metric families (not in discovery score)</h4><ul>${usage}</ul>
  ${it.gh?`<div class=dim>GitHub snapshot (display only, not scored): ${num(it.gh.stars)} ★ · ${nv(it.gh.forks)} forks · created ${esc(it.gh.created||'—')} · pushed ${esc(it.gh.pushed||'—')} ${A(it.gh.url,'api')}</div>`:''}
  ${it.proxy?`<div class=dim>Research X-likes momentum proxy: rank ${nv(it.proxy.rank)}, score ${num(Math.round(it.proxy.score))}</div>`:''}
  <div class=dim>HN sample: ${nv(it.hn.accepted)} matching stories of ${nv(it.hn.returned)} hits${it.hn.capped?' (capped at first 100 hits)':''} ${A(it.hn.url,'query')}</div>
- <h4>Sourced observations (not validated traction)</h4><ul>${tr}</ul>
- <h4>Skeptic signals</h4><ul>${sk}</ul>
- <h4>Top sampled posts</h4><table><tr><th>where</th><th>who</th><th>date</th><th>♥/pts</th><th>replies</th><th>post</th></tr>${po||'<tr><td colspan=6 class=dim>none</td></tr>'}</table>
- </div></div></td></tr>`}
-function renderHype(){
- if(!H){document.getElementById('tb').innerHTML='<tr><td class=dim>Loading HYPE data…</td></tr>';loadHype().then(()=>H&&renderHype());return}
- document.getElementById('hnote').textContent='Sampled attention and discovery proxies are not capability, adoption or economic validation. Usage operations, users and customers remain separate. Evidence coverage is not truth confidence; verification, freshness and independence are unqualified.';
- const W=H.windows;if(!W[win]?.enabled)win='overall';if(!H.views.includes(view))view='all';
- history.replaceState(null,'','#hype/'+win+'/'+view);
- document.getElementById('upd').textContent=H.generated_local+' (HYPE build)';
- document.getElementById('tracked').textContent=`${H.n_projects} researched projects (AI overall, open + closed source)`;
- document.getElementById('prevrun').textContent=H.movement_note||(H.previous_run?'movement vs HYPE run of '+H.previous_run.replace('T',' '):'first HYPE run (all entries marked new)');
- document.getElementById('ver').textContent='scoring v'+(H.scoring_version||'1');
- document.getElementById('wins').innerHTML=WN.map(w=>{const e=W[w]?.enabled;const n=e?H[w].all.rows.length:0;
-  return `<button class="${w==win?'on':''}" ${e?`onclick="win='${w}';renderHype()"`:`disabled title="${esc(W[w]?.reason||'no data')}"`}>${w} <span class=dim>(${e?n:'—'})</span></button>`}).join('');
- document.getElementById('views').innerHTML='<span class=meta style="align-self:center">Paradigm:</span>'+H.views.map(v=>`<button class="${v==view?'on':''}" onclick="view='${v}';renderHype()">${v=='all'?'all':esc(v)}</button>`).join('');
- document.getElementById('th').innerHTML='<tr>'+HH.map(([h,k],i)=>`<th class="${i==0||(i>=2&&i<=11)?'n':''}${k?' s':''}"${k?` onclick="hs('${k}')" title="sort by ${h}"`:''}>${h}${k&&hsort==k?' ▼':''}</th>`).join('')+'</tr>';
- const q=document.getElementById('q').value.toLowerCase().trim();
- const cur=H[win][view]||{rows:[],candidates:0};
- const val=r=>hsort=='discovery'?(H.items[r.id].discovery.score??-1e9):hsort=='gap'?(r.gap??-1e9):r.score;
- let rows=cur.rows.slice().sort((a,b)=>val(b)-val(a)||a.rank-b.rank);
- if(q)rows=rows.filter(r=>JSON.stringify(H.items[r.id]).toLowerCase().includes(q));
- document.getElementById('tb').innerHTML=rows.map(hrow).join('')||'<tr><td colspan=13 class=dim>No rows</td></tr>';
- document.getElementById('cnt').textContent=`${rows.length} rows shown (${cur.rows.length} of ${H.n_projects} researched projects have sampled posts in ${win}${view=='all'?'':', ranked within '+view}) · click a row for details`;
- document.getElementById('src').innerHTML=`<li><b>Social research dossier</b>: generated ${esc(H.research_generated_at||'—')} UTC, content cutoff ${esc(H.content_cutoff)}, ${H.n_projects} projects, ${H.lookback_days}-day lookback</li>`+H.coverage.map(c=>`<li>${esc(c)}</li>`).join('')+(H.gap_note?`<li>Research gap note: ${esc(H.gap_note)}</li>`:'');
- if(opened.size){const el=document.querySelector('tr.card');if(el&&!renderHype.scrolled){renderHype.scrolled=1;el.previousElementSibling.scrollIntoView({block:'nearest'})}}
-}
-async function loadHype(){
- try{const r=await fetch('hype.json?'+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);H=await r.json();}
- catch(e){document.getElementById('tb').innerHTML=`<tr><td class=dim>No HYPE data (web/hype.json): ${esc(e.message)}</td></tr>`;return}
-}
-// ---------------------------------------------------------------- Methodology (renders METHODOLOGY.md, the repo's single source)
-const REPO='https://github.com/namastex888/trending-research/blob/main/';
+ <h4>Sourced observations (not validated traction)</h4><ul>${tr}</ul><h4>Skeptic signals</h4><ul>${sk}</ul>
+ <h4>Top sampled posts</h4><table><tr><th>where</th><th>who</th><th>date</th><th>♥/pts</th><th>post</th></tr>${po||'<tr><td colspan=5 class=dim>none</td></tr>'}</table>`}
+
+// ------------------------------------------------------------------ sources popover
+function renderSources(){
+ const src=S.tab=='hype'&&H?null:D.sources,ent=Object.entries(D.sources);
+ const cls=s=>/^ok$/i.test(s)?'ok':/fail|error|blocked|404/i.test(s)?'bad':'warn';
+ const okN=ent.filter(([,v])=>cls(v.status)=='ok').length;
+ $('srcsum').textContent=`${okN}/${ent.length} sources ok`;
+ $('srcled').style.background=okN==ent.length?'var(--good)':okN>=ent.length-2?'var(--warning)':'var(--critical)';
+ const label={ok:'✓ ok',warn:'! partial',bad:'✕ failed'};
+ let h=`<h3 style="margin:0 0 8px;font-size:13px">Data sources · run ${D.run_id} · ${esc(D.generated_local)}</h3><ul>${ent.map(([k,v])=>`<li><span class="st ${cls(v.status)}">${label[cls(v.status)]}</span> <b>${esc(k)}</b> <span class=dim>— ${esc(v.status)}: ${esc(v.detail)}</span></li>`).join('')}</ul>`;
+ if(H)h+=`<h3 style="margin:14px 0 8px;font-size:13px">HYPE dossier</h3><ul><li class=dim>generated ${esc(H.research_generated_at||'—')} UTC · content cutoff ${esc(H.content_cutoff)} · ${H.n_projects} projects · ${H.lookback_days}-day lookback</li>${H.coverage.map(c=>`<li class=dim>· ${esc(c)}</li>`).join('')}</ul>`;
+ h+=`<p class=dim style="margin:10px 0 0">Scoring v${esc(D.scoring_version)} · config ${esc(D.config_sha)} · tracking ${num(D.tracked.papers)} papers, ${num(D.tracked.repos)} repos · run took ${Math.round(D.run_seconds/60)} min · ${esc(D.movement_note||(D.previous_run?'movement vs run of '+D.previous_run.replace('T',' '):'first run'))}</p>`;
+ $('pop').innerHTML=h;
+ $('foot').textContent=`scoring v${D.scoring_version} · run ${D.run_id} · ${D.generated_at}`}
+
+// ------------------------------------------------------------------ methodology (renders METHODOLOGY.md, the single source)
 const slug=t=>t.toLowerCase().replace(/<[^>]+>/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 function inl(t){return esc(t).replace(/`([^`]+)`/g,(m,c)=>'<code>'+c+'</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,;:]|$)/g,'$1<i>$2</i>')
- .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,(m,txt,u)=>{u=u.replace(/&amp;/g,'&');const h=u.startsWith('#')?'#methodology/'+u.slice(1):/^https?:/.test(u)?u:REPO+u;return `<a href="${esc(h)}"${h.startsWith('#')?'':' target=_blank'}>${txt}</a>`})}
-function md2html(src){const L=src.replace(/\r/g,'').split('\n');let h='',i=0;const toc=[];
- const LI=/^\s*([-*]|\d+\.)\s+/;
+ .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,(m,txt,u)=>{u=u.replace(/&amp;/g,'&');const h=u.startsWith('#')?'#methodology/'+u.slice(1):/^https?:/.test(u)?u:REPO+u;return `<a href="${esc(h)}"${h.startsWith('#')?'':' target=_blank rel=noopener'}>${txt}</a>`})}
+function md2html(src){const L=src.replace(/\r/g,'').split('\n');let h='',i=0;const toc=[];const LI=/^\s*([-*]|\d+\.)\s+/;
  while(i<L.length){let l=L[i];
   if(/^```/.test(l)){let c=[];i++;while(i<L.length&&!/^```/.test(L[i]))c.push(L[i++]);i++;h+='<pre><code>'+esc(c.join('\n'))+'</code></pre>';continue}
   let m=l.match(/^(#{1,4})\s+(.*)/);if(m){const id=slug(m[2]);if(m[1].length==2)toc.push([id,m[2]]);h+=`<h${m[1].length} id="${id}">${inl(m[2])}</h${m[1].length}>`;i++;continue}
-  if(/^\s*\|/.test(l)){let rows=[];while(i<L.length&&/^\s*\|/.test(L[i]))rows.push(L[i++]);
-   const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+  if(/^\s*\|/.test(l)){let rows=[];while(i<L.length&&/^\s*\|/.test(L[i]))rows.push(L[i++]);const cells=r=>r.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
    h+='<table><tr>'+cells(rows[0]).map(c=>'<th>'+inl(c)+'</th>').join('')+'</tr>'+rows.slice(2).map(r=>'<tr>'+cells(r).map(c=>'<td>'+inl(c)+'</td>').join('')+'</tr>').join('')+'</table>';continue}
-  if(LI.test(l)){const ol=/^\s*\d+\./.test(l);let it=[];
-   while(i<L.length&&(LI.test(L[i])||(/^\s{2,}\S/.test(L[i])&&it.length))){if(LI.test(L[i]))it.push(L[i].replace(LI,''));else it[it.length-1]+=' '+L[i].trim();i++}
+  if(LI.test(l)){const ol=/^\s*\d+\./.test(l);let it=[];while(i<L.length&&(LI.test(L[i])||(/^\s{2,}\S/.test(L[i])&&it.length))){if(LI.test(L[i]))it.push(L[i].replace(LI,''));else it[it.length-1]+=' '+L[i].trim();i++}
    h+=(ol?'<ol>':'<ul>')+it.map(x=>'<li>'+inl(x)+'</li>').join('')+(ol?'</ol>':'</ul>');continue}
   if(/^>\s?/.test(l)){let q=[];while(i<L.length&&/^>\s?/.test(L[i]))q.push(L[i++].replace(/^>\s?/,''));h+='<blockquote>'+inl(q.join(' '))+'</blockquote>';continue}
   if(!l.trim()){i++;continue}
   let p=[];while(i<L.length&&L[i].trim()&&!/^(#{1,4}\s|```|\s*\||>)/.test(L[i])&&!LI.test(L[i]))p.push(L[i++]);h+='<p>'+inl(p.join(' '))+'</p>'}
  return {html:h,toc}}
-async function renderMethod(){history.replaceState(null,'','#methodology'+(msec?'/'+msec:''));
- document.getElementById('ver').textContent='Versioned discovery methods';
- const el=document.getElementById('md');
+async function renderMethod(){const el=$('md');
  if(!M){el.innerHTML='<p class=dim>Loading METHODOLOGY.md…</p>';
   try{let r=await fetch('METHODOLOGY.md?'+Date.now());if(!r.ok)r=await fetch('../METHODOLOGY.md?'+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);M=md2html(await r.text())}
-  catch(e){el.innerHTML=`<p class=dim>Could not load METHODOLOGY.md (${esc(e.message)}). It lives in the repo root: <a href="${REPO}METHODOLOGY.md">read it on GitHub</a>.</p>`;return}}
- el.innerHTML=`<div id=mdtoc><b>Sections:</b> ${M.toc.map(([id,t])=>`<a href="#methodology/${id}">${inl(t)}</a>`).join(' ')} · <a href="${REPO}METHODOLOGY.md" target=_blank>source: METHODOLOGY.md</a></div>`+M.html;
- if(msec){const t=document.getElementById(msec);if(t){t.style.background='#fffbea';t.scrollIntoView()}}else window.scrollTo(0,0)}
-window.addEventListener('hashchange',()=>{const before=tab+'|'+msec;readHash();if(tab+'|'+msec!=before)render()});
-async function load(){
- const r=await fetch('data.json?'+Date.now());D=await r.json();
- document.getElementById('ver').textContent='scoring v'+(D.scoring_version||'1');
- document.getElementById('upd').textContent=D.generated_local;
- document.getElementById('prevrun').textContent=D.previous_run?'movement vs run of '+D.previous_run.replace('T',' '):'first run (all entries marked new)';
- document.getElementById('tracked').textContent=`tracking ${D.tracked.papers} papers, ${D.tracked.repos} repos · run took ${D.run_seconds}s`;
- document.getElementById('src').innerHTML=Object.entries(D.sources).map(([k,v])=>`<li><b>${esc(k)}</b>: ${esc(v.status)} — ${esc(v.detail)}</li>`).join('');
- render();
-}
-document.getElementById('q').oninput=render;
-load();setInterval(()=>{if(tab!='methodology'){H=null;load()}},5*60*1000);
-</script></body></html>
+  catch(e){el.innerHTML=`<p class=dim>Could not load METHODOLOGY.md (${esc(e.message)}). <a href="${REPO}METHODOLOGY.md">Read it on GitHub</a>.</p>`;return}}
+ el.innerHTML=`<nav><b class=ctl-l>Sections</b>${M.toc.map(([id,t])=>`<a href="#methodology/${id}">${inl(t)}</a>`).join('')}<a href="${REPO}METHODOLOGY.md" target=_blank rel=noopener>source: METHODOLOGY.md ↗</a></nav><article>${M.html}</article>`;
+ if(S.msec){const t=document.getElementById(S.msec);if(t){t.classList.add('hl');t.scrollIntoView()}}else window.scrollTo(0,0)}
+
+// ------------------------------------------------------------------ wiring
+let qT;$('q').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{S.q=e.target.value.trim();render()},120)});
+addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()=='k'){e.preventDefault();if(S.tab=='methodology')setTab('papers');$('q').focus();$('q').select()}
+ else if(e.key=='/'&&document.activeElement.tagName!='INPUT'){e.preventDefault();$('q').focus()}
+ else if(e.key=='Escape'){if($('drawer').classList.contains('on'))closeDetail();else if($('pop').classList.contains('on'))$('pop').classList.remove('on');else if(document.activeElement==$('q')&&S.q){$('q').value='';S.q='';render()}}});
+$('mincov').onchange=e=>{S.mincov=+e.target.value;render()};
+$('onlynew').onclick=()=>{S.onlyNew=!S.onlyNew;render()};$('noflag').onclick=()=>{S.noFlag=!S.noFlag;render()};
+$('scrim').onclick=closeDetail;
+$('srcbtn').onclick=e=>{e.stopPropagation();$('pop').classList.toggle('on')};document.addEventListener('click',e=>{if(!e.target.closest('#pop'))$('pop').classList.remove('on')});
+const TH_KEY='trend-theme';
+function setTheme(t){document.documentElement.dataset.theme=t;try{localStorage.setItem(TH_KEY,t)}catch(e){}}
+try{const t=localStorage.getItem(TH_KEY);if(t)document.documentElement.dataset.theme=t}catch(e){}
+$('theme').onclick=()=>setTheme(document.documentElement.dataset.theme=='light'?'dark':'light');
+addEventListener('hashchange',()=>{const b=S.tab+'|'+S.msec+'|'+S.win+'|'+S.view;readHash();if(S.tab+'|'+S.msec+'|'+S.win+'|'+S.view!=b)render()});
+async function loadHype(){try{const r=await fetch('hype.json?'+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);H=await r.json()}catch(e){H=null;$('tb').innerHTML=`<tr><td class=empty>No HYPE data (hype.json): ${esc(e.message)}</td></tr>`;throw e}}
+async function load(){const r=await fetch('data.json?'+Date.now());D=await r.json();HAY.clear();render()}
+readHash();{const u=new URLSearchParams(location.search);if(u.get('q')){S.q=u.get('q');$('q').value=S.q}}
+load().catch(e=>{$('tb').innerHTML=`<tr><td class=empty>Could not load data.json: ${esc(e.message)}</td></tr>`});
+setInterval(()=>{if(S.tab!='methodology'&&!document.hidden){H=S.tab=='hype'?H:null;load()}},5*60*1000);
+</script>
+</body>
+</html>
