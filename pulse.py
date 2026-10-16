@@ -12,6 +12,8 @@ hashtags, plus (when connected) chosen subreddits and Bluesky searches. X is not
 posts that matched it, so a node is never more than the evidence behind it. Standard library only.
 """
 import os, sys, re, json, math, time, sqlite3, base64, html, urllib.request, urllib.parse, urllib.error
+import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone, timedelta
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +23,7 @@ NOW = datetime.now(timezone.utc)
 RETAIN_DAYS = 45
 WINDOWS = {'1d': 1, '7d': 7, '30d': 30}
 CONVERSATION = {'HN', 'Lobsters', 'Mastodon', 'Reddit', 'Bluesky'}          # live chatter; used for "rising"
+DIGEST = {'Newsletter'}                                                      # digests: the end point of a spread, not chatter
 UA = 'trend-observatory/1.0 (+https://github.com/namastex888/trending-research)'
 SOURCES = {}
 
@@ -158,6 +161,43 @@ def fetch_reddit():
             out.append(post('Reddit', p['id'], 'https://www.reddit.com' + p.get('permalink', ''), p.get('title'),
                             p.get('author'), iso(datetime.fromtimestamp(p.get('created_utc', 0), timezone.utc)),
                             p.get('score'), p.get('num_comments')))
+    return out
+
+def _rss_date(s):
+    if not s: return None
+    try: return iso(parsedate_to_datetime(s))
+    except (TypeError, ValueError, IndexError):
+        d = parse_dt(s)
+        return iso(d) if d else None
+
+def fetch_newsletters(days=30):
+    """Public RSS/Atom feeds of AI newsletters listed in newsletters.json. An issue is one post on the 'Newsletter' network;
+    its text (title + summary, HTML stripped, capped) is matched against topics, so the spread trace shows when a topic
+    reached the digests. Only the item title, date and public link are published."""
+    path = os.path.join(BASE, 'newsletters.json')
+    if not os.path.exists(path): raise PermissionError('not configured (add feeds to newsletters.json)')
+    cfg = json.load(open(path))
+    out, failed, cutoff = [], [], NOW - timedelta(days=days)
+    for nl in cfg['feeds']:
+        try:
+            req = urllib.request.Request(nl['url'], headers={'User-Agent': UA, 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml'})
+            with urllib.request.urlopen(req, timeout=30) as r: root = ET.fromstring(r.read())
+        except Exception:
+            failed.append(nl['name']); continue
+        ns = {'a': 'http://www.w3.org/2005/Atom', 'c': 'http://purl.org/rss/1.0/modules/content/'}
+        items = root.findall('.//item') or root.findall('.//a:entry', ns)
+        for it in items[:60]:
+            title = (it.findtext('title') or it.findtext('a:title', namespaces=ns) or '').strip()
+            link = it.findtext('link') or ''
+            if not link:
+                le = it.find('a:link', ns); link = le.get('href') if le is not None else ''
+            date = _rss_date(it.findtext('pubDate') or it.findtext('a:published', namespaces=ns) or it.findtext('a:updated', namespaces=ns))
+            if not date or parse_dt(date) < cutoff: continue
+            body = it.findtext('c:encoded', namespaces=ns) or it.findtext('description') or it.findtext('a:content', namespaces=ns) or it.findtext('a:summary', namespaces=ns) or ''
+            text = (title + ' — ' + strip_html(body))[:1500]
+            out.append(post('Newsletter', link or f"{nl['name']}:{title}", link, text, nl['name'], date))
+    if failed: PARTIAL['Newsletters (RSS)'] = 'unreachable: ' + ', '.join(failed)
+    if failed and not out: raise ConnectionError(PARTIAL['Newsletters (RSS)'])
     return out
 
 BSKY_QUERIES = ['Claude', 'Anthropic', 'OpenAI', 'ChatGPT', 'Gemini', 'LLM', 'AI agent', 'open-weight model']
@@ -354,6 +394,7 @@ def build(posts, lex, hype_items):
             n['samples'].append((math.log1p(max(0, p['score'] or 0)) - age / 30, p, dt))
             o = n['origin'].get(p['net'])
             if p['source'] != 'tracker' and (o is None or dt < o[0]): n['origin'][p['net']] = (dt, p)
+        if p['net'] in DIGEST: continue                       # a digest lists many stories; co-mention there is not a link
         for i in range(len(ids)):
             for j in range(i + 1, len(ids)):
                 k = (ids[i], ids[j])
@@ -410,7 +451,7 @@ def main():
     if not offline:
         for name, fn in (('Hacker News (Algolia)', fetch_hn), ('Lobsters (ai tag)', fetch_lobsters), ('Mastodon (mastodon.social tags)', fetch_mastodon),
                          ('Reddit (arctic-shift archive)', fetch_reddit_archive), ('Reddit (official API)', fetch_reddit),
-                         ('Bluesky (app password)', fetch_bluesky)):
+                         ('Bluesky (app password)', fetch_bluesky), ('Newsletters (RSS)', fetch_newsletters)):
             try:
                 ps = fn(); store(con, ps)
                 note(name, 'partial' if name in PARTIAL else 'ok', f'{len(ps)} posts fetched' + (f'; {PARTIAL[name]}' if name in PARTIAL else ''))
