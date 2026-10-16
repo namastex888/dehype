@@ -332,7 +332,7 @@ function cmp(a,op,b){return a==null?false:op=='>'?a>b:op=='>='?a>=b:op=='<'?a<b:
 
 // ------------------------------------------------------------------ semantic search: same model as scripts/embed/embed.mjs, query embedded locally
 const SEM={idx:null,vec:null,ext:null,state:'idle',err:null,cache:new Map(),pending:new Set()};
-// weights, tokenizer and config load at the index's pinned revision; transformers.js 4.2.0 still probes config at 'main' only to list which files exist
+// weights, tokenizer and config load at the index's pinned revision; transformers.js 4.2.0 still probes config.json and tokenizer_config.json at 'main' only to list which files exist
 const TF_URL='https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0';
 async function semLoad(){
  if(SEM.state=='ready'||SEM.state=='loading')return;SEM.state='loading';renderSemStatus();
@@ -344,10 +344,10 @@ async function semLoad(){
   SEM.state='ready'}
  catch(e){SEM.state='failed';SEM.err=e.message;console.warn('semantic search unavailable',e)}
  render()}
-function semQuery(text){if(SEM.cache.has(text))return SEM.cache.get(text);if(SEM.state!='ready'){semLoad();return null}
+function semQuery(text){if(SEM.state!='ready'){semLoad();return null}if(SEM.cache.has(text))return SEM.cache.get(text);
  if(!SEM.pending.has(text)){SEM.pending.add(text);SEM.ext(text,{pooling:'mean',normalize:true}).then(t=>{SEM.cache.set(text,t.data);SEM.pending.delete(text);render()}).catch(e=>{SEM.pending.delete(text);console.warn(e)})}
  return null}
-function semSim(tab,id,q){const p=SEM.pos[tab]?.get(id);if(p==null)return null;const o=p*SEM.idx.dim,v=SEM.vec;let s=0;for(let k=0;k<SEM.idx.dim;k++)s+=q[k]*v[o+k];return s/SEM.idx.scale}
+function semSim(tab,id,q){if(!SEM.idx||!SEM.pos)return null;const p=SEM.pos[tab]?.get(id);if(p==null)return null;const o=p*SEM.idx.dim,v=SEM.vec;let s=0;for(let k=0;k<SEM.idx.dim;k++)s+=q[k]*v[o+k];return s/SEM.idx.scale}
 const semText=P=>P.terms.join(' ');
 function renderSemStatus(){$('sem').classList.toggle('on',S.sem);$('sem').textContent=S.sem?(SEM.state=='loading'?'✦ loading…':SEM.state=='failed'?'✦ keyword':'✦ semantic'):'✦ off';
  $('sem').title=S.sem?(SEM.state=='failed'?'semantic model could not load ('+SEM.err+'); using keyword matching':'semantic search on: ranks by meaning with a small embedding model running in your browser (first query downloads a ~28 MB model from jsDelivr and Hugging Face, then cached; your query never leaves the browser). Click to switch to keyword matching'):'keyword matching. Click to rank by meaning instead'}
@@ -697,7 +697,7 @@ try{const t=localStorage.getItem(TH_KEY);if(t)document.documentElement.dataset.t
 $('theme').onclick=()=>setTheme(document.documentElement.dataset.theme=='light'?'dark':'light');
 addEventListener('hashchange',()=>{const t0=S.tab,b=S.tab+'|'+S.msec+'|'+S.win+'|'+S.view;readHash();if(S.tab!=t0)closeDetail();if(S.tab+'|'+S.msec+'|'+S.win+'|'+S.view!=b)render()});
 async function loadHype(){try{const r=await fetch('hype.json?'+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);H=await r.json()}catch(e){H=null;$('tb').innerHTML=`<tr><td class=empty>No HYPE data (hype.json): ${esc(e.message)}</td></tr>`;throw e}}
-async function load(){const r=await fetch('data.json?'+Date.now());D=await r.json();HAY.clear();buildWho();if(SEM.idx&&SEM.idx.data_generated_at!==D.generated_at){SEM.idx=null;SEM.state='idle'}render()}
+async function load(){const r=await fetch('data.json?'+Date.now());D=await r.json();HAY.clear();buildWho();if(SEM.idx&&SEM.idx.data_generated_at!==D.generated_at){SEM.idx=null;SEM.pos=null;SEM.vec=null;SEM.state='idle'}render()}
 readHash();{const u=new URLSearchParams(location.search);if(u.get('q')){S.q=u.get('q');$('q').value=S.q}if(u.get('open'))S.sel=u.get('open').split(',')[0]}
 load().catch(e=>{$('tb').innerHTML=`<tr><td class=empty>Could not load data.json: ${esc(e.message)}</td></tr>`});
 setInterval(()=>{if(S.tab!='methodology'&&!document.hidden){H=S.tab=='hype'?H:null;load()}},5*60*1000);

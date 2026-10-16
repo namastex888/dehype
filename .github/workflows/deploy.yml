@@ -45,7 +45,7 @@ jobs:
           cp METHODOLOGY.md web/METHODOLOGY.md
           node scripts/check_page.mjs
       - name: Deploy to Cloudflare Pages
-        # the token exists only in this step; it runs pinned wrangler and nothing else
+        # the token exists only in this step; it runs wrangler 4.143.0 via npx (its own dependencies resolve at install time)
         if: steps.creds.outputs.ok == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
