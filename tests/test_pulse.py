@@ -284,3 +284,37 @@ class PulseTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class NoveltyTest(PulseTest):
+    def test_always_on_recedes_and_new_topic_ranks_with_counts(self):
+        base = [p('HN', 100 + d, f'Claude tip number {d} for coding', f'u{d}', 24 * d + 5) for d in range(8, 30)]
+        base += [p('HN', 200 + d, f'LLM inference note {d}', f'v{d}', 24 * d + 9) for d in range(8, 30)]
+        base += [p('HN', 300 + d, f'Another LLM paper {d}', f'w{d}', 24 * d + 13) for d in range(8, 30)]
+        week = [p('HN', 400 + i, f'Muse Spark: new open-weight LLM released ({i})', f'h{i}', 10 + i) for i in range(3)]
+        week += [p('Mastodon', 500 + i, f'Muse Spark Open is fun, take {i}', f'm{i}', 5 + i) for i in range(4)]
+        week += [p('HN', 600 + i, f'Claude update {i}', f'c{i}', 20 + i) for i in range(2)]
+        n, _, _ = self.build(base + week)
+        self.assertTrue('e:muse-spark' in n, sorted(n))
+        self.assertFalse('e:muse-spark-open' in n, sorted(n))             # a longer phrase that starts with a kept one folds into it
+        ms = n['e:muse-spark']['new']
+        self.assertEqual(ms['deep'], ['HN'])                 # Mastodon has no baseline days: not deep
+        self.assertEqual((ms['now'], ms['base']), (3, 0))
+        self.assertTrue(ms['talk_ok']); self.assertGreater(ms['score'], 0); self.assertEqual(ms['leg'], 'talk')
+        cl = n['claude']['new']
+        self.assertTrue(cl['always_on']); self.assertEqual(cl['talk'], 0.0)
+
+    def test_build_leg_needs_a_wave_of_new_repos(self):
+        born, old = pulse.iso(pulse.NOW - timedelta(days=5))[:10], '2024-01-01'
+        self.repos = ([{'id': f'x/jev-thing-{i}', 'text': f'jev-thing-{i}: a JEV harness', 'tag': 'JEV', 'gained': {'7d': 10 * i}, 'flags': {}, 'created': born} for i in range(4)]
+                      + [{'id': f'y/agent-{i}', 'text': f'agent-{i}: an AI agent framework', 'tag': 'agents', 'gained': {'7d': 5}, 'flags': {},
+                          'created': born if i < 3 else old} for i in range(10)])
+        posts = [p('GitHub', r['id'], r['text'], r['id'].split('/')[0], 1) for r in self.repos]
+        for x in posts: x['source'] = 'tracker'
+        n, _, _ = self.build(posts + [p('Reddit', 1, 'JEV models are fun', 'r', 3), p('Reddit', 2, 'AI agents are fun', 's', 3)])
+        jev = n['jev']['new']
+        self.assertEqual((jev['born'], jev['repos'], jev['leg']), (4, 4, 'build'))
+        self.assertEqual(jev['born_top'][0], ['x/jev-thing-3', 30])
+        ag = n['ai-agents']['new']
+        self.assertEqual(ag['born'], 3); self.assertEqual(ag['build'], 0.0)   # 3 of 10: an old field, not a wave
+        del self.repos
