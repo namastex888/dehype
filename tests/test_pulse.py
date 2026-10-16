@@ -96,6 +96,12 @@ class PulseTest(unittest.TestCase):
         self.assertIn('v:opus-5.5', n)
         self.assertFalse(any(k.startswith('v:opus-5.5-') or k.startswith('v:qwen-2.1-') for k in n))
 
+    def test_codename_survives_title_case_and_dates_are_not_topics(self):
+        n, _, _ = self.build([p('Reddit', i, 'Gemini 4 Argon Is Out', f'a{i}', 1) for i in range(2)] +
+                             [p('Reddit', 5 + i, f'Recap Oct 16 Dispatch {i}', f'b{i}', 1) for i in range(4)])
+        self.assertIn('v:gemini-4-argon', n)
+        self.assertFalse(any(k.startswith('e:oct-16') for k in n))
+
     def test_rising_ignores_dossier_posts(self):
         dossier = [pulse.post('Reddit', f'd{i}', f'https://x.test/{i}', 'Grok 5 hype', f'u{i}', pulse.iso(pulse.NOW - timedelta(hours=1)),
                               source='dossier') for i in range(5)]

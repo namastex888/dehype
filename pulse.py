@@ -329,7 +329,8 @@ def match_topics(text, topics, fams, vrx):
         # a trailing word is a tier (Pro, Flash) or a capitalised codename (Argon, Astra); anything else is ordinary text
         nxt = text[m.end():m.end() + 20]
         if sub and not (sub.lower() in VARIANTS or (sub[0].isupper() and sub.lower() not in COMMON and sub not in STOP_PHRASE
-                                                    and not re.match(r'[\s-]+[A-Z][a-z]', nxt))): sub = None   # 'Opus 5.5 Music Video' is not a codename
+                                                    and not (re.match(r'[\s-]+([A-Z][a-z]+)', nxt) and re.match(r'[\s-]+([A-Z][a-z]+)', nxt).group(1).lower() not in COMMON
+                                                             and re.match(r'[\s-]+([A-Z][a-z]+)', nxt).group(1) not in STOP_PHRASE))): sub = None   # 'Opus 5.5 Music Video' is not a codename
         label = f'{canon} {ver}' + (f' {sub.title()}' if sub else '')
         tid = 'v:' + re.sub(r'[^a-z0-9.]+', '-', label.lower())
         found[tid] = {'id': tid, 'label': label, 'kind': 'version', 'parent': parent}
@@ -350,6 +351,7 @@ def emerging_phrases(posts, known_labels, covered=None, min_authors=3, limit=30)
             if not [w for w in words if w.lower() not in COMMON and not re.fullmatch(r'[\d.]+', w) and w.lower() not in known_labels]: continue
             if covered and covered(ph): continue
             if ph.lower() in EMERGING_STOP: continue
+            if re.match(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*[ -]\d', ph): continue   # dates
             seen.setdefault(ph, set()).add((p['net'], p['author']))
     keep = [(ph, a) for ph, a in seen.items() if len(a) >= min_authors]
     keep.sort(key=lambda x: -len(x[1]))
