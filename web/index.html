@@ -6,6 +6,11 @@
 <title>Trend Observatory</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%223%22 y=%223%22 width=%2226%22 height=%2226%22 rx=%227%22 fill=%22%2305080d%22 stroke=%22%233fd0ff%22 stroke-width=%223%22/%3E%3Crect x=%2212%22 y=%2212%22 width=%228%22 height=%228%22 rx=%222%22 fill=%22%233fd0ff%22/%3E%3C/svg%3E">
 <meta name="description" content="Open AI research observatory: papers, GitHub repos and sampled attention, scored with public methods. Unknown stays unknown.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Trend Observatory: which AI papers and repos are moving, and is the attention backed by evidence?">
+<meta property="og:description" content="Open, daily-refreshed rankings of AI papers, GitHub repos and hyped projects. Public sources, published method, unknown stays unknown. Ask it in plain English.">
+<meta property="og:image" content="https://namastex888.github.io/trending-research/og.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -489,7 +494,7 @@ function render(){
  // notice
  const COMMON='Scores are 0–100 discovery proxies, never star totals or validated capability; component weights are in <a href="#methodology">Method</a>. Arrows compare ranks only among items present in both runs. Coverage is completeness, not truth confidence; verification, freshness and source independence are unqualified.';
  $('note').innerHTML=S.tab=='hype'?`<div><b>Read as leads, not verdicts.</b> Sampled attention and discovery proxies are not capability, adoption or economic validation. Usage operations, users and customers stay separate. Gap labels appear only when both coverages reach ${Math.round(100*H.gap_min_coverage)}%. Coverage is completeness, not truth confidence; verification, freshness and independence are unqualified.${H.movement_note?` <b>${esc(H.movement_note)}</b>`:''}${H.gap_note?`<div class=dim style="margin-top:4px">Research gap note: ${esc(H.gap_note)}</div>`:''}</div>`
-  :D.archive_note?`<div><b>Historical scoring v${esc(D.scoring_version)} archive.</b> ${esc(D.archive_note)} ${COMMON}</div>`:`<div><b>Scoring v${esc(D.scoring_version)} · ${esc(D.movement_note||(D.previous_run?'movement vs run of '+D.previous_run.replace('T',' '):'first run in this history: every entry is new and growth needs a second snapshot'))}.</b> ${COMMON}</div>`;
+  :D.archive_note?`<div>${/^historical/i.test(D.archive_note)?'':`<b>Historical scoring v${esc(D.scoring_version)} archive.</b> `}${esc(D.archive_note)} ${/coverage is completeness/i.test(D.archive_note)?COMMON.replace(/ Coverage is completeness[^.]*\./,''):COMMON}</div>`:`<div><b>Scoring v${esc(D.scoring_version)} · ${esc(D.movement_note||(D.previous_run?'movement vs run of '+D.previous_run.replace('T',' '):'first run in this history: every entry is new and growth needs a second snapshot'))}.</b> ${COMMON}</div>`;
  // rows
  const vw=P.tag&&S.view=='all'&&meta.views.includes(P.tag)?P.tag:S.view;S.vw=vw;
  const base=rowsFor(S.tab,S.win,vw);

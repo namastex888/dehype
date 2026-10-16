@@ -32,13 +32,14 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
                                        │ calls deploy.yml (pushes made by the job token
                                        │ do not trigger workflows, so refresh calls it)
                                        ▼
- ┌──────────────── .github/workflows/deploy.yml  [NEW, needs 2 secrets] ─────────────────┐
- │   cp METHODOLOGY.md web/ → check_page → wrangler pages deploy (token only in this step)│
+ ┌──────────────── .github/workflows/deploy.yml  [NEW] ───────────────────────────────────┐
+ │   cp METHODOLOGY.md web/ → check_page → job 1: GitHub Pages (always)                   │
+ │                                        job 2: Cloudflare Pages (when 2 secrets exist)  │
  └─────────────────────────────────────┬────────────────────────────────────────────────┘
                                        ▼
- ┌──────────────── Cloudflare Pages (free static hosting + CDN) [BLOCKED: account] ─────┐
- │   index.html  ·  data.json (3.9 MB)  ·  hype.json  ·  METHODOLOGY.md  ·  prototypes/  │
- └─────────────────────────────────────┬────────────────────────────────────────────────┘
+ ┌──── GitHub Pages [LIVE] namastex888.github.io/trending-research · Cloudflare [needs account] ┐
+ │   index.html · data.json (3.9 MB) · hype.json · search index · METHODOLOGY.md · og.png     │
+ └─────────────────────────────────────┬──────────────────────────────────────────────────────┘
                                        ▼
  ┌──────────────── Browser: web/index.html  (one static file, no build)  [NEW] ─────────┐
  │  search ─► 1. parser: tab, window, paradigm, "stars > 1k", "from meta", "new",       │
@@ -84,7 +85,7 @@ GitHub limits: with only the job token the GitHub API allows about 1,000 request
 
 ## 3. Publishing
 
-Decision: **Cloudflare Pages**, deployed from GitHub Actions.
+Decision: **GitHub Pages now, Cloudflare Pages as primary once its secrets exist**, both deployed by the same `deploy.yml`. GitHub Pages needs no extra account, so the site is public today; Cloudflare adds a custom domain, no commercial clause and Workers AI. Launch plan and talking points: [PUBLISHING.md](PUBLISHING.md).
 
 | | Cloudflare Pages (free) | Vercel Hobby |
 |---|---|---|

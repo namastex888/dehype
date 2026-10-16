@@ -80,5 +80,9 @@ jobs:
           echo "::error::could not push the data commit to dev"; exit 1
   deploy:
     needs: refresh
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     uses: ./.github/workflows/deploy.yml
     secrets: inherit

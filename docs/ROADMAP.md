@@ -7,7 +7,7 @@ Owner of sequencing since 2026-10-16: the delivery agent, by delegation from the
 | # | Decision | Why | Revisit when |
 |---|---|---|---|
 | D1 | Ship the public tracker before the remaining M1 investigation work | it already has real data and daily refreshes; it was only missing a usable UI and hosting | — |
-| D2 | Host on Cloudflare Pages, deployed by GitHub Actions | free static bandwidth, no non-commercial clause, Workers AI on the same account for search ([details](ARCHITECTURE.md#3-publishing)) | traffic or features need a server |
+| D2 | Host on GitHub Pages now and Cloudflare Pages once its secrets exist, both deployed by GitHub Actions; launch per [PUBLISHING.md](PUBLISHING.md) | free static bandwidth, no non-commercial clause, Workers AI on the same account for search ([details](ARCHITECTURE.md#3-publishing)) | traffic or features need a server |
 | D3 | Refresh in GitHub Actions; state in the Actions cache | the old refresher lived outside the repo and pushed to a branch that no longer exists | history needs to outlive cache eviction → move `history/` to object storage (R2) |
 | D4 | "AI search" = local question parser + semantic ranking with a small open embedding model, vectors built at refresh time, query embedded in the browser | zero cost, no server, query stays private; the parser keeps filters exact | an LLM answer layer (summaries, Q&A over evidence) is wanted: Workers AI behind a Pages Function, with a spend cap |
 | D5 | Keep `web/index.html` one static file, no build | contributor rule; nothing in the UI needs a bundler yet | a second page type (investigation explorer) goes live |

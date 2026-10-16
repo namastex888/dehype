@@ -7,7 +7,7 @@ An evolving, open AI intelligence observatory. Its current executable tracker ra
 
 ![Observatory console: papers view with paradigm mix, score × coverage scatter and leaders](docs/console.png)
 
-How it fits together, in plain diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Current sequencing and decisions: [docs/ROADMAP.md](docs/ROADMAP.md).
+How it fits together, in plain diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Current sequencing and decisions: [docs/ROADMAP.md](docs/ROADMAP.md). Launch plan: [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Research and roadmap state
 
@@ -30,7 +30,9 @@ python -m http.server 8765 -d web   # open http://localhost:8765 to browse the c
 
 An optional network refresh is `python run.py`; it calls external source APIs and is separate from browsing or fixture evaluation. Install [requirements.txt](requirements.txt) first if needed (`tzdata` on Windows); `gh auth login` or a `GH_TOKEN` variable raises GitHub API limits.
 
-**Hosting and updates.** `.github/workflows/refresh.yml` runs `run.py` daily in GitHub Actions, commits `web/data.json` to `dev` and deploys `web/` to Cloudflare Pages through `deploy.yml`; `ci.yml` runs on every pull request (mark it as a required check under branch protection to block merges). Deploys need two repository secrets; setup steps are in [ARCHITECTURE.md](docs/ARCHITECTURE.md#3-publishing).
+**Live site:** https://namastex888.github.io/trending-research/
+
+**Hosting and updates.** `.github/workflows/refresh.yml` runs `run.py` daily in GitHub Actions, commits `web/data.json` to `dev` and deploys `web/` to GitHub Pages (and Cloudflare Pages when configured) through `deploy.yml`; `ci.yml` runs on every pull request (mark it as a required check under branch protection to block merges). Deploys need two repository secrets; setup steps are in [ARCHITECTURE.md](docs/ARCHITECTURE.md#3-publishing).
 
 ## The page
 
