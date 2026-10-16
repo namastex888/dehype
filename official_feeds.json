@@ -1,7 +1,7 @@
 {
   "_doc": "Lab and vendor announcement feeds read by pulse.py as the 'Official' network: where launches originate. Each URL was fetched and parsed on 2026-10-16; feeds that failed (no RSS, 404, HTML) are not listed. 'mirror': true marks a community RSS mirror of a first-party page that has no feed of its own (links and dates point at the vendor's page). Only item title, date and link are published. Add or fix entries by pull request.",
   "feeds": [
-    {"name": "Anthropic news", "url": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_news.xml", "site": "https://www.anthropic.com/news", "mirror": true},
+    {"name": "Anthropic news (community mirror)", "url": "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_news.xml", "site": "https://www.anthropic.com/news", "mirror": true},
     {"name": "OpenAI news", "url": "https://openai.com/news/rss.xml", "site": "https://openai.com/news/"},
     {"name": "Google DeepMind blog", "url": "https://deepmind.google/blog/rss.xml", "site": "https://deepmind.google/blog/"},
     {"name": "Google AI blog", "url": "https://blog.google/technology/ai/rss/", "site": "https://blog.google/technology/ai/"},

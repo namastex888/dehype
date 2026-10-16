@@ -179,7 +179,7 @@ def _rss_date(s):
         d = parse_dt(s)
         return iso(d) if d else None
 
-CITE_SKIP = {'substack.com', 'substackcdn.com', 'beehiiv.com', 'beehiiv.net', 'typeform.com', 'list-manage.com', 'mailchimp.com',
+CITE_SKIP = {'t.co', 'substack.com', 'substackcdn.com', 'beehiiv.com', 'beehiiv.net', 'typeform.com', 'list-manage.com', 'mailchimp.com',
              'x.com', 'twitter.com', 'eepurl.com', 'buttondown.email', 'ghost.io', 'feedburner.com', 'gravatar.com', 'w3.org'}
 X_SKIP = {'i', 'search', 'intent', 'hashtag', 'home', 'share', 'explore', 'settings', 'messages', 'notifications', 'compose', 'login',
           'signup', 'tos', 'privacy', 'about', 'download'}
@@ -197,7 +197,7 @@ def citations(body, own=()):
         m = re.match(r'https?://(?:www\.|mobile\.)?(?:x|twitter)\.com/([A-Za-z0-9_]{1,15})(?:[/?#]|$)', u, re.I)
         if m and m.group(1).lower() not in X_SKIP: handles.add(m.group(1).lower())
         if not h or any(h == d or h.endswith('.' + d) for d in CITE_SKIP): continue
-        if any(o and (h == o or h.endswith('.' + o) or o.endswith('.' + h)) for o in own): continue
+        if is_own(h, own): continue
         doms.add(h)
     return sorted(doms), sorted(handles)
 
@@ -222,8 +222,24 @@ def parse_feed(raw, name, net, cutoff, cite=False, own=()):
             d, x = citations(body, tuple(own) + (host(link),))
             extra = {'domains': d, 'x': x}
         text = (title + ' \u241f ' + strip_html(body))[:1500]          # U+241F separator: body kept for matching only
-        out.append(post(net, link or f"{name}:{title}", link, text, name, date, extra=extra))
+        out.append(post(net, link or f"{name}:{title}", link, text, name, date, extra=extra, source='official' if net in OFFICIAL else 'live'))
     return out
+
+def own_hosts(f):
+    """A feed's own sites (newsletters.json 'site': a domain or a list; subdomains count as the same site) plus the feed host."""
+    sites = f.get('site') or []
+    return [host(x if '://' in x else 'https://' + x) for x in ([sites] if isinstance(sites, str) else sites)] + [host(f['url'])]
+
+_OWN = {}
+def newsletter_sites(name):
+    """Own sites of a newsletter by name, so citations stored before a 'site' was added are filtered too."""
+    if not _OWN:
+        try: _OWN.update({f['name']: tuple(own_hosts(f)) for f in json.load(open(os.path.join(BASE, 'newsletters.json')))['feeds']})
+        except (OSError, ValueError, KeyError): _OWN[''] = ()
+    return _OWN.get(name, ())
+
+def is_own(h, own):
+    return any(o and (h == o or h.endswith('.' + o) or o.endswith('.' + h)) for o in own)
 
 def fetch_feedlist(cfg_file, net, cite, days=30):
     path = os.path.join(BASE, cfg_file)
@@ -233,7 +249,7 @@ def fetch_feedlist(cfg_file, net, cite, days=30):
         try:
             req = urllib.request.Request(f['url'], headers={'User-Agent': UA, 'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml'})
             with urllib.request.urlopen(req, timeout=30) as r: raw = r.read()
-            out += parse_feed(raw, f['name'], net, cutoff, cite, [host(f.get('site') or ''), host(f['url'])])
+            out += parse_feed(raw, f['name'], net, cutoff, cite, own_hosts(f))
         except Exception:
             failed.append(f['name'])
     return out, failed
@@ -304,6 +320,10 @@ def internal_posts():
     except (OSError, KeyError, ValueError) as e:
         note('HYPE research dossier', 'failed', str(e)[:120])
     return out
+
+def official_meta():
+    try: return [{'name': f['name'], 'site': f.get('site'), 'mirror': bool(f.get('mirror'))} for f in json.load(open(os.path.join(BASE, 'official_feeds.json')))['feeds']]
+    except (OSError, ValueError, KeyError): return []
 
 def tracker_repos():
     """Repo rows ranked by run.py in the Pulse windows (any paradigm view): text for topic matching, paradigm tag,
@@ -452,6 +472,7 @@ def build(posts, lex, hype_items, repos=None):
     for p in posts:
         dt = parse_dt(p['created'])
         if not dt or dt > NOW + timedelta(hours=1) or dt < NOW - timedelta(days=30): continue
+        if p['net'] in OFFICIAL and p['source'] == 'live': p = {**p, 'source': 'official'}     # rows stored before the official source existed
         if crowd(p): author_total[(p['net'], p['author'])] = author_total.get((p['net'], p['author']), 0) + 1   # before the HN AI filter
         text = p['title'] or ''
         found = match_topics(text, topics, fams, vrx)
@@ -518,8 +539,10 @@ def build(posts, lex, hype_items, repos=None):
             n = node(found[tid])
             for w, days in WINDOWS.items():
                 if age <= days:
-                    s = n['w'][w]; s['posts'] += 1; s['authors'].add((p['net'], p['author'])); s['nets'][p['net']] = s['nets'].get(p['net'], 0) + 1
-                    wh = s['where'].setdefault(p['net'], [0, set()]); wh[0] += 1; wh[1].add(p['author'])
+                    s = n['w'][w]; s['posts'] += 1; s['nets'][p['net']] = s['nets'].get(p['net'], 0) + 1
+                    if p['source'] != 'official': s['authors'].add((p['net'], p['author']))     # a vendor's own feed is not a voice
+                    wh = s['where'].setdefault(p['net'], [0, set()]); wh[0] += 1
+                    if p['source'] != 'official': wh[1].add(p['author'])
                     if (p['net'], p['pid']) in item_pct[w]: s['rp'].append(item_pct[w][(p['net'], p['pid'])])
                     e = math.log1p(max(0, p['score'] or 0) + max(0, p['comments'] or 0))
                     s['eng'] += e
@@ -565,7 +588,7 @@ def build(posts, lex, hype_items, repos=None):
                     'reach': reach, 'reach_label': f"{other} network{'s' if other != 1 else ''} + {len(s['nl'])} newsletter{'s' if len(s['nl']) != 1 else ''}"
                                                    + (' (+ official post)' if 'Official' in s['nets'] else ''),
                     'reach_pct': round(sum(top5) / len(top5), 1) if top5 else None, 'reach_parts': parts,
-                    'where': {k: {'posts': v[0], 'voices': len(v[1])} for k, v in s['where'].items()},
+                    'where': {k: {'posts': v[0], 'voices': None if k in OFFICIAL else len(v[1])} for k, v in s['where'].items()},
                     'engagement': s['obs'], 'weight': round(len(s['authors']) * (1 + 0.5 * max(0, nets - 1)), 2)}
         conv1, conv7 = n['w']['1d']['conv'], n['w']['7d']['conv']
         rising = round(conv1 / (conv7 / 7), 2) if conv7 >= 4 and conv1 >= 2 else None
@@ -743,7 +766,9 @@ def cite_table(rel, top=50):
         for p, dt, found in rel:
             if p['net'] not in DIGEST or (NOW - dt).total_seconds() / 86400 > days: continue
             ex = p.get('extra') or {}
+            own = newsletter_sites(p['author']) + (host(p['url'] or ''),)
             for d in ex.get('domains') or []:
+                if is_own(d, own): continue
                 q = dom.setdefault(d, [0, set()]); q[0] += 1; q[1].add(p['author'])
             for h in ex.get('x') or []:
                 q = xh.setdefault(h, [0, set(), {}]); q[0] += 1; q[1].add(p['author'])
@@ -756,14 +781,15 @@ def cite_table(rel, top=50):
 SIGNAL_WEIGHTS = {'voices': 0.4, 'reach': 0.25, 'rising': 0.2, 'eng': 0.15}
 SIGNAL_METHOD = ('signal (0-100, per window) = 0.40 x pct(voices) + 0.25 x pct(reach) + 0.20 x pct(rising) + 0.15 x pct(engagement excl. Reddit); '
                  'pct(x) = share of the other topics on the map with a strictly lower value (ties share the lower rank; a zero value scores 0); '
-                 'reach = distinct networks other than newsletters + distinct newsletters; rising is the node-level 24h-vs-7d ratio, missing rising scores 0; '
+                 'reach = distinct networks other than newsletters and Official + distinct newsletters; voices exclude Official feeds; '
+                 'rising is the node-level 24h-vs-7d ratio, a missing rising or a ratio below 1 scores 0; '
                  'engagement = sum of log(1 + score + comments) over matching posts outside Reddit (Reddit archive scores are ingestion snapshots). '
                  'A heuristic for ordering attention, not a measure of truth or importance')
 
 def score_signal(nodes):
     """Per-window signal: weighted mean of percentile ranks among the nodes kept on the map. Components are stored next to it."""
     pct = pct_rank
-    rising = pct([x['rising'] or 0 for x in nodes])
+    rising = pct([x['rising'] if x['rising'] and x['rising'] >= 1 else 0 for x in nodes])     # slower than its 7-day average: no lift
     for w in WINDOWS:
         parts = {'voices': pct([x['w'][w]['authors'] for x in nodes]), 'reach': pct([x['w'][w]['reach'] for x in nodes]),
                  'rising': rising, 'eng': pct([x['w'][w]['eng_ex_reddit'] for x in nodes])}
@@ -820,9 +846,15 @@ def main():
                         'Bluesky appears only when an app password is configured. X appears only through the static dossier; it is not collected live.',
                         'Topics come from a reviewable lexicon (topics_lexicon.json), automatic model-version names, and capitalised phrases used by at least three distinct authors (marked emerging).',
                         'A node is only as strong as the posts listed under it; open it to read them.'],
-           'nodes': nodes, 'edges': edges, 'projects': projects, 'citations': extras['citations']}
+           'nodes': nodes, 'edges': edges, 'projects': projects,
+           'citations': {w: {'domains': c['domains']} for w, c in extras['citations'].items()},     # handles stay private (below)
+           'official_feeds': official_meta()}
     with open(os.path.join(WEB, 'pulse.json'), 'w') as f:
         json.dump(out, f, separators=(',', ':'), ensure_ascii=False)
+    # X handles cited by newsletters are a ranking of (often pseudonymous) accounts: kept for the owner's review, never published
+    with open(os.path.join(HIST, 'citations.json'), 'w') as f:
+        json.dump({'generated_at': iso(NOW), 'note': 'private: X handles cited by newsletter items, a candidate follow list; not published',
+                   'x_handles': {w: c['x_handles'] for w, c in extras['citations'].items()}}, f, ensure_ascii=False, indent=1)
     print(f'pulse: {len(nodes)} topics, {len(edges)} links, 7d posts by network {totals["7d"]}')
 
 if __name__ == '__main__':
