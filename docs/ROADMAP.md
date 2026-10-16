@@ -9,7 +9,7 @@ Owner of sequencing since 2026-10-16: the delivery agent, by delegation from the
 | D1 | Ship the public tracker before the remaining M1 investigation work | it already has real data and daily refreshes; it was only missing a usable UI and hosting | — |
 | D2 | Host on Cloudflare Pages, deployed by GitHub Actions | free static bandwidth, no non-commercial clause, Workers AI on the same account for search ([details](ARCHITECTURE.md#3-publishing)) | traffic or features need a server |
 | D3 | Refresh in GitHub Actions; state in the Actions cache | the old refresher lived outside the repo and pushed to a branch that no longer exists | history needs to outlive cache eviction → move `history/` to object storage (R2) |
-| D4 | "AI search" ships as a local question parser, not a model call | zero cost, instant, private, honest about what it does | semantic search below |
+| D4 | "AI search" = local question parser + semantic ranking with a small open embedding model, vectors built at refresh time, query embedded in the browser | zero cost, no server, query stays private; the parser keeps filters exact | an LLM answer layer (summaries, Q&A over evidence) is wanted: Workers AI behind a Pages Function, with a spend cap |
 | D5 | Keep `web/index.html` one static file, no build | contributor rule; nothing in the UI needs a bundler yet | a second page type (investigation explorer) goes live |
 | D6 | DSH assistant (#4 → #10) and read model (#7) stay in scope but behind P1–P4 | both need owner credentials, spend caps and two independent reviews that are not available today | owner supplies the prerequisites |
 
@@ -17,9 +17,9 @@ Owner of sequencing since 2026-10-16: the delivery agent, by delegation from the
 
 | Step | Delivery | Builds on | Status |
 |---|---|---|---|
-| P1 | Console UI: charts, filters, smart search, detail drawer | layer 0 | this change |
+| P1 | Console UI: charts, filters, smart + semantic search, detail drawer | layer 0 | this change |
 | P2 | Hosting + daily self-update + CI gate | P1 | this change; needs Cloudflare secrets |
-| P3 | Semantic search: embed titles/abstracts/descriptions at refresh time (Workers AI embedding model), store vectors next to `data.json`, Pages Function answers `?q=` by cosine similarity, local parser still applies filters | P2 | planned |
+| P3 | Richer search corpus: embed abstracts (the pipeline stores titles only today) and README excerpts; optional LLM answer card over the top results via Workers AI with a hard daily cap | P2 | planned |
 | P4 | Durable history: copy `history/` to R2 after each run so momentum survives cache eviction; weekly snapshot artifact | P2 | planned |
 | P5 | Trend-over-time charts per item (needs ≥ 14 daily snapshots from P2/P4) | P4 | planned |
 | P6 | Link the frontier-economics investigation explorer (`web/prototypes/`, #8's chosen direction) from the console | #6, #8 | planned |

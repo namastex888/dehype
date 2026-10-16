@@ -2,6 +2,7 @@ name: refresh
 # Daily data refresh: fetch public sources, rescore, commit web/data.json to dev, then deploy.
 # Pipeline state (history/trending.db snapshots and cache/) persists in the Actions cache; if it is
 # ever evicted the next run starts a new history and the page says so (first run: everything new).
+# The semantic index (web/search-*.{json,bin}) is rebuilt from the new data with a pinned local model.
 # HYPE is rebuilt only where the private research dossier exists, so web/hype.json is not touched here.
 on:
   schedule:
@@ -52,13 +53,18 @@ jobs:
           path: history
           retention-days: 30
           if-no-files-found: ignore
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Build semantic search index
+        run: npm ci --prefix scripts/embed --no-audit --no-fund && node scripts/embed/embed.mjs web
       - name: Gate
         run: python -m unittest discover tests && node scripts/check_page.mjs
       - name: Commit snapshot
         run: |
           git config user.name "trend-observatory-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/data.json
+          git add web/data.json web/search-index.json web/search-vectors.bin
           if git diff --cached --quiet; then echo "no data change"; exit 0; fi
           git commit -m "data: daily refresh $(date -u +%Y-%m-%d)"
           git push origin HEAD:dev

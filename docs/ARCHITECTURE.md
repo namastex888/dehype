@@ -24,6 +24,8 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
  │                                     ▼                                                │
  │                     web/data.json   papers + repos, 7 windows × 7 paradigms          │
  │                                     │                                                │
+ │   scripts/embed/embed.mjs ──► web/search-index.json + search-vectors.bin             │
+ │      (one 384-d vector per paper/repo/project, MiniLM-L6 q8, pinned, ~10 s, no API)   │
  │   gate: unit tests + scripts/check_page.mjs ──► commit "data: daily refresh" to dev  │
  │   state ──save──► Actions cache (+ 30-day artifact backup of history/)               │
  └─────────────────────────────────────┬────────────────────────────────────────────────┘
@@ -31,7 +33,7 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
                                        │ do not trigger workflows, so refresh calls it)
                                        ▼
  ┌──────────────── .github/workflows/deploy.yml  [NEW, needs 2 secrets] ─────────────────┐
- │   cp METHODOLOGY.md web/  →  check_page  →  wrangler pages deploy web  (branch dev)    │
+ │   cp METHODOLOGY.md web/ → rebuild search index → check_page → wrangler pages deploy   │
  └─────────────────────────────────────┬────────────────────────────────────────────────┘
                                        ▼
  ┌──────────────── Cloudflare Pages (free static hosting + CDN) [BLOCKED: account] ─────┐
@@ -39,9 +41,13 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
  └─────────────────────────────────────┬────────────────────────────────────────────────┘
                                        ▼
  ┌──────────────── Browser: web/index.html  (one static file, no build)  [NEW] ─────────┐
- │  smart search ─► filters ─► KPI tiles · paradigm mix · scatter · leaders · table     │
- │  (question parsed locally: tab, window, paradigm, "stars > 1k", "from meta", "new",  │
- │   "rising", free text with typo tolerance; no model call, nothing leaves the page)   │
+ │  search ─► 1. parser: tab, window, paradigm, "stars > 1k", "from meta", "new",       │
+ │               "rising", "attention ahead" become filters                             │
+ │           2. leftover words ─► semantic: same embedding model runs in the browser    │
+ │               (transformers.js, ~23 MB once, cached), dot product with the index,     │
+ │               ranks by meaning; keyword fallback if the model cannot load             │
+ │           ─► KPI tiles · paradigm mix · scatter · leaders · table                    │
+ │  (no server, no paid API, the query never leaves the browser)                        │
  │  row click ─► detail drawer (score anatomy, flags, sources, HYPE research card)      │
  │  Method tab renders METHODOLOGY.md, the single source for every formula              │
  └──────────────────────────────────────────────────────────────────────────────────────┘
@@ -57,7 +63,7 @@ What each piece guarantees:
 |---|---|---|
 | `run.py` | every value comes from a named public source; failure is recorded per source, never filled in | `note()` → `data.json.sources`, shown in the header's source-health popover |
 | `scoring.py` | unknown stays `null`; coverage is completeness, not confidence; thin evidence shrinks toward the prior | unit tests, `eval.py`, METHODOLOGY.md |
-| `check_page.mjs` | the page script parses and every field it reads exists in the data | `ci.yml`, `refresh.yml`, `deploy.yml` |
+| `check_page.mjs` | the page script parses, every field it reads exists in the data, the search vectors match the index (stale index = warning) | `ci.yml`, `refresh.yml`, `deploy.yml` |
 | `index.html` | `—` for unknown, gap labels only when both coverages ≥ 50%, sampled counts called samples | ported verbatim from the previous page |
 
 ## 2. How it updates itself

@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Trend Observatory</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%223%22 y=%223%22 width=%2226%22 height=%2226%22 rx=%227%22 fill=%22%2305080d%22 stroke=%22%233fd0ff%22 stroke-width=%223%22/%3E%3Crect x=%2212%22 y=%2212%22 width=%228%22 height=%228%22 rx=%222%22 fill=%22%233fd0ff%22/%3E%3C/svg%3E">
 <meta name="description" content="Open AI research observatory: papers, GitHub repos and sampled attention, scored with public methods. Unknown stays unknown.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -53,9 +54,11 @@ nav.tabs button.on::after{content:"";position:absolute;left:12px;right:12px;bott
 .hero h1{margin:0 0 4px;font:600 22px/1.25 var(--sans);letter-spacing:-.01em}
 .hero p{margin:0;color:var(--text-secondary);max-width:860px}
 .ask{margin-top:18px;position:relative}
-.ask input{width:100%;height:52px;border-radius:12px;border:1px solid var(--line-2);background:var(--surface-1);color:var(--text-primary);font:15px var(--sans);padding:0 120px 0 46px;outline:none;transition:border-color .15s,box-shadow .15s}
+.ask input{width:100%;height:52px;border-radius:12px;border:1px solid var(--line-2);background:var(--surface-1);color:var(--text-primary);font:15px var(--sans);padding:0 190px 0 46px;outline:none;transition:border-color .15s,box-shadow .15s}
 .ask input:focus{border-color:var(--accent);box-shadow:var(--glow)}
 .ask .ic{position:absolute;left:16px;top:16px;width:20px;height:20px;color:var(--accent)}
+.ask .sem{position:absolute;right:58px;top:11px;height:30px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface-2);color:var(--text-secondary);font:12px var(--mono);padding:0 10px;cursor:pointer}
+.ask .sem.on{color:var(--accent);border-color:#3fd0ff66;background:var(--accent-dim);box-shadow:var(--glow)}
 .ask kbd{position:absolute;right:14px;top:15px;font:11px var(--mono);color:var(--text-muted);border:1px solid var(--line-2);border-radius:6px;padding:3px 7px}
 .parsed{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:24px;align-items:center;font-size:12px}
 .parsed .lbl{color:var(--text-muted);font:11px var(--mono);letter-spacing:.06em;text-transform:uppercase;margin-right:2px}
@@ -183,7 +186,7 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between}
  .status .hide-s{display:none}
  .kpis{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.charts{grid-template-columns:minmax(0,1fr)}
  .status #upd{display:none}.parsed .hint{display:none}.charts .chart:nth-child(2){grid-column:auto}
- .hero h1{font-size:19px}.ask input{padding-right:16px;font-size:14px}.ask kbd{display:none}
+ .hero h1{font-size:19px}.ask input{padding-right:118px;font-size:14px}.ask kbd{display:none}.ask .sem{right:8px}
  #md{grid-template-columns:1fr}#md nav{display:none}
  .kv{grid-template-columns:1fr 1fr}
  table.t .hs{display:none}
@@ -209,6 +212,7 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between}
   <div class="ask">
    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/><path d="M11 7.5v.01M8.2 9.2l.01 0" opacity=".6"/></svg>
    <input id="q" type="search" autocomplete="off" spellcheck="false" placeholder="Ask: “agent repos over 1k stars this month”, “jepa papers from meta”, “new world models”…" aria-label="Search">
+   <button class="sem" id="sem" title="semantic search: ranks by meaning with a small embedding model that runs in your browser (downloads ~23 MB once)">✦ semantic</button>
    <kbd>⌘K</kbd>
   </div>
   <div class="parsed" id="parsed"></div>
@@ -241,7 +245,7 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between}
 'use strict';
 // ------------------------------------------------------------------ state
 let D=null,H=null,M=null;
-const S={tab:'papers',win:'7d',view:'all',q:'',mincov:0,onlyNew:false,noFlag:false,sort:null,sel:null,msec:''};
+const S={sem:true,tab:'papers',win:'7d',view:'all',q:'',mincov:0,onlyNew:false,noFlag:false,sort:null,sel:null,msec:''};
 const WN=['1d','7d','30d','90d','180d','1y','overall'];
 const REPO='https://github.com/namastex888/trending-research/blob/dev/';
 const $=id=>document.getElementById(id);
@@ -286,7 +290,7 @@ const WINW={'today':'1d','24h':'1d','day':'1d','this week':'7d','week':'7d','wee
 const FIELDS={star:'stars',stars:'stars',score:'score',coverage:'coverage',cov:'coverage',upvote:'upvotes',upvotes:'upvotes',votes:'upvotes',hf:'upvotes',gained:'gained',gain:'gained',contributors:'contributors',commits:'commits',mentions:'mentions',days:'days',age:'days',attention:'score',discovery:'discovery',gap:'gap'};
 const STOP=new Set('a an the of on in for with and or to me show find list papers paper repos repo github hype projects project about that are is top best new rising trending recent latest from by over under more less than at least most fewest sort what which'.split(' '));
 function nval(n,u){n=parseFloat(n);u=(u||'').toLowerCase();return u=='k'?n*1e3:u=='m'?n*1e6:u=='%'?n/100:n}
-function parseQuery(raw){
+function parseQuery(raw,opt={}){
  const P={raw,label:null,tab:null,win:null,tag:null,nums:[],who:null,terms:[],isNew:false,rising:false,sort:null};
  let s=' '+raw.toLowerCase().replace(/[“”"]/g,' ')+' ';
  const take=(re,fn)=>{s=s.replace(re,(...m)=>{fn(...m);return ' '})};
@@ -300,13 +304,21 @@ function parseQuery(raw){
  take(new RegExp('\\b'+F+'\\s*(>=|<=|>|<|=)\\s*(\\d+(?:\\.\\d+)?)\\s*(k|m|%)?','g'),(m,f,o,n,u)=>P.nums.push({f:FIELDS[f],op:o,v:nval(n,u)}));
  take(new RegExp('(>=|<=|>|<|over|above|more than|at least|under|below|less than|fewer than|at most)\\s*(\\d+(?:\\.\\d+)?)\\s*(k|m|%)?\\s*'+F+'\\b','g'),(m,o,n,u,f)=>P.nums.push({f:FIELDS[f],op:OP[o],v:nval(n,u)}));
  take(/\b(most|top)\s+(starred|stars|upvoted|gained|contributors|commits)\b/g,(m,a,b)=>P.sort={stars:'stars',starred:'stars',upvoted:'upvotes',gained:'gained',contributors:'contributors',commits:'commits'}[b]);
- take(/\b(?:from|by)\s+([a-z0-9][\w.\-@]*(?:\s+(?!with\b|in\b|over\b|under\b|and\b|this\b|last\b|more\b|less\b)[a-z0-9][\w.\-]*){0,2})/g,(m,w)=>P.who=w.trim());
+ take(/\b(?:from|by)\s+([a-z0-9][\w.\-@]*(?:\s+(?!with\b|in\b|over\b|under\b|and\b|this\b|last\b|more\b|less\b)[a-z0-9][\w.\-]*){0,2})/g,(m,w)=>{w=w.trim();
+  // only a known lab/owner/author becomes a filter; otherwise the words stay as search text
+  while(w&&!opt.noWho&&!knownWho(w))w=w.split(' ').slice(0,-1).join(' ');if(w&&!opt.noWho)P.who=w;else P._back=(P._back||'')+' '+m.replace(/^\s*(from|by)\s+/,'')+' '});
  take(/\b(new|newly|fresh|just appeared)\b/g,()=>P.isNew=true);
  take(/\b(rising|risers|climbing|movers|gainers|up)\b/g,()=>P.rising=true);
  for(const k of Object.keys(SYN).sort((a,b)=>b.length-a.length))take(new RegExp('\\b'+k.replace(/[-/]/g,'\\$&').replace(/ /g,'\\s+')+'\\b','g'),()=>P.tag=P.tag||SYN[k]);
  if(P.nums.some(n=>['gap','discovery'].includes(n.f))&&!P.tab)P.tab='hype';
+ if(P._back)s+=P._back;
  P.terms=s.split(/[^a-z0-9.+#\-_/]+/).filter(w=>w&&w.length>1&&!STOP.has(w));
  return P}
+let WHO_TEXT='',AUTH_TEXT='';
+function buildWho(){const a=[],au=[];for(const t of ['papers','repos'])for(const [id,it] of Object.entries(D[t].items)){if(it.lab)a.push(it.lab);if(it.owner)a.push(it.owner);if(it.authors)au.push(...it.authors);if(t=='repos')a.push(id.split('/')[0])}
+ WHO_TEXT=' · '+a.join(' · ').toLowerCase()+' · ';AUTH_TEXT=' · '+au.join(' · ').toLowerCase()+' · '}
+// labs/owners match on a word; people only on a full name (two or more words), so "from human videos" is not an author filter
+function knownWho(w){if(!WHO_TEXT)return true;const re=new RegExp('(^|[^a-z0-9])'+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-z0-9])');return re.test(WHO_TEXT)||(/\s/.test(w)&&re.test(AUTH_TEXT))}
 function lev1(a,b){if(Math.abs(a.length-b.length)>1)return false;let i=0,j=0,e=0;while(i<a.length&&j<b.length){if(a[i]==b[j]){i++;j++;continue}if(++e>1)return false;if(a.length>b.length)i++;else if(b.length>a.length)j++;else{i++;j++}}return e+(a.length-i)+(b.length-j)<=1}
 const HAY=new Map();
 function hay(r){const k=S.tab+'|'+r.id;let h=HAY.get(k);if(h)return h;
@@ -315,6 +327,26 @@ function hay(r){const k=S.tab+'|'+r.id;let h=HAY.get(k);if(h)return h;
 function termHit(r,term){const h=hay(r);if(h.t.includes(term))return 2;if(term.length>=5&&h.w.some(w=>lev1(w,term)||(w.length>term.length&&lev1(w.slice(0,term.length),term))))return 1;return 0}
 function getF(r,f){if(f=='discovery')return r._disc;return r[f]}
 function cmp(a,op,b){return a==null?false:op=='>'?a>b:op=='>='?a>=b:op=='<'?a<b:op=='<='?a<=b:a==b}
+
+// ------------------------------------------------------------------ semantic search: same model as scripts/embed/embed.mjs, query embedded locally
+const SEM={idx:null,vec:null,ext:null,state:'idle',err:null,cache:new Map(),pending:new Set()};
+const TF_URL='https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0';
+async function semLoad(){
+ if(SEM.state=='ready'||SEM.state=='loading')return;SEM.state='loading';renderSemStatus();
+ try{const [ix,bin]=await Promise.all([fetch('search-index.json').then(r=>{if(!r.ok)throw new Error('index HTTP '+r.status);return r.json()}),fetch('search-vectors.bin').then(r=>{if(!r.ok)throw new Error('vectors HTTP '+r.status);return r.arrayBuffer()})]);
+  if(bin.byteLength!=ix.rows*ix.dim)throw new Error('vector size mismatch');
+  const tf=await import(TF_URL);SEM.ext=await tf.pipeline('feature-extraction',ix.model,{dtype:ix.dtype});
+  SEM.idx=ix;SEM.vec=new Int8Array(bin);SEM.pos={};for(const [t,v] of Object.entries(ix.tabs)){const m=new Map();v.ids.forEach((id,i)=>m.set(id,v.offset+i));SEM.pos[t]=m}
+  SEM.state='ready'}
+ catch(e){SEM.state='failed';SEM.err=e.message;console.warn('semantic search unavailable',e)}
+ render()}
+function semQuery(text){if(SEM.cache.has(text))return SEM.cache.get(text);if(SEM.state!='ready'){semLoad();return null}
+ if(!SEM.pending.has(text)){SEM.pending.add(text);const qAt=S.q;SEM.ext(text,{pooling:'mean',normalize:true}).then(t=>{SEM.cache.set(text,t.data);SEM.pending.delete(text);if(S.q==qAt)render()}).catch(e=>{SEM.pending.delete(text);console.warn(e)})}
+ return null}
+function semSim(tab,id,q){const p=SEM.pos[tab]?.get(id);if(p==null)return null;const o=p*SEM.idx.dim,v=SEM.vec;let s=0;for(let k=0;k<SEM.idx.dim;k++)s+=q[k]*v[o+k];return s/SEM.idx.scale}
+const semText=P=>P.terms.join(' ');
+function renderSemStatus(){$('sem').classList.toggle('on',S.sem);$('sem').textContent=S.sem?(SEM.state=='loading'?'✦ loading…':SEM.state=='failed'?'✦ keyword':'✦ semantic'):'✦ off';
+ $('sem').title=S.sem?(SEM.state=='failed'?'semantic model could not load ('+SEM.err+'); using keyword matching':'semantic search on: ranks by meaning with a small embedding model running in your browser (downloads ~23 MB once). Click to switch to keyword matching'):'keyword matching. Click to rank by meaning instead'}
 
 // ------------------------------------------------------------------ data access
 function rowsFor(tab,win,view){
@@ -331,7 +363,10 @@ function applyFilters(rows,P){
  if(P.who){const re=new RegExp('(^|[^a-z0-9])'+P.who.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-z0-9])');out=out.filter(r=>re.test([r.lab,r.owner,(r.authors||[]).join(' '),r.id,r.name].filter(Boolean).join(' · ').toLowerCase()))}
  if(P.label)out=out.filter(r=>r.label==P.label);
  if(P.rising)out=out.filter(r=>(mvDelta(r)??0)>0||isNew(r));
- if(P.terms.length){out=out.map(r=>{let s=0;for(const t of P.terms){const h=termHit(r,t);if(!h)return null;s+=h}return {...r,_rel:s}}).filter(Boolean)}
+ if(P.terms.length){const qv=S.sem&&SEM.state!='failed'?semQuery(semText(P)):null;
+  if(qv){const scored=out.map(r=>{const sim=semSim(S.tab,r.id,qv);let kw=0;for(const t of P.terms)kw+=termHit(r,t)?1:0;return {...r,_sim:sim,_rel:(sim??0)+0.06*kw,_kw:kw}});
+   const best=Math.max(0,...scored.map(r=>r._sim??0));out=scored.filter(r=>r._kw==P.terms.length||(r._sim!=null&&r._sim>=Math.max(0.3,best-0.2)));P.semantic=true}
+  else{out=out.map(r=>{let s=0;for(const t of P.terms){const h=termHit(r,t);if(!h)return null;s+=h}return {...r,_rel:s}}).filter(Boolean)}}
  return out}
 
 // ------------------------------------------------------------------ columns
@@ -422,7 +457,7 @@ function render(){
  $('md').style.display=isM?'grid':'none';
  if(isM){writeHash();renderSources();$('upd').textContent='updated '+(D.generated_local||'').replace(/\s*\(.*\)/,'');return renderMethod()}
  if(S.tab=='hype'&&!H){$('tb').innerHTML='<tr><td class=empty>Loading HYPE data…</td></tr>';loadHype().then(render);return}
- const P=parseQuery(S.q);
+ let P=parseQuery(S.q);
  if(P.tab&&P.tab!=S.tab){S.tab=P.tab;S.sort=null;return render()}
  const meta=S.tab=='hype'?H:D;
  const wins=S.tab=='hype'?WN.filter(w=>H.windows[w]):D.windows;
@@ -451,11 +486,14 @@ function render(){
  const vw=P.tag&&S.view=='all'&&meta.views.includes(P.tag)?P.tag:S.view;
  const base=rowsFor(S.tab,S.win,vw);
  let rows=applyFilters(base.rows,P);
+ // ambiguous "from X": if the lab/author reading finds nothing, read the words as text instead
+ if(!rows.length&&P.who){const P2=parseQuery(S.q,{noWho:true});const r2=applyFilters(base.rows,P2);if(r2.length){P=P2;rows=r2}}
  const sortKey=S.sort?.k||(P.sort)||(P.terms.length?'_rel':P.rising?'_mv':null);
  if(sortKey){const col=C[S.tab].find(c=>c.k==sortKey);const val=sortKey=='_rel'?r=>r._rel:sortKey=='_mv'?r=>isNew(r)?-1:mvDelta(r):col?col.v:r=>r[sortKey];
   const dir=S.sort?.d??(sortKey=='rank'||sortKey=='days'?1:-1);
   rows=rows.slice().sort((a,b)=>{const x=val(a),y=val(b);if(x==null&&y==null)return a.rank-b.rank;if(x==null)return 1;if(y==null)return -1;return (typeof x=='string'?x.localeCompare(y):x-y)*dir||a.rank-b.rank})}
  else rows=rows.slice().sort((a,b)=>a.rank-b.rank);
+ renderSemStatus();
  renderParsed(P,rows.length,base.rows.length,rows.length||!S.q?null:otherTabs(P).filter(([t])=>!P.tab||t==S.tab));
  renderKpis(base,rows);
  renderCharts(base.rows,rows);
@@ -469,11 +507,11 @@ function renderParsed(P,n,tot,other){
  const c=[];if(P.tab)c.push(['tab',P.tab]);if(P.win)c.push(['window',P.win]);if(P.tag)c.push(['paradigm',P.tag]);
  for(const x of P.nums)c.push([x.f,x.op+' '+(x.f=='coverage'?Math.round(x.v*100)+'%':x.v.toLocaleString('en-US'))]);
  if(P.who)c.push(['from',P.who]);if(P.label)c.push(['gap',P.label.replace('_',' ')]);if(P.isNew)c.push(['only','new entries']);if(P.rising)c.push(['only','rising']);if(P.sort)c.push(['sort','most '+P.sort]);
- for(const t of P.terms)c.push(['text',t]);
+ if(P.terms.length)c.push([P.semantic?'meaning':'text',semText(P)]);
  if(!S.q){const ex={papers:['agent papers this week','jepa from meta','world models upvotes > 100','new harness papers'],repos:['agent repos over 1k stars this month','most gained world models','rising harness 30d','browser'],hype:['attention ahead','gap > 20','coding agents','overall discovery > 60']}[S.tab];
   $('parsed').innerHTML=`<span class=lbl>try</span><span class=examples>${ex.map(e=>`<button data-ex="${esc(e)}">${esc(e)}</button>`).join(' ')}</span><span class="dim hint" style="margin-left:auto;font-size:11px">smart search parses your question into filters · runs in your browser · no LLM</span>`;
   $('parsed').querySelectorAll('[data-ex]').forEach(b=>b.onclick=()=>{$('q').value=b.dataset.ex;S.q=b.dataset.ex;render()});return}
- $('parsed').innerHTML=`<span class=lbl>understood</span>${c.map(([k,v])=>`<span class="pchip${k=='text'?' t':''}">${esc(k)}: ${esc(v)}</span>`).join('')||'<span class=dim>nothing to filter on</span>'}<span class=dim style="margin-left:6px">→ ${n} of ${tot} rows</span>${other&&other.length?`<span class=lbl style="margin-left:10px">found in</span>${other.map(([t,w,k])=>`<button class=chip data-go="${t}|${w}">${k} in ${t} · ${w} →</button>`).join('')}`:''}`;
+ $('parsed').innerHTML=`<span class=lbl>understood</span>${c.map(([k,v])=>`<span class="pchip${k=='text'?' t':''}">${esc(k)}: ${esc(v)}</span>`).join('')||'<span class=dim>nothing to filter on</span>'}<span class=dim style="margin-left:6px">→ ${n} of ${tot} rows${P.semantic?' · ranked by meaning':S.sem&&P.terms.length&&SEM.state=='loading'?' · loading semantic model…':''}</span>${other&&other.length?`<span class=lbl style="margin-left:10px">found in</span>${other.map(([t,w,k])=>`<button class=chip data-go="${t}|${w}">${k} in ${t} · ${w} →</button>`).join('')}`:''}`;
  $('parsed').querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>{const [t,w]=b.dataset.go.split('|');S.tab=t;S.win=w;S.sort=null;render()})}
 function kpi(k,v,s){return `<div class="panel kpi"><div class=k>${k}</div><b>${v}</b><div class=s>${s}</div></div>`}
 function renderKpis(base,rows){
@@ -519,7 +557,7 @@ function renderTable(rows,base,sortKey){
  const cols=C[S.tab];
  $('ttitle').textContent={papers:'Ranked papers',repos:'Ranked repositories',hype:'Researched projects'}[S.tab];
  $('cnt').textContent=`${rows.length} shown · ${base.rows.length} ranked in ${S.win}${S.view=='all'?'':' within '+S.view} · ${num(base.candidates)} candidates`;
- $('sortinfo').textContent=sortKey?`sorted by ${sortKey=='_rel'?'relevance':sortKey=='_mv'?'movement':(cols.find(c=>c.k==sortKey)?.l||sortKey)}`:'sorted by rank';
+ $('sortinfo').textContent=sortKey?`sorted by ${sortKey=='_rel'?(rows.some(r=>r._sim!=null)?'semantic relevance':'relevance'):sortKey=='_mv'?'movement':(cols.find(c=>c.k==sortKey)?.l||sortKey)}`:'sorted by rank';
  $('th').innerHTML='<tr>'+cols.map(c=>`<th class="s${c.n?' n':''}${c.hs?' hs':''}${S.sort?.k==c.k?' on':''}" data-k="${c.k}">${c.l}${S.sort?.k==c.k?(S.sort.d>0?' ↑':' ↓'):''}</th>`).join('')+'</tr>';
  $('th').querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k;S.sort=S.sort?.k==k?{k,d:-S.sort.d}:{k,d:k=='rank'||k=='title'||k=='id'||k=='name'||k=='tag'?1:-1};render()});
  $('tb').innerHTML=rows.map(r=>`<tr data-id="${esc(r.id)}" class="${S.sel==r.id?'sel':''}">`+cols.map(c=>`<td class="${c.n?'n':''}${c.hs?' hs':''}">${c.h(r)}</td>`).join('')+'</tr>').join('')||`<tr><td colspan=${cols.length} class=empty>No rows match. Unknown values are never treated as zero, so numeric filters exclude rows where the value is unobserved.</td></tr>`;
@@ -637,6 +675,8 @@ let qT;$('q').addEventListener('input',e=>{clearTimeout(qT);qT=setTimeout(()=>{S
 addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()=='k'){e.preventDefault();if(S.tab=='methodology')setTab('papers');$('q').focus();$('q').select()}
  else if(e.key=='/'&&document.activeElement.tagName!='INPUT'){e.preventDefault();$('q').focus()}
  else if(e.key=='Escape'){if($('drawer').classList.contains('on'))closeDetail();else if($('pop').classList.contains('on'))$('pop').classList.remove('on');else if(document.activeElement==$('q')&&S.q){$('q').value='';S.q='';render()}}});
+$('sem').onclick=()=>{S.sem=!S.sem;try{localStorage.setItem('trend-sem',S.sem?'1':'0')}catch(e){}renderSemStatus();render()};
+try{if(localStorage.getItem('trend-sem')=='0')S.sem=false}catch(e){}
 $('mincov').onchange=e=>{S.mincov=+e.target.value;render()};
 $('onlynew').onclick=()=>{S.onlyNew=!S.onlyNew;render()};$('noflag').onclick=()=>{S.noFlag=!S.noFlag;render()};
 $('scrim').onclick=closeDetail;
@@ -647,7 +687,7 @@ try{const t=localStorage.getItem(TH_KEY);if(t)document.documentElement.dataset.t
 $('theme').onclick=()=>setTheme(document.documentElement.dataset.theme=='light'?'dark':'light');
 addEventListener('hashchange',()=>{const b=S.tab+'|'+S.msec+'|'+S.win+'|'+S.view;readHash();if(S.tab+'|'+S.msec+'|'+S.win+'|'+S.view!=b)render()});
 async function loadHype(){try{const r=await fetch('hype.json?'+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);H=await r.json()}catch(e){H=null;$('tb').innerHTML=`<tr><td class=empty>No HYPE data (hype.json): ${esc(e.message)}</td></tr>`;throw e}}
-async function load(){const r=await fetch('data.json?'+Date.now());D=await r.json();HAY.clear();render()}
+async function load(){const r=await fetch('data.json?'+Date.now());D=await r.json();HAY.clear();buildWho();render()}
 readHash();{const u=new URLSearchParams(location.search);if(u.get('q')){S.q=u.get('q');$('q').value=S.q}if(u.get('open'))S.sel=u.get('open').split(',')[0]}
 load().catch(e=>{$('tb').innerHTML=`<tr><td class=empty>Could not load data.json: ${esc(e.message)}</td></tr>`});
 setInterval(()=>{if(S.tab!='methodology'&&!document.hidden){H=S.tab=='hype'?H:null;load()}},5*60*1000);
