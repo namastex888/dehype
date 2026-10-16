@@ -25,7 +25,7 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
  │                     web/data.json   papers + repos, 7 windows × 7 paradigms          │
  │                                     │                                                │
  │   scripts/embed/embed.mjs ──► web/search-index.json + search-vectors.bin             │
- │      (one 384-d vector per paper/repo/project, MiniLM-L6 q8 at a pinned HF commit, ~10 s)   │
+ │      (one 384-d vector per paper/repo/project, MiniLM-L6 q8, pinned HF commit)       │
  │   gate: unit tests + scripts/check_page.mjs ──► commit "data: daily refresh" to dev  │
  │   state ──save──► Actions cache (+ 30-day artifact backup of history/)               │
  └─────────────────────────────────────┬────────────────────────────────────────────────┘
@@ -44,7 +44,7 @@ Legend used below: `[LIVE]` runs today · `[NEW]` added by the console/hosting c
  │  search ─► 1. parser: tab, window, paradigm, "stars > 1k", "from meta", "new",       │
  │               "rising", "attention ahead" become filters                             │
  │           2. leftover words ─► semantic: same embedding model runs in the browser    │
- │               (transformers.js + same pinned weights, ~28 MB once, cached), dot product,     │
+ │               (transformers.js, same pinned weights, ~28 MB once), dot product,      │
  │               keeps the closest items; keyword fallback if the model cannot load    │
  │           ─► KPI tiles · paradigm mix · scatter · leaders · table                    │
  │  (no server, no paid API, the query never leaves the browser)                        │
