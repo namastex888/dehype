@@ -9,7 +9,8 @@
 // i18n/dossier.pt.json entries keep their form.
 // Node standard library only. Usage: node scripts/check_page.mjs [webDir]
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
 const web = process.argv[2] || 'web';
@@ -89,6 +90,10 @@ function publicRules(file, D) {
     if (linked && v.who) finding(file, 'person handle: Mastodon who', at);
   });
 }
+function ownAccount(slug, it, url) {                             // hype_build.own_account: the project's own X account, not a person
+  const h = url.replace(/\/+$/, '').split('/').pop().toLowerCase().replace(/[^a-z0-9]/g, ''), repo = (it.links?.repo || '').replace(/\/+$/, '').split('/').pop();
+  return [it.name || '', slug, repo].some(x => x.toLowerCase().split(/[^a-z0-9]+/).some(t => t.length >= 4 && h.includes(t)));
+}
 function hypeRules(H) {
   const list = f => { try { return JSON.parse(readFileSync(join(web, 'i18n', f), 'utf8')); } catch (e) { fail.push(`i18n/${f} unreadable: ${e.message}`); return {}; } };
   const S = list('dossier-sources.json'), X = list('dossier-x-figures.json');
@@ -101,6 +106,9 @@ function hypeRules(H) {
   }
   for (const [slug, it] of Object.entries(H.items || {})) {
     for (const k of ['account', 'followers', 'cand_account']) if (it.viral?.[k] != null) finding('hype.json', `viral.${k} publishes an account`, `items.${slug}.viral.${k}`);
+    const xh = it.links?.x_handle;
+    if (typeof xh === 'string' && X_PROFILE.test(xh) && !ownAccount(slug, it, xh))
+      finding('hype.json', "links.x_handle is not the project's own account (no 4+ character token of its name, slug or repository name in the handle)", `items.${slug}.links.x_handle`);
     (it.skeptic || []).forEach((s, i) => { if (s.by && !byOk.has(s.by)) finding('hype.json', 'skeptic[].by name not in i18n/dossier-sources.json', `items.${slug}.skeptic[${i}].by`); });
     for (const [k, rows] of [['traction', it.traction], ['evidence_in.usage', it.evidence_in?.usage], ['discovery.metrics', it.discovery?.metrics]])
       (rows || []).forEach((r, i) => {
@@ -514,7 +522,17 @@ let i18nNote = 'no strings file';
     }
     const rx = {};
     const tpl = k => rx[k] ||= new RegExp('^' + String(entry[k]?.en ?? '\u0000').replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\\?\{(\w+)\\?\}/g, '(?<$1>[\\s\\S]+?)') + '$');
-    const ours = (v, keys, depth = 0) => keys.some(k => { const m = entry[k] && tpl(k).exec(v); return m && (m.groups?.detail == null || (depth < 2 && ours(m.groups.detail, keys.filter(x => x !== k), depth + 1))); });
+    // the best parse of a value (web/dehype.js tr does the same): the matching template with the most literal text, its {detail} parse
+    // counted in, so "... [as of last live run]" reads as that entry around its detail; -1 when no template matches
+    const lit = k => String(entry[k].en).replace(PH, '').length;
+    const parse = (v, keys, depth = 0) => Math.max(-1, ...keys.map(k => {
+      const m = entry[k] && tpl(k).exec(v);
+      if (!m) return -1;
+      if (m.groups?.detail == null) return lit(k);
+      const d = depth < 2 ? parse(m.groups.detail, keys.filter(x => x !== k), depth + 1) : -1;
+      return d < 0 ? -1 : lit(k) + d;
+    }));
+    const ours = (v, keys) => parse(v, keys) >= 0;
     let checked = 0;
     for (const [f, paths] of Object.entries(I.fields || {})) {
       const X = f === 'hype.json' ? H : readJSON(f);
@@ -579,7 +597,7 @@ let pageNote = 'no dehype pages';
   try { js = readFileSync(join(web, 'dehype.js'), 'utf8'); new Function(js); }
   catch (e) { fail.push(e.code === 'ENOENT' ? 'dehype.js missing (the dehype pages share it)' : `dehype.js does not parse: ${e.message}`); }
   try { readFileSync(join(web, 'dehype.css')); } catch { fail.push('dehype.css missing (the dehype pages share it)'); }
-  const keys = new Set([...js.matchAll(/'((?:ui|nav|kind|label|stories|output|hype|dossier|state|seen|sample|x_route)\.[\w.]+)'/g)].map(m => m[1]).filter(k => !/\.(json|html|md|css|js)$/.test(k)));
+  const keys = new Set([...js.matchAll(/'((?:ui|nav|kind|label|stories|output|hype|dossier|state|seen|sample|x_route|n)\.[\w.]+)'/g)].map(m => m[1]).filter(k => !/\.(json|html|md|css|js)$/.test(k)));
   const loads = [...js.matchAll(/\b(?:load|opt)\('([^']+)'[,)]/g)].map(m => m[1]), ok = new Set(['i18n/strings.json', ...Object.values(PAGES).flat()]);
   for (const f of loads) if (!ok.has(f)) finding('dehype.js', 'loads a file no dehype page names in data-src', f);
   if ((js.match(/\bfetch\(/g) || []).length !== 1) finding('dehype.js', 'fetches outside its one loader (load)', 'fetch(');
@@ -598,6 +616,9 @@ let pageNote = 'no dehype pages';
     publicRules(f, h);
   }
   publicRules('dehype.js', js);
+  const tree = join(dirname(fileURLToPath(import.meta.url)), '..');         // the repository this gate belongs to
+  for (const m of js.matchAll(/(?:REPO \+ '|blob\/dev\/)([\w./-]+)'/g))
+    try { readFileSync(join(tree, m[1])); } catch { finding('dehype.js', 'links a repository path (blob/dev/<path>) that does not exist in the tree', m[1]); }
   need(!/\/blob\/main\//.test(js), 'dehype.js links to /blob/main/ (default branch is dev)');
   for (const k of keys) if (!(k in S)) finding('dehype.js', 'string key with no entry in i18n/strings.json (our own text has en and pt)', k);
   for (const [k, w] of Object.entries(HYPE_WORDS))

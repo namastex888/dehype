@@ -87,6 +87,18 @@ class PagesTest(unittest.TestCase):
         self.assert_fails(check_page({'dehype.js': self.js + "\nload('feeds.json');"}), 'dehype.js: loads a file no dehype page names')
         self.assert_fails(check_page({'dehype.js': self.js + '\n}'}), 'dehype.js does not parse')
 
+        self.assert_fails(check_page({'dehype.js': self.js + "\nconst X = REPO + 'NOPE.md';"}), 'dehype.js: links a repository path (blob/dev/<path>) that does not exist')
+
+    def test_x_profile_link_is_the_projects_own_account(self):
+        sys.path.insert(0, ROOT)
+        import hype_build
+        H = json.loads(read(os.path.join(WEB, 'hype.json')))
+        slug = next(s for s, it in H['items'].items() if it['links'].get('x_handle'))
+        H['items'][slug]['links']['x_handle'] = 'https://x.com/somebody_else'
+        self.assert_fails(check_page({'hype.json': H}), "hype.json: links.x_handle is not the project's own account")
+        self.assertIsNone(hype_build.scrub(H, drop=set())['items'][slug]['links']['x_handle'])
+        self.assertTrue(hype_build.own_account('claude-code', {'name': 'Claude Code'}, 'https://x.com/claudeai'))
+
 
 if __name__ == '__main__':
     unittest.main()

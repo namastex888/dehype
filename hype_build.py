@@ -246,6 +246,14 @@ def drop_removed(o, drop):
         if isinstance(v, (dict, list)): drop_removed(v, drop)
         elif is_url(v) and url_hash(v) in drop: o[k] = None
 
+def own_account(slug, it, url):
+    """links.x_handle stays only when it is the project's own account: the handle (lower case, punctuation stripped) contains a
+    token of 4+ characters from the project's name, slug or repository name; otherwise it may be a person, and the link goes.
+    scripts/check_page.mjs applies the same rule."""
+    h = re.sub(r'[^a-z0-9]', '', url.rstrip('/').rsplit('/', 1)[-1].lower())
+    repo = ((it.get('links') or {}).get('repo') or '').rstrip('/').rsplit('/', 1)[-1]
+    return any(len(t) >= 4 and t in h for s in (it.get('name') or '', slug, repo) for t in re.split(r'[^a-z0-9]+', s.lower()))
+
 def scrub(H, srcs=None, figs=None, drop=None):
     """Apply the group-A rules to a built hype.json in place; a second run changes nothing. srcs, figs: the owner-reviewed
     skeptic[].by disposition list and X-figure list (default: web/i18n/). An unlisted name or hit is left for CI to fail.
@@ -259,7 +267,7 @@ def scrub(H, srcs=None, figs=None, drop=None):
     keep_by, by_net = set(srcs.get('keep') or []), {e['sha256']: e['by'] for e in srcs.get('network') or []}
     strip = {(e.get('slug'), e['field'], e['sha256']) for e in figs.get('hits') or [] if e['disposition'] == 'strip'}
     place = (figs.get('placeholder') or {}).get('en')
-    for it in H['items'].values():
+    for slug, it in H['items'].items():
         it['posts'] = [p for p in it.get('posts') or [] if not (is_url(p.get('url')) and url_hash(p['url']) in drop)]
         drop_removed(it, drop)
         # counts only: an X, LinkedIn, YouTube, Telegram (or Reddit) post keeps its network and date; other posts lose the author
@@ -267,6 +275,8 @@ def scrub(H, srcs=None, figs=None, drop=None):
                        {k: v for k, v in p.items() if k != 'au' and not (k == 'url' and url_net(v))} for p in it.get('posts') or []]
         for k in ('account', 'followers', 'cand_account'): (it.get('viral') or {}).pop(k, None)
         relink(it)
+        L = it.get('links') or {}
+        if is_url(L.get('x_handle')) and not own_account(slug, it, L['x_handle']): L['x_handle'] = None
         for rows, words in ((it.get('traction') or [], True), ((it.get('evidence_in') or {}).get('usage') or [], False),
                             ((it.get('discovery') or {}).get('metrics') or [], False)):
             for r in rows:                                    # a figure read from a count-only post is not shown

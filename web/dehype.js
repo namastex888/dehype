@@ -9,7 +9,7 @@ const DH = (() => {
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const REPO = 'https://github.com/namastex888/dehype/blob/dev/';            // method and policy links until group C3 adds method.html
-const METHOD = { en: REPO + 'METHODOLOGY.md', pt: REPO + 'METHODOLOGY.pt.md' }, POLICY = { en: REPO + 'POLICY.md', pt: REPO + 'POLICY.pt.md' };
+const METHOD = { en: REPO + 'METHODOLOGY.md', pt: REPO + 'METHODOLOGY.pt.md' }, POLICY = { en: REPO + 'web/POLICY.md', pt: REPO + 'web/POLICY.pt.md' };
 const NAV = [['stories', 'nav.stories'], ['output', 'nav.output'], ['hype', 'nav.hype'], ['index', 'nav.console']];
 const COUNT_ONLY = new Set(['Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mastodon']);
 const NOT_FETCHED = 'not fetched', DAY = 864e5;
@@ -24,21 +24,29 @@ const entry = k => { const e = I.strings[k]; return e && e.ref ? REF[k] : e; };
 function t(k, v = {}) { const e = entry(k), s = e ? (e[lang] || e.en) : k; return s.replace(/\{(\w+)\}/g, (m, x) => x in v ? v[x] : m); }
 const RX = {}, TR = new Map();
 const rx = k => RX[k] ||= new RegExp('^' + String(entry(k)?.en ?? '\u0000').replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\\?\{(\w+)\\?\}/g, '(?<$1>[\\s\\S]+?)') + '$');
-function tr(v, keys = DATA_KEYS, depth = 0) {                     // a data string that is our own text, in the page language
-  if (lang === 'en' || typeof v !== 'string') return v;
-  const ck = keys.length + '|' + v; if (TR.has(ck)) return TR.get(ck);
-  let out = v;
+const lit = k => String(entry(k)?.en || '').replace(/\{\w+\}/g, '').length;
+function parse(v, keys, depth = 0) {                            // the best parse, as the gate's ours: most literal text, {detail} included
+  let best = null;
   for (const k of keys) {
     const m = rx(k).exec(v); if (!m) continue;
-    const g = { ...m.groups }; if (g.detail != null && depth < 2) g.detail = tr(g.detail, keys.filter(x => x !== k), depth + 1);
-    out = t(k, g); break;
+    const g = { ...m.groups }; let sc = lit(k);
+    if (g.detail != null) { const d = depth < 2 && parse(g.detail, keys.filter(x => x !== k), depth + 1); if (!d) continue; sc += d[0]; g.detail = d[1]; }
+    if (!best || sc > best[0]) best = [sc, t(k, g)];
   }
-  TR.set(ck, out); return out;
+  return best;
 }
+function tr(v, keys = DATA_KEYS) {                               // a data string that is our own text, in the page language
+  if (lang === 'en' || typeof v !== 'string') return v;
+  const ck = keys.length + '|' + v; if (!TR.has(ck)) TR.set(ck, parse(v, keys)?.[1] ?? v);
+  return TR.get(ck);
+}
+const tn = (k, n, v = {}) => t(n === 1 && I.strings[k + '.one'] ? k + '.one' : k, { n: nf(n), ...v });   // singular or plural
+let NAMES = null;                                                // names we write (sources, networks, areas, windows): name.* entries
+const nm = x => { NAMES ||= new Map(Object.entries(I.strings).filter(([k]) => k.startsWith('name.')).map(([k, e]) => [e.en, k])); const k = NAMES.get(x); return k ? t(k) : x; };
 const loc = () => lang === 'pt' ? 'pt-BR' : 'en-US';
 const nf = n => typeof n === 'number' ? n.toLocaleString(loc(), { maximumFractionDigits: 1 }) : n == null ? '—' : esc(tr(n));
 const day = s => (s || '').slice(0, 10);
-const ago = (iso, now) => { const h = (now - Date.parse(iso)) / 36e5; return !isFinite(h) ? '—' : h < 1 ? t('ui.ago.now') : h < 48 ? t('ui.ago.h', { n: Math.round(h) }) : t('ui.ago.d', { n: Math.round(h / 24) }); };
+const ago = (iso, now) => { const h = (now - Date.parse(iso)) / 36e5; return !isFinite(h) ? '—' : h < 1 ? t('ui.ago.now') : h < 48 ? tn('ui.ago.h', Math.round(h)) : tn('ui.ago.d', Math.round(h / 24)); };
 const href = p => p + '.html' + (lang === 'pt' ? '?lang=pt' : '');
 const link = (u, text, l) => /^https?:\/\//.test(u || '') ? `<a href="${esc(u)}" target="_blank" rel="noopener"${l ? ` lang="${esc(l)}"` : ''}>${text}</a>` : text;
 const posted = (s, l) => `<span lang="${esc(l || 'und')}">${esc(s)}</span>`;              // as posted, never translated
@@ -55,13 +63,14 @@ function shell() {
   $$('[data-lang]').forEach(b => b.onclick = () => setLang(b.dataset.lang));
   $('#theme').onclick = () => { theme = theme === 'dark' ? 'light' : 'dark'; store.set('dehype.theme', theme); shell(); redraw(); };
   $$('[data-k]').forEach(el => el.textContent = t(el.dataset.k));
+  document.documentElement.classList.add('ready');
   $('meta[name=description]')?.setAttribute('content', t(page + '.scope'));
   $('#reads').innerHTML = esc(t('ui.reads')) + ' ' + files.map(f => `<code class="mono">${esc(f)}</code>`).join(', ');
   $('#foot').innerHTML = `<div class="wrap"><p>${esc(t('ui.foot.data'))} ${files.map(f => `<a href="${esc(f)}"><code class="mono">${esc(f)}</code></a>`).join(' · ')}</p>
 <p><a href="${METHOD[lang]}">${esc(t('ui.method'))}</a> · <a href="${POLICY[lang]}#corrections">${esc(t('ui.corrections'))}</a> · ${esc(t('ui.foot.counts'))}</p></div>`;
 }
 function setLang(l) {
-  lang = l; store.set('dehype.lang', l); TR.clear();
+  lang = l; store.set('dehype.lang', l); TR.clear(); NAMES = null;
   const u = new URL(location.href); if (l === 'pt') u.searchParams.set('lang', 'pt'); else u.searchParams.delete('lang'); history.replaceState(null, '', u);
   shell(); render();
 }
@@ -83,9 +92,9 @@ const hideTip = () => tip.classList.remove('on');
 const kpis = list => `<div class="kpis">${list.map(([l, v, s]) => `<div class="kpi"><span class="lbl">${esc(l)}</span><span class="num">${v}</span>${s ? `<small>${s}</small>` : ''}</div>`).join('')}</div>`;
 function sources(S) {                                            // coverage: a one-line summary, each source's status behind it (icon + label)
   const cls = { ok: 'ok', partial: 'partial', failed: 'bad', [NOT_FETCHED]: 'nf' }, ico = { ok: '●', partial: '◐', failed: '✕' }, E = Object.entries(S || {}), st = s => typeof s === 'string' ? s : s.status;
-  const weak = E.filter(([, s]) => st(s) !== 'ok').map(([n, s]) => `${esc(n)} <span class="mono">${esc(tr(st(s)))}</span>`).join(' · ');
+  const weak = E.filter(([, s]) => st(s) !== 'ok').map(([n, s]) => `${esc(nm(n))} <span class="mono">${esc(tr(st(s)))}</span>`).join(' · ');
   return `<details class="cov"><summary><span class="lbl">${esc(t('ui.coverage'))}</span> <span class="st ok"><b aria-hidden="true">●</b> ${esc(t('ui.sources_ok', { n: E.filter(([, s]) => st(s) === 'ok').length, total: E.length }))}</span>${weak ? ` · ${weak}` : ''}</summary>
-<ul>${E.map(([n, s]) => `<li class="st ${cls[st(s)] || 'nf'}"><b aria-hidden="true">${ico[st(s)] || '○'}</b> ${esc(n)} <span class="mono">${esc(tr(st(s)))}</span>${s.detail ? ` <span class="dim">· ${esc(tr(s.detail))}</span>` : ''}</li>`).join('')}</ul></details>`;
+<ul>${E.map(([n, s]) => `<li class="st ${cls[st(s)] || 'nf'}"><b aria-hidden="true">${ico[st(s)] || '○'}</b> ${esc(nm(n))} <span class="mono">${esc(tr(st(s)))}</span>${s.detail ? ` <span class="dim">· ${esc(tr(s.detail))}</span>` : ''}</li>`).join('')}</ul></details>`;
 }
 function table(o) {
   return `<table class="t">${o.caption ? `<caption>${esc(o.caption)}</caption>` : ''}<thead><tr>${o.cols.map(([l, c]) => `<th scope="col"${c ? ` class="${c}"` : ''}>${esc(l)}</th>`).join('')}</tr></thead>
@@ -123,7 +132,7 @@ function scatter(plot, W, pts, o) {
   const every = Math.ceil(days.length / Math.max(2, Math.floor(iw / 64)));
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label)}">`;
   s += yt.map(v => `<line class="grid" x1="${m.l}" x2="${W - m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${m.l - 6}" y="${Y(v) + 4}" text-anchor="end">${nf(v)}</text>`).join('');
-  s += days.map((d, i) => i % every ? '' : `<text class="axis" x="${X(d)}" y="${H - 8}" text-anchor="middle">${new Date(d).toISOString().slice(5, 10)}</text>`).join('');
+  s += days.map((d, i) => i % every ? '' : `<text class="axis" x="${X(d)}" y="${H - 8}" text-anchor="middle">${esc(new Date(d).toLocaleDateString(loc(), { day: 'numeric', month: 'short', timeZone: 'UTC' }))}</text>`).join('');
   s += `<line class="base" x1="${m.l}" x2="${W - m.r}" y1="${m.t + ih}" y2="${m.t + ih}"/>`;
   const order = pts.map((p, i) => i).sort((a, b) => pts[b].s - pts[a].s);
   s += order.map(i => { const p = pts[i]; return `<circle data-i="${i}" cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="4.5" style="fill:var(${p.s ? '--s2' : '--s1'});stroke:var(--panel);stroke-width:2"/>`; }).join('');
@@ -135,35 +144,43 @@ function scatter(plot, W, pts, o) {
   hit.addEventListener('pointerleave', () => { hideTip(); ring.style.opacity = 0; });
   hit.addEventListener('click', e => { const i = near(e); if (i >= 0) o.pick(pts[i]); });
 }
-// Grouped horizontal bars on one count axis (output by area): one group per row, one bar per series.
+// Small multiples of horizontal bars (output by area): one panel per series, each on its own count scale, rows in the same order;
+// panels side by side when wide, stacked when narrow. A row (all its panels) is one hover, focus and pick target.
 function hbars(plot, W, rows, series, o) {
-  const narrow = W < 560, lw = narrow ? 0 : 168, bh = 12, gap = 2, top = narrow ? 18 : 0, gh = top + series.length * (bh + gap) + 16;
-  const m = { l: lw, r: 44, t: 6 }, iw = W - m.l - m.r, xt = ticks(Math.max(1, ...rows.flatMap(r => r.vals)), narrow ? 3 : 5), xm = xt.at(-1), X = v => m.l + v / xm * iw;
-  const H = m.t + rows.length * gh + 24;
+  const narrow = W < 560, lw = narrow ? Math.min(W * .45, 18 + 6.8 * Math.max(...rows.map(r => r.label.length))) : 168, gap = 32, rh = 30, bh = 14, top = 28, ax = 22, n = series.length;
+  const pw = narrow ? W - lw : (W - lw - gap * (n - 1)) / n, ph = top + rows.length * rh + ax, H = narrow ? n * ph + (n - 1) * 16 : ph;
+  const P = series.map(([name, c], j) => {
+    const ox = narrow ? lw : lw + j * (pw + gap), oy = narrow ? j * (ph + 16) : 0, xt = ticks(Math.max(1, ...rows.map(r => r.vals[j])), 3), xm = xt.at(-1);
+    return { name, c, ox, oy, xt, X: v => ox + v / xm * (pw - 34) };
+  });
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label)}">`;
-  s += xt.map(v => `<line class="grid" x1="${X(v)}" x2="${X(v)}" y1="${m.t}" y2="${H - 22}"/><text class="axis" x="${X(v)}" y="${H - 6}" text-anchor="middle">${nf(v)}</text>`).join('');
+  for (const p of P) {
+    const y1 = p.oy + top - 4, y2 = p.oy + top + rows.length * rh;
+    s += `<circle cx="${p.ox + 4}" cy="${p.oy + 10}" r="4" style="fill:var(${p.c})"/><text class="rlabel" x="${p.ox + 14}" y="${p.oy + 14}" style="fill:var(--ink)">${esc(p.name)}</text>`;
+    s += p.xt.map(v => `<line class="grid" x1="${p.X(v)}" x2="${p.X(v)}" y1="${y1}" y2="${y2}"/><text class="axis" x="${p.X(v)}" y="${y2 + 16}" text-anchor="middle">${nf(v)}</text>`).join('');
+    s += `<line class="base" x1="${p.X(0)}" x2="${p.X(0)}" y1="${y1}" y2="${y2}"/>`;
+  }
   s += rows.map((r, i) => {
-    const y = m.t + i * gh, sel = o.sel === r.key;
-    return `<g class="mk${sel ? ' sel' : ''}" data-i="${i}" tabindex="0" role="button" aria-pressed="${sel}" aria-label="${esc(r.label + ': ' + series.map(([l], j) => `${l} ${r.vals[j]}`).join(', '))}">
-<rect class="hit" x="0" y="${y}" width="${W}" height="${gh - 4}" rx="4"/>
-<text class="rlabel" x="${narrow ? m.l : lw - 12}" y="${narrow ? y + 13 : y + 12 + (series.length - 1) * (bh + gap) / 2}" text-anchor="${narrow ? 'start' : 'end'}" style="${sel ? 'fill:var(--ink);font-weight:600' : ''}">${esc(r.label)}</text>
-${r.vals.map((v, j) => { const by = y + top + j * (bh + gap) + 2; return `<path d="${bar(X(0), by, X(v) - X(0), bh)}" style="fill:var(${series[j][1]})"/><text class="vlabel mono" x="${X(v) + 6}" y="${by + 10}">${nf(v)}</text>`; }).join('')}</g>`;
-  }).join('');
-  s += `<line class="base" x1="${X(0)}" x2="${X(0)}" y1="${m.t}" y2="${H - 22}"/></svg>`;
+    const sel = o.sel === r.key;
+    return `<g class="mk${sel ? ' sel' : ''}" data-i="${i}" tabindex="0" role="button" aria-pressed="${sel}" aria-label="${esc(r.label + ': ' + series.map(([l], j) => `${l} ${r.vals[j]}`).join(', '))}">` +
+      P.filter((p, j) => narrow || j === 0).map(p => `<rect class="hit" x="0" y="${p.oy + top + i * rh}" width="${W}" height="${rh - 2}" rx="4"/>`).join('') +
+      P.map((p, j) => { const y = p.oy + top + i * rh + (rh - bh) / 2 - 1, v = r.vals[j];
+        return `${narrow || j === 0 ? `<text class="rlabel" x="${lw - 12}" y="${y + 11}" text-anchor="end" style="${sel ? 'fill:var(--ink);font-weight:600' : ''}">${esc(r.label)}</text>` : ''}<path d="${bar(p.X(0), y, p.X(v) - p.X(0), bh)}" style="fill:var(${p.c})"/><text class="vlabel mono" x="${p.X(v) + 6}" y="${y + 11}">${nf(v)}</text>`; }).join('') + '</g>';
+  }).join('') + '</svg>';
   plot.innerHTML = s;
   hover(plot, (i, x, y) => showTip(x, y, rows[i].label, series.map(([l, c], j) => [nf(rows[i].vals[j]), l, c])), i => o.pick(rows[i].key));
 }
 // Dumbbell on the 0-100 score axis: hype (attention) and substance (discovery) components per project; no dot where unmeasured.
 function dumbbell(plot, W, rows, o) {
-  const narrow = W < 560, lw = narrow ? 0 : 190, rh = narrow ? 44 : 28, m = { l: lw, r: 18, t: 22 };
+  const narrow = W < 560, lw = narrow ? 0 : 190, rh = narrow ? 40 : 28, m = { l: lw, r: 18, t: 22 };
   const iw = W - m.l - m.r, X = v => m.l + v / 100 * iw, H = m.t + rows.length * rh + 8;
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(o.label)}">`;
   s += [0, 25, 50, 75, 100].map(v => `<line class="${v === 50 ? 'base' : 'grid'}" x1="${X(v)}" x2="${X(v)}" y1="${m.t - 4}" y2="${H - 4}"/><text class="axis" x="${X(v)}" y="12" text-anchor="${v === 0 ? 'start' : v === 100 ? 'end' : 'middle'}">${v}</text>`).join('');
   s += rows.map((r, i) => {
-    const y = m.t + i * rh + (narrow ? 29 : rh / 2), has = r.d != null;
+    const y = m.t + i * rh + (narrow ? 26 : rh / 2), has = r.d != null;
     return `<g class="mk" data-i="${i}" tabindex="0" role="button" aria-label="${esc(`${r.label}: ${o.a} ${nf(r.a)}, ${o.d} ${has ? nf(r.d) : '—'}`)}">
-<rect class="hit" x="0" y="${m.t + i * rh}" width="${W}" height="${rh - 2}" rx="4"/>
-<text class="rlabel" x="${narrow ? m.l : lw - 12}" y="${narrow ? m.t + i * rh + 15 : y + 4}" text-anchor="${narrow ? 'start' : 'end'}">${esc(r.label)}</text>
+<rect class="hit" x="0" y="${m.t + i * rh}" width="${W}" height="${rh - 2}" rx="4"/>${narrow && i ? `<line class="grid" x1="0" x2="${W}" y1="${m.t + i * rh}" y2="${m.t + i * rh}"/>` : ''}
+<text class="rlabel halo" x="${narrow ? m.l : lw - 12}" y="${narrow ? m.t + i * rh + 13 : y + 4}" text-anchor="${narrow ? 'start' : 'end'}">${esc(r.label)}</text>
 ${has ? `<line x1="${X(r.a)}" x2="${X(r.d)}" y1="${y}" y2="${y}" style="stroke:var(--rule-2);stroke-width:2"/>` : ''}
 <circle cx="${X(r.a)}" cy="${y}" r="5" style="fill:var(--s2);stroke:var(--panel);stroke-width:2"/>${has ? `<circle cx="${X(r.d)}" cy="${y}" r="5" style="fill:var(--s1);stroke:var(--panel);stroke-width:2"/>` : ''}</g>`;
   }).join('') + '</svg>';
@@ -179,15 +196,15 @@ function verdictSlot(v) {
   if (!v) return `<div class="slot"><span class="lbl">${esc(t('ui.verdict'))}</span><span class="pill">${esc(t('ui.verdict.none'))}</span><span>${esc(t('state.proposed'))}</span></div>`;
   return `<div class="slot"><span class="lbl">${esc(t('ui.verdict'))}</span><span class="pill v">${esc(t(LABELS[v.label] || 'label.unverified'))}</span>${v.reason?.[lang] ? `<span>${esc(v.reason[lang])}</span>` : ''}${v.source ? link(v.source, esc(t('ui.source'))) : ''}${v.confirmed ? `<span class="dim mono">${esc(t('ui.confirmed', { date: v.confirmed }))}</span>` : ''}</div>`;
 }
-const nets = c => { const e = Object.entries(c.networks || {}); return e.filter(([, v]) => v !== 0).sort((a, b) => (typeof b[1] === 'number' ? b[1] : -1) - (typeof a[1] === 'number' ? a[1] : -1)).map(([k, v]) => `<span class="nw">${esc(k)} ${nf(v)}</span>`).join(' · ') || '—'; };
+const nets = c => { const e = Object.entries(c.networks || {}); return e.filter(([, v]) => v !== 0).sort((a, b) => (typeof b[1] === 'number' ? b[1] : -1) - (typeof a[1] === 'number' ? a[1] : -1)).map(([k, v]) => `<span class="nw">${esc(nm(k))} ${nf(v)}</span>`).join(' · ') || '—'; };
 const rd = v => `<span class="num mono${typeof v === 'number' ? '' : ' s'}">${typeof v === 'boolean' || v === NOT_FETCHED || v == null ? esc(yesno(v)) : nf(v)}</span>`;
 const yesno = v => v === true ? t('ui.yes') : v === false ? t('ui.no') : tr(v ?? NOT_FETCHED);
 function evidence(r, s, v, i, now) {
   const c = r.computed || {}, sub = r.substance || {}, u = s && (s.link || s.url), fixed = rx('headline.count_only').test(r.headline || '');
   const hd = fixed ? esc(tr(r.headline, ['headline.count_only'])) : posted(r.headline, r.lang);
-  const st = Object.entries(r.sources || {}), ok = st.filter(([, x]) => x === 'ok').length, weak = st.filter(([, x]) => x !== 'ok').map(([n, x]) => `${esc(n)} ${esc(tr(x))}`).join(' · ');
+  const st = Object.entries(r.sources || {}), ok = st.filter(([, x]) => x === 'ok').length, weak = st.filter(([, x]) => x !== 'ok').map(([n, x]) => `${esc(nm(n))} ${esc(tr(x))}`).join(' · ');
   const posts = (s?.posts || []).filter(p => p.title), counted = Object.entries(s?.nets || {}).filter(([n]) => COUNT_ONLY.has(n));
-  const path = (s?.path || []).map(p => `${esc(['Newsletter', 'Official'].includes(p.net) && p.who ? p.who : p.net)} <span class="mono dim">${esc(day(p.at).slice(5))}</span>`).join(' → ');
+  const path = (s?.path || []).map(p => `${esc(['Newsletter', 'Official'].includes(p.net) && p.who ? p.who : nm(p.net))} <span class="mono dim">${esc(day(p.at).slice(5))}</span>`).join(' → ');
   const rel = r.related_in_topic || {}, refs = [...(sub.repos || []), ...(sub.papers || [])];
   return `<li class="story" id="${esc(r.id)}"><span class="rk">${String(i + 1).padStart(2, '0')}</span><div>
 <span class="seen${r.seen === 'new today' ? ' new' : ''}">${esc(tr(r.seen))}</span>${r.release ? ` <span class="meta">· ${esc(r.release)}</span>` : ''} <span class="meta">· ${esc(kind(r))}</span>
@@ -201,10 +218,10 @@ ${verdictSlot(v)}
 <div class="meta">${esc(t('ui.sources_ok', { n: ok, total: st.length }))}${weak ? ` · ${weak}` : ''} · ${esc(t('ui.newest', { ago: ago(r.last, now) }))}</div>
 <details class="more"><summary>${esc(t('ui.evidence'))}</summary><div class="ev">
 <h4>${esc(t('ui.path'))}</h4><p>${path || '—'}</p>
-<h4>${esc(t('ui.posts'))}</h4><ul>${posts.map(p => `<li><span class="mono dim">${esc(p.net)}</span> ${link(p.url, posted(p.title, p.lang))}${['Newsletter', 'Official'].includes(p.net) && p.author ? ` <span class="dim">· ${esc(p.author)}</span>` : ''} <span class="mono dim">${esc(day(p.at))}</span></li>`).join('')}
-${counted.map(([n, k]) => `<li class="dim">${esc(t('ui.counted', { net: n, n: k }))}</li>`).join('')}${!posts.length && !counted.length ? `<li class="dim">${esc(t('ui.none'))}</li>` : ''}</ul>
+<h4>${esc(t('ui.posts'))}</h4><ul>${posts.map(p => `<li><span class="mono dim">${esc(nm(p.net))}</span> ${link(p.url, posted(p.title, p.lang))}${['Newsletter', 'Official'].includes(p.net) && p.author ? ` <span class="dim">· ${esc(p.author)}</span>` : ''} <span class="mono dim">${esc(day(p.at))}</span></li>`).join('')}
+${counted.map(([n, k]) => `<li class="dim">${esc(tn('ui.counted', k, { net: nm(n) }))}</li>`).join('')}${!posts.length && !counted.length ? `<li class="dim">${esc(t('ui.none'))}</li>` : ''}</ul>
 <h4>${esc(tr(sub.from || "the story's own links"))}</h4><ul>${refs.map(x => `<li>${link(x, `<span class="mono">${esc(x.replace(/^https:\/\/(github\.com|arxiv\.org\/abs)\//, ''))}</span>`)}</li>`).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ul>
-<h4>${esc(tr(rel.reading || 'related in topic'))}</h4><ul>${(rel.items || []).map(x => `<li><span class="mono dim">${esc(x.net)}</span> ${link(x.url, posted(x.title, x.lang))}</li>`).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ul>
+<h4>${esc(tr(rel.reading || 'related in topic'))}</h4><ul>${(rel.items || []).map(x => `<li><span class="mono dim">${esc(nm(x.net))}</span> ${link(x.url, posted(x.title, x.lang))}</li>`).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ul>
 ${c.newsletter_names?.length ? `<h4>${esc(t('ui.newsletters'))}</h4><p>${c.newsletter_names.map(esc).join(' · ')}</p>` : ''}
 <p class="dim mono">${esc(r.id)} · ${esc(t('ui.first_last', { first: day(r.first), last: day(r.last) }))}</p></div></details></div></li>`;
 }
@@ -216,7 +233,7 @@ async function stories() {
   const x0 = Math.min(...R.map(r => Date.parse(r.first))), x1 = now;
   render = () => {
     const main = $('#body');
-    main.innerHTML = `<p class="reads mono">${esc(t('ui.window', { end: B.window?.end_brt || '', h: B.window?.hours ?? 24 }))}</p>
+    main.innerHTML = `<p class="reads">${esc(t('ui.generated', { at: B.window?.end_brt || B.generated_at }))}</p>
 ${kpis([[t('stories.k.stories'), nf(R.length), esc(t('stories.k.stories_sub'))], [t('stories.k.new'), nf(R.filter(r => r.seen === 'new today').length), esc(t('stories.k.new_sub'))],
   [t('stories.k.news'), nf(R.filter(r => r.kind === 'news').length), esc(t('stories.k.news_sub'))], [t('stories.k.official'), nf(R.filter(r => r.computed?.official === true).length), esc(t('stories.k.official_sub'))]])}
 ${sources(B.sources)}<div id="map"></div>
@@ -255,16 +272,16 @@ async function output() {
     const cut = new Date(now - (F.days - 1) * DAY).toISOString().slice(0, 10), wk = F.days + 'd';
     const inWin = tab => Object.entries(D[tab]?.items || {}).filter(([, it]) => (date[tab](it) || '') >= cut);
     const P = inWin('papers'), Rp = inWin('repos'), count = (L, a) => L.filter(([, it]) => it.tag === a).length;
-    const rows = areas.map(a => ({ key: a, label: a, vals: [count(P, a), count(Rp, a)] }));
+    const rows = areas.map(a => ({ key: a, label: nm(a), vals: [count(P, a), count(Rp, a)] }));
     const same = F.days === 7 && g?.value && g.value.since === cut && g.value.areas.every(x => { const r = rows.find(y => y.key === x.area); return r && r.vals[0] === x.papers && r.vals[1] === x.repos; });
     const gnote = !g ? '' : g.value == null ? tr(g.reason) : F.days === 7 ? (same ? t('output.gauge.same', { name: tr(g.name) }) : t('output.gauge.differs', { name: tr(g.name) })) : t('output.gauge.other', { name: tr(g.name) });
     $('#body').innerHTML = `<div class="bar-row">${seg('days', t('ui.window_label'), [[7, '7d'], [30, '30d'], [90, '90d']], F.days)}
-<select id="area" aria-label="${esc(t('output.area'))}"><option value="all">${esc(t('output.all_areas'))}</option>${areas.map(a => `<option${F.area === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>
+<select id="area" aria-label="${esc(t('output.area'))}"><option value="all">${esc(t('output.all_areas'))}</option>${areas.map(a => `<option value="${esc(a)}"${F.area === a ? ' selected' : ''}>${esc(nm(a))}</option>`).join('')}</select>
 <span class="count mono">${esc(t('output.since', { date: cut }))}</span></div>
 ${kpis([[t('output.k.papers'), nf(P.length), esc(t('output.k.of', { n: nf(Object.keys(D.papers?.items || {}).length) }))], [t('output.k.repos'), nf(Rp.length), esc(t('output.k.of', { n: nf(Object.keys(D.repos?.items || {}).length) }))],
   [t('output.k.areas'), nf(areas.length), esc(t('output.k.areas_sub'))], [t('output.k.tracked'), nf((D.tracked?.papers || 0) + (D.tracked?.repos || 0)), esc(t('output.k.tracked_sub', { p: nf(D.tracked?.papers), r: nf(D.tracked?.repos) }))]])}
 ${sources(D.sources)}<p class="reads">${esc(gnote)}${g ? ` <span class="pill">${esc(tr(g.status))}</span>` : ''}</p><div id="bars"></div><div id="drill"></div>`;
-    card($('#bars'), { title: t('output.chart.title', { n: F.days }), sub: t('output.chart.sub'), legend: [[t('output.papers'), '--s1'], [t('output.repos'), '--s2']],
+    card($('#bars'), { title: t('output.chart.title', { n: F.days }), sub: t('output.chart.sub'),
       draw: (p, W) => hbars(p, W, rows, [[t('output.papers'), '--s1'], [t('output.repos'), '--s2']], { sel: F.area, label: t('output.chart.title', { n: F.days }), pick: a => { F.area = F.area === a ? 'all' : a; F.all = false; render(); ($('#bars .mk.sel') || $('#bars .mk'))?.focus(); } }),
       table: { cols: [[t('output.area')], [t('output.papers'), 'n'], [t('output.repos'), 'n']], rows: rows.map(r => ({ cells: [esc(r.label), nf(r.vals[0]), nf(r.vals[1])] })) } });
     $('#area').onchange = e => { F.area = e.target.value; F.all = false; render(); };
@@ -279,11 +296,11 @@ ${sources(D.sources)}<p class="reads">${esc(gnote)}${g ? ` <span class="pill">${
     const shown = F.all ? items : items.slice(0, 25);
     const cols = F.tab === 'papers' ? [[t('output.col.paper')], [t('output.col.lab'), 'hm'], [t('output.area'), 'hm'], [t('output.col.published'), 'n hm'], [t('output.col.upvotes'), 'n'], [t('output.col.score'), 'n']]
       : [[t('output.col.repo')], [t('output.col.desc'), 'hm'], [t('output.area'), 'hm'], [t('output.col.created'), 'n hm'], [t('output.col.stars'), 'n'], [t('output.col.gained'), 'n hm'], [t('output.col.score'), 'n']];
-    const cells = ([id, it]) => F.tab === 'papers' ? [link('https://arxiv.org/abs/' + id, posted(it.title)), esc(it.lab || '—'), esc(it.tag || '—'), esc(it.published || '—'), nf(it.upvotes), nf(score.get(id)?.score)]
-      : [link(it.url, `<span class="mono">${esc(id)}</span>`), it.desc ? posted(it.desc) : '—', esc(it.tag || '—'), esc(day(it.created) || '—'), nf(it.stars), nf(score.get(id)?.gained), nf(score.get(id)?.score)];
+    const cells = ([id, it]) => F.tab === 'papers' ? [link('https://arxiv.org/abs/' + id, posted(it.title)), esc(it.lab || '—'), esc(nm(it.tag || '—')), esc(it.published || '—'), nf(it.upvotes), nf(score.get(id)?.score)]
+      : [link(it.url, `<span class="mono">${esc(id)}</span>`), it.desc ? posted(it.desc) : '—', esc(nm(it.tag || '—')), esc(day(it.created) || '—'), nf(it.stars), nf(score.get(id)?.gained), nf(score.get(id)?.score)];
     $('#drill').innerHTML = `<div class="bar-row">${seg('tab', t('output.kind'), [['papers', t('output.papers')], ['repos', t('output.repos')]], F.tab)}
 <input type="search" id="q" placeholder="${esc(t('ui.search'))}" aria-label="${esc(t('ui.search'))}" value="${esc(F.q)}"><span class="count" aria-live="polite">${esc(t('ui.showing', { n: shown.length, total: items.length }))}</span></div>
-<div class="tw">${table({ caption: t('output.table.caption', { area: F.area === 'all' ? t('output.all_areas') : F.area, wk }), cols, rows: shown.map(x => ({ cells: cells(x) })) })}</div>
+<div class="tw">${table({ caption: t('output.table.caption', { area: F.area === 'all' ? t('output.all_areas') : nm(F.area), wk }), cols, rows: shown.map(x => ({ cells: cells(x) })) })}</div>
 ${items.length > shown.length ? `<p><button class="btn" id="all">${esc(t('ui.show_all', { n: items.length }))}</button></p>` : ''}`;
     onSeg('tab', v => { F.tab = v; F.all = false; render(); });
     const qi = $('#q'); qi.oninput = e => { F.q = e.target.value; drill(F, D, wk, L); const n = $('#q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
@@ -298,6 +315,7 @@ function at(o, path) { return path.split(/\.|\[(\d+)\]/).filter(x => x != null &
 async function hype() {
   const [H, R, G, PT, XF] = await Promise.all([load('hype.json'), opt('removals.json', { entries: [] }), opt('checks/dossier-gone.json', { gone: [] }), opt('i18n/dossier.pt.json', { entries: [] }), opt('i18n/dossier-x-figures.json', {})]);
   const drop = new Set([...(R.entries || []), ...(G.gone || [])].map(e => e.sha256)), gone = new Set(), pt = new Map(), subtle = !!globalThis.crypto?.subtle;
+  const blind = !subtle && drop.size > 0;                        // no hashing here: hide every linked post rather than risk a listed one
   if (subtle && drop.size) for (const it of Object.values(H.items)) for (const p of it.posts || []) if (p.url && drop.has(await sha(p.url))) gone.add(p.url);
   if (subtle) for (const e of PT.entries || []) {                                   // a reviewed entry whose hash matches the current English
     const en = e.slug == null ? at(H, e.field) : at(H.items[e.slug] || {}, e.field);
@@ -321,13 +339,14 @@ async function hype() {
     return b;
   }
   const src = u => /^https?:\/\//.test(u || '') ? link(u, esc(t('ui.source'))) : u ? `<span class="dim">${esc(tr(u, CITE))}</span>` : '';
-  const cutLine = () => t('hype.cut', { date: day(H.content_cutoff) });
+  const cutLine = () => t('hype.cut', { date: day(H.content_cutoff) }), cutHtml = () => esc(t('hype.cut', { date: '\u0000' })).replace('\u0000', `<span class="nw">${esc(day(H.content_cutoff))}</span>`);
+  const first = x => { const i = x.search(/[.!?]\s+(?=[A-ZÀ-Ý])/); return i < 0 ? [x, ''] : [x.slice(0, i + 1), x.slice(i + 1).trim()]; };
   function detail(slug) {
     const it = H.items[slug], el = $('#panel'), sc = $('#scrim');
     if (!it) { el.classList.remove('on'); sc.classList.remove('on'); return; }
     const r = (H[F.win]?.all?.rows || []).find(x => x.id === slug) || {}, d = it.discovery || {}, m = it.win?.[F.win] || {}, b = block();
     const L = it.links || {}, links = [['site', 'hype.link.site'], ['repo', 'hype.link.repo'], ['paper', 'hype.link.paper'], ['hf', 'hype.link.hf'], ['x_handle', 'hype.link.x']].filter(([k]) => L[k]).map(([k, s]) => link(L[k], esc(t(s)))).join(' · ');
-    const posts = (it.posts || []).filter(p => !gone.has(p.url)), cnt = {};
+    const posts = (it.posts || []).filter(p => !gone.has(p.url) && !(blind && p.url)), cnt = {};
     for (const p of posts) if (COUNT_ONLY.has(p.pl) || !p.url) cnt[p.pl] = (cnt[p.pl] || 0) + 1;
     const shown = posts.filter(p => p.url && !COUNT_ONLY.has(p.pl));
     const body = b.wrap(`<section><h3>${esc(t('hype.summary'))}</h3><p>${b.p(slug, 'summary')}</p><p class="dim">${esc(t('hype.category'))}: ${b.p(slug, 'category')}</p></section>
@@ -338,14 +357,14 @@ async function hype() {
 <section><h3>${esc(t('hype.traction'))}</h3><ul>${(it.traction || []).map((s, i) => `<li><span class="mono">${typeof s.value === 'number' ? nf(s.value) : rx('figure.x_post').test(s.value) || rx('figure.net_post').test(s.value) ? esc(tr(s.value, FIG)) : b.raw(typeof s.value === 'object' ? JSON.stringify(s.value) : s.value)}</span> ${b.raw(s.unit)} · ${b.raw(s.type)} <span class="dim">${s.asof ? esc(s.asof) : ''}</span> ${src(s.url)}${s.notes ? `<div class="dim">${b.p(slug, `traction[${i}].notes`)}</div>` : ''}</li>`).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ul></section>
 <section><h3>${esc(t('hype.skeptic'))}</h3><p class="dim">${esc(t('hype.skeptic.note'))}</p><ul>${(it.skeptic || []).map((s, i) => `<li>${b.p(slug, `skeptic[${i}].claim`)} <span class="dim">— ${b.p(slug, `skeptic[${i}].by`)}${s.d ? ', ' + esc(s.d) : ''}</span> ${src(s.url)}</li>`).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ul></section>
 ${Object.keys(it.notes || {}).length || it.qual_gap ? `<section><h3>${esc(t('hype.notes'))}</h3><ul>${Object.keys(it.notes || {}).sort().map(k => `<li><span class="mono dim">${esc(k)}</span> ${b.p(slug, `notes.${k}`)}</li>`).join('')}${it.qual_gap ? `<li>${b.p(slug, 'qual_gap.text')}</li>` : ''}</ul></section>` : ''}`);
-    el.innerHTML = `<button class="btn x" id="close">${esc(t('ui.close'))}</button><p class="eyebrow">${esc(cutLine())}</p><h2>${posted(it.name)}</h2><p>${links}</p>
+    el.innerHTML = `<button class="btn x" id="close">${esc(t('ui.close'))}</button><p class="eyebrow">${cutHtml()}</p><h2>${posted(it.name)}</h2><p>${links}</p>
 <section><h3>${esc(t('ui.verdict'))}</h3><div class="slot"><span class="pill">${esc(t('ui.verdict.none'))}</span><span>${esc(t('hype.verdict.note'))}</span></div></section>
-<section><h3>${esc(t('hype.gap.title'))} · ${esc(F.win)}</h3><p class="dim">${esc(t('hype.gap.note'))}</p><div class="comp">
+<section><h3>${esc(t('hype.gap.title'))} · ${esc(nm(F.win))}</h3><p class="dim">${esc(t('hype.gap.note'))}</p><div class="comp">
 <div><span class="lbl">${esc(t('hype.attention'))}</span><span class="num mono">${nf(r.score)}</span><small class="dim">${esc(t('hype.cov', { n: r.coverage == null ? '—' : Math.round(r.coverage * 100) }))}</small></div>
 <div><span class="lbl">${esc(t('hype.discovery'))}</span><span class="num mono">${nf(d.score)}</span><small class="dim">${esc(t('hype.cov', { n: d.coverage == null ? '—' : Math.round(d.coverage * 100) }))}</small></div>
 <div><span class="lbl">${esc(t('hype.gap.class'))}</span><span class="mono">${esc(t(GAP[r.label] || 'hype.gap.insufficient'))}</span><small class="dim">${esc(t('hype.gap.diff', { n: r.gap == null ? '—' : (r.gap > 0 ? '+' : '') + nf(r.gap) }))}</small></div></div></section>
-<section><h3>${esc(t('hype.sample'))} · ${esc(t('sample.posts_in_our_sample'))}</h3><p>${esc(t('hype.sample.line', { posts: m.mentions ?? '—', voices: m.voices ?? '—', w: F.win }))}</p>
-<ul>${Object.entries(cnt).map(([n, k]) => `<li class="dim">${esc(t('ui.counted', { net: n, n: k }))}</li>`).join('')}${shown.map(p => `<li><span class="mono dim">${esc(p.pl)} ${esc(p.d || '')}</span> ${link(p.url, posted(p.t || p.url))}${p.score != null ? ` <span class="mono dim">${nf(p.score)} ${esc(t('hype.pts'))}</span>` : ''}</li>`).join('')}</ul></section>${body}`;
+<section><h3>${esc(t('hype.sample'))} · ${esc(t('sample.posts_in_our_sample'))}</h3><p>${esc(t('hype.sample.line', { posts: tn('n.posts', m.mentions), voices: tn('n.voices', m.voices), w: nm(F.win) }))}</p>
+<h3>${esc(t('hype.sample.list'))}</h3><ul>${Object.entries(cnt).map(([n, k]) => `<li class="dim">${esc(tn('ui.counted', k, { net: nm(n) }))}</li>`).join('')}${shown.map(p => `<li><span class="mono dim">${esc(nm(p.pl))} ${esc(p.d || '')}</span> ${link(p.url, posted(p.t || p.url))}${p.score != null ? ` <span class="mono dim">${nf(p.score)} ${esc(t('hype.pts'))}</span>` : ''}</li>`).join('')}</ul></section>${body}`;
     el.classList.add('on'); sc.classList.add('on'); el.setAttribute('aria-label', it.name);
     const close = () => { el.classList.remove('on'); sc.classList.remove('on'); F.open = ''; history.replaceState(null, '', location.pathname + location.search); $(`[data-p="${CSS.escape(slug)}"]`)?.focus(); };
     $('#close').onclick = close; sc.onclick = close; el.onkeydown = e => { if (e.key === 'Escape') close(); };
@@ -356,18 +375,19 @@ ${Object.keys(it.notes || {}).length || it.qual_gap ? `<section><h3>${esc(t('hyp
     const rows = (H[F.win]?.all?.rows || []).filter(r => H.items[r.id] && (F.area === 'all' || H.items[r.id].tag === F.area)), q = F.q.trim().toLowerCase();
     const list = rows.filter(r => !q || [r.id, H.items[r.id].name, ...(H.items[r.id].aliases || [])].join(' ').toLowerCase().includes(q));
     const b = block(), cov = (H.coverage_short || []).map((_, i) => `<li>${b.p(null, `coverage_short[${i}]`)}</li>`).join('');
-    $('#banner').innerHTML = `<p><b>${esc(cutLine())}</b></p><p>${esc(t('x_route.disclosure'))}</p>${b.wrap(`<ul class="dim">${cov}</ul>`)}`;
+    const [d1, d2] = first(t('x_route.disclosure'));
+    $('#banner').innerHTML = `<p><b>${cutHtml()}</b></p><p>${esc(d1)}</p><details class="more"><summary>${esc(t('hype.more'))}</summary><p>${esc(d2)}</p>${b.wrap(`<ul class="dim">${cov}</ul>`)}</details>`;
     const dots = list.slice(0, F.all ? list.length : 15).map(r => ({ id: r.id, label: H.items[r.id].name, a: r.score, d: H.items[r.id].discovery?.score ?? null }));
-    $('#body').innerHTML = `${kpis([[t('hype.k.projects'), nf(H.n_projects), esc(t('hype.k.projects_sub'))], [t('hype.k.ranked'), nf(rows.length), esc(t('hype.k.ranked_sub', { w: F.win }))],
-  [t('hype.k.discovery'), nf(rows.filter(r => H.items[r.id].discovery?.score != null).length), esc(t('hype.k.discovery_sub'))], [t('hype.k.cut'), `<span style="font-size:.7em">${esc(day(H.content_cutoff))}</span>`, esc(t('hype.k.cut_sub'))]])}
-<div class="bar-row">${seg('win', t('ui.window_label'), wins.map(w => [w, w]), F.win)}<select id="area" aria-label="${esc(t('output.area'))}"><option value="all">${esc(t('output.all_areas'))}</option>${(H.views || []).filter(v => v !== 'all').map(a => `<option${F.area === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select>
+    $('#body').innerHTML = `${kpis([[t('hype.k.projects'), nf(H.n_projects), esc(t('hype.k.projects_sub'))], [t('hype.k.ranked'), nf(rows.length), esc(t('hype.k.ranked_sub', { w: nm(F.win) }))],
+  [t('hype.k.discovery'), nf(rows.filter(r => H.items[r.id].discovery?.score != null).length), esc(t('hype.k.discovery_sub'))], [t('hype.k.ahead'), nf(rows.filter(r => r.gap > 0).length), esc(t('hype.k.ahead_sub'))]])}
+<div class="bar-row">${seg('win', t('ui.window_label'), wins.map(w => [w, nm(w)]), F.win)}<select id="area" aria-label="${esc(t('output.area'))}"><option value="all">${esc(t('output.all_areas'))}</option>${(H.views || []).filter(v => v !== 'all').map(a => `<option value="${esc(a)}"${F.area === a ? ' selected' : ''}>${esc(nm(a))}</option>`).join('')}</select>
 <input type="search" id="q" placeholder="${esc(t('ui.search'))}" aria-label="${esc(t('ui.search'))}" value="${esc(F.q)}"><span class="count" aria-live="polite">${esc(t('ui.showing', { n: list.length, total: rows.length }))}</span></div>
 <div id="dumb"></div><div class="tw" id="tbl"></div>`;
     card($('#dumb'), { title: t('hype.gap.title'), sub: `${t('hype.gap.note')} · ${cutLine()}`, legend: [[t('hype.attention'), '--s2'], [t('hype.discovery'), '--s1']],
       draw: (p, W) => { dumbbell(p, W, dots, { a: t('hype.attention'), d: t('hype.discovery'), none: t('hype.no_discovery'), label: t('hype.gap.title'), pick: open }); if (list.length > 15) p.insertAdjacentHTML('beforeend', `<p><button class="btn" id="more">${esc(F.all ? t('ui.show_top', { n: 15 }) : t('ui.show_all', { n: list.length }))}</button></p>`); $('#more', p)?.addEventListener('click', () => { F.all = !F.all; render(); }); },
       table: { cols: [[t('hype.project')], [t('hype.attention'), 'n'], [t('hype.discovery'), 'n']], rows: dots.map(x => ({ cells: [posted(x.label), nf(x.a), nf(x.d)] })) } });
     $('#tbl').innerHTML = table({ caption: cutLine(), cols: [['#', 'n hm'], [t('hype.project')], [t('hype.attention'), 'n'], [t('hype.discovery'), 'n'], [t('hype.gap.class'), 'hm'], [t('ui.voices'), 'n hm'], [t('hype.posts'), 'n hm'], [t('hype.platforms'), 'hm']],
-      rows: list.map(r => { const it = H.items[r.id], m = it.win?.[F.win] || {}; return { attr: ` class="go" tabindex="0" data-p="${esc(r.id)}"`, cells: [r.rank ?? '—', `<b>${posted(it.name)}</b>`, nf(r.score), nf(it.discovery?.score), esc(t(GAP[r.label] || 'hype.gap.insufficient')), nf(m.voices), nf(m.mentions), `<span class="mono dim">${esc((m.platforms || []).join(' · '))}</span>`] }; }) });
+      rows: list.map(r => { const it = H.items[r.id], m = it.win?.[F.win] || {}; return { attr: ` class="go" tabindex="0" data-p="${esc(r.id)}"`, cells: [r.rank ?? '—', `<b>${posted(it.name)}</b>`, nf(r.score), nf(it.discovery?.score), esc(t(GAP[r.label] || 'hype.gap.insufficient')), nf(m.voices), nf(m.mentions), `<span class="mono dim">${esc((m.platforms || []).map(nm).join(' · '))}</span>`] }; }) });
     $$('#tbl tr.go').forEach(tr_ => { tr_.onclick = () => open(tr_.dataset.p); tr_.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); open(tr_.dataset.p); } }; });
     onSeg('win', v => { F.win = v; render(); });
     $('#area').onchange = e => { F.area = e.target.value; render(); };
@@ -388,7 +408,7 @@ async function start() {
     shell();
     $('#main').classList.add('loading');
     await ({ stories, output, hype })[page]();
-  } catch (e) { $('#body').innerHTML = `<div class="err">${esc(t('ui.error'))} <span class="mono">${esc(e.message)}</span></div>`; }
+  } catch (e) { document.documentElement.classList.add('ready'); $('#body').innerHTML = `<div class="err">${esc(t('ui.error'))} <span class="mono">${esc(e.message)}</span></div>`; }
   $('#main').classList.remove('loading');
 }
 start();
