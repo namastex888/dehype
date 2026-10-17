@@ -5,9 +5,12 @@
 // verdicts.json and corrections.json (owner-reviewed) keep them too, and every verdict row resolves and carries its fields.
 // No post that removals.json (owner-reviewed) or checks/dossier-gone.json (bot-written) names by URL hash is still published.
 // Our own text has en and pt (i18n/strings.json); headlines carry lang and are never translated; the method copies share anchors.
+// The dehype pages (stories, output, hype) load the shared dehype.css and dehype.js, name their data files and keep the same rules;
+// i18n/dossier.pt.json entries keep their form.
 // Node standard library only. Usage: node scripts/check_page.mjs [webDir]
 import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
 const web = process.argv[2] || 'web';
@@ -87,6 +90,14 @@ function publicRules(file, D) {
     if (linked && v.who) finding(file, 'person handle: Mastodon who', at);
   });
 }
+let ORGS = null;                                                 // i18n/x-org-accounts.json (owner-reviewed): organisation accounts
+function ownAccount(slug, it, url) {                             // hype_build.own_account: the project's own X account, not a person
+  ORGS ??= readJSON('i18n/x-org-accounts.json', 'i18n/x-org-accounts.json missing (owner-reviewed organisation X accounts; {"accounts": {}} when none)')?.accounts || {};
+  const h = url.replace(/\/+$/, '').split('/').pop().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (Object.hasOwn(ORGS, h)) return true;
+  const repo = (it.links?.repo || '').replace(/\/+$/, '').split('/').pop();
+  return [it.name || '', slug, repo].some(x => x.toLowerCase().split(/[^a-z0-9]+/).some(t => t.length >= 4 && h.includes(t)));
+}
 function hypeRules(H) {
   const list = f => { try { return JSON.parse(readFileSync(join(web, 'i18n', f), 'utf8')); } catch (e) { fail.push(`i18n/${f} unreadable: ${e.message}`); return {}; } };
   const S = list('dossier-sources.json'), X = list('dossier-x-figures.json');
@@ -99,6 +110,9 @@ function hypeRules(H) {
   }
   for (const [slug, it] of Object.entries(H.items || {})) {
     for (const k of ['account', 'followers', 'cand_account']) if (it.viral?.[k] != null) finding('hype.json', `viral.${k} publishes an account`, `items.${slug}.viral.${k}`);
+    const xh = it.links?.x_handle;
+    if (typeof xh === 'string' && X_PROFILE.test(xh) && !ownAccount(slug, it, xh))
+      finding('hype.json', "links.x_handle is not the project's own account (no 4+ character token of its name, slug or repository name in the handle)", `items.${slug}.links.x_handle`);
     (it.skeptic || []).forEach((s, i) => { if (s.by && !byOk.has(s.by)) finding('hype.json', 'skeptic[].by name not in i18n/dossier-sources.json', `items.${slug}.skeptic[${i}].by`); });
     for (const [k, rows] of [['traction', it.traction], ['evidence_in.usage', it.evidence_in?.usage], ['discovery.metrics', it.discovery?.metrics]])
       (rows || []).forEach((r, i) => {
@@ -512,7 +526,17 @@ let i18nNote = 'no strings file';
     }
     const rx = {};
     const tpl = k => rx[k] ||= new RegExp('^' + String(entry[k]?.en ?? '\u0000').replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\\?\{(\w+)\\?\}/g, '(?<$1>[\\s\\S]+?)') + '$');
-    const ours = (v, keys, depth = 0) => keys.some(k => { const m = entry[k] && tpl(k).exec(v); return m && (m.groups?.detail == null || (depth < 2 && ours(m.groups.detail, keys.filter(x => x !== k), depth + 1))); });
+    // the best parse of a value (web/dehype.js tr does the same): the matching template with the most literal text, its {detail} parse
+    // counted in, so "... [as of last live run]" reads as that entry around its detail; -1 when no template matches
+    const lit = k => String(entry[k].en).replace(PH, '').length;
+    const parse = (v, keys, depth = 0) => Math.max(-1, ...keys.map(k => {
+      const m = entry[k] && tpl(k).exec(v);
+      if (!m) return -1;
+      if (m.groups?.detail == null) return lit(k);
+      const d = depth < 2 ? parse(m.groups.detail, keys.filter(x => x !== k), depth + 1) : -1;
+      return d < 0 ? -1 : lit(k) + d;
+    }));
+    const ours = (v, keys) => parse(v, keys) >= 0;
     let checked = 0;
     for (const [f, paths] of Object.entries(I.fields || {})) {
       const X = f === 'hype.json' ? H : readJSON(f);
@@ -558,7 +582,80 @@ let i18nNote = 'no strings file';
   }
 }
 
+// dehype pages (design rows 10, 11, 13; C21, C24; group C2): each page is a static shell that loads dehype.css and dehype.js (no inline
+// script), names the data files it reads in <body data-src> and renders only from them; dehype.js parses, loads no file by name but the
+// pages' data files and the i18n files, and uses only string keys with an en and pt entry; the page sources keep the public-data rules.
+// The Hype page carries the fixed wordings and the X-route disclosure, reads the removal lists (so the removal checks above cover what it
+// shows) and renders the fixed Portuguese notice for dossier prose with no reviewed entry; i18n/dossier.pt.json entries keep their form
+// (reviewed_in, a 64-hex hash, a pt text, a dossier prose field of hype.json); an entry whose hash no longer matches is a warning, because
+// the page then shows the English under the notice (C24: no S1 check requires a reviewed entry, and an empty file passes).
+const PAGES = { 'stories.html': ['briefing.json', 'pulse.json', 'verdicts.json'], 'output.html': ['briefing.json', 'data.json'],
+  'hype.html': ['hype.json', 'removals.json', 'checks/dossier-gone.json', 'i18n/dossier.pt.json', 'i18n/dossier-x-figures.json'] };
+const HYPE_WORDS = { 'hype.cut': ['research dossier, content cut', 'not in the daily refresh'], 'hype.gap.note': ['heuristic only, not validation'],
+  'hype.skeptic.note': ['sampled criticism, not checked against a primary source'] };
+const PT_NOTICE = 'Texto do dossiê em inglês; a versão em português aguarda revisão', PT_KEYS = new Set(['slug', 'field', 'sha256', 'pt', 'reviewed_in']);
+let pageNote = 'no dehype pages';
+{
+  const S = readJSON('i18n/strings.json')?.strings || {}, F = 'i18n/dossier.pt.json';
+  let js = '';
+  try { js = readFileSync(join(web, 'dehype.js'), 'utf8'); new Function(js); }
+  catch (e) { fail.push(e.code === 'ENOENT' ? 'dehype.js missing (the dehype pages share it)' : `dehype.js does not parse: ${e.message}`); }
+  try { readFileSync(join(web, 'dehype.css')); } catch { fail.push('dehype.css missing (the dehype pages share it)'); }
+  const keys = new Set([...js.matchAll(/'((?:ui|nav|kind|label|stories|output|hype|dossier|state|seen|sample|x_route|n)\.[\w.]+)'/g)].map(m => m[1]).filter(k => !/\.(json|html|md|css|js)$/.test(k)));
+  const loads = [...js.matchAll(/\b(?:load|opt)\('([^']+)'[,)]/g)].map(m => m[1]), ok = new Set(['i18n/strings.json', ...Object.values(PAGES).flat()]);
+  for (const f of loads) if (!ok.has(f)) finding('dehype.js', 'loads a file no dehype page names in data-src', f);
+  if ((js.match(/\bfetch\(/g) || []).length !== 1) finding('dehype.js', 'fetches outside its one loader (load)', 'fetch(');
+  for (const [f, src] of Object.entries(PAGES)) {
+    let h;
+    try { h = readFileSync(join(web, f), 'utf8'); } catch { fail.push(`${f} missing (a dehype page, design row 10)`); continue; }
+    const body = h.match(/<body data-page="([\w-]+)" data-src="([^"]*)">/);
+    need(/<html lang="[a-z]{2}/.test(h), `${f} lacks its html lang attribute`);
+    need(/<link rel="stylesheet" href="dehype\.css">/.test(h) && /<script src="dehype\.js" defer><\/script>/.test(h), `${f} does not load dehype.css and dehype.js`);
+    need(![...h.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].some(m => m[1].trim()), `${f} carries an inline script (the dehype pages share dehype.js)`);
+    need(body && `${body[1]}.html` === f && body[2].trim().split(/\s+/).join(' ') === src.join(' ') && /id="reads"/.test(h),
+      `${f} does not name the data files it reads (<body data-page="${f.slice(0, -5)}" data-src="${src.join(' ')}"> and an id="reads" line)`);
+    need(!/\/blob\/main\//.test(h), `${f} links to /blob/main/ (default branch is dev)`);
+    for (const m of h.matchAll(/data-k="([\w.]+)"/g)) keys.add(m[1]);
+    for (const k of ['title', 'scope', 'eyebrow']) keys.add(`${f.slice(0, -5)}.${k}`);
+    publicRules(f, h);
+  }
+  publicRules('dehype.js', js);
+  const tree = join(dirname(fileURLToPath(import.meta.url)), '..');         // the repository this gate belongs to
+  for (const m of js.matchAll(/(?:REPO \+ '|blob\/dev\/)([\w./-]+)'/g))
+    try { readFileSync(join(tree, m[1])); } catch { finding('dehype.js', 'links a repository path (blob/dev/<path>) that does not exist in the tree', m[1]); }
+  need(!/\/blob\/main\//.test(js), 'dehype.js links to /blob/main/ (default branch is dev)');
+  for (const k of keys) if (!(k in S)) finding('dehype.js', 'string key with no entry in i18n/strings.json (our own text has en and pt)', k);
+  for (const [k, w] of Object.entries(HYPE_WORDS))
+    need(keys.has(k) && w.every(x => (S[k]?.en || '').toLowerCase().includes(x)), `the Hype page lacks the ${k} wording ("${w.join('", "')}")`);
+  need(keys.has('x_route.disclosure'), 'the Hype page header lacks the X-route disclosure (x_route.disclosure)');
+  need(keys.has('dossier.pt_notice') && S['dossier.pt_notice']?.pt === PT_NOTICE,
+    `the Portuguese Hype page shows dossier prose with no notice and no matching entry: dehype.js must render dossier.pt_notice, reading "${PT_NOTICE}"`);
+  need(['i18n/dossier.pt.json', 'removals.json', 'checks/dossier-gone.json'].every(f => loads.includes(f)),
+    'dehype.js does not read i18n/dossier.pt.json, removals.json and checks/dossier-gone.json for the Hype page');
+  const P = readJSON(F, `${F} missing (reviewed Portuguese dossier prose; {"entries": []} when it holds none)`);
+  let match = 0, stale = 0;
+  if (P) {
+    publicRules(F, P);
+    const cur = new Map();
+    for (const [slug, f, v] of prose(H)) if (typeof v === 'string' && v) cur.set(`${slug}|${f}`, sha(v));
+    if (!Array.isArray(P.entries)) fail.push(`${F} lacks its entries list`);
+    (Array.isArray(P.entries) ? P.entries : []).forEach((e, i) => {
+      const at = `entries[${i}]`;
+      if (!e || typeof e !== 'object' || Array.isArray(e)) return finding(F, 'entry is not an object', at);
+      for (const k of Object.keys(e)) if (!PT_KEYS.has(k)) finding(F, `entry carries a field outside the entry shape (${k})`, `${at}.${k}`);
+      if (!(Number.isInteger(e.reviewed_in) && e.reviewed_in > 0)) finding(F, 'entry without reviewed_in (the number of the merged pull request that brought it)', `${at}.reviewed_in`);
+      if (!HEX64.test(e.sha256 || '')) finding(F, 'entry sha256 is not 64 hex (the SHA256 of the English text it translates)', `${at}.sha256`);
+      if (!text(e.pt)) finding(F, 'entry lacks its pt text', `${at}.pt`);
+      const c = cur.get(`${e.slug ?? null}|${e.field}`);
+      if (c === undefined) finding(F, 'entry names no dossier prose field of hype.json (slug and field as hype_build.py --dossier-fields prints them)', `${at}.field`);
+      else if (c === e.sha256) match++; else stale++;
+    });
+  }
+  if (stale) warn.push(`${F}: ${stale} entries no longer match the current English; the Hype page shows that English under the Portuguese notice`);
+  pageNote = `pages ${Object.keys(PAGES).join(', ')} with ${keys.size} string keys; dossier.pt.json ${match} matching entries${stale ? `, ${stale} stale` : ''}`;
+}
+
 for (const [rule, at] of Object.entries(found)) fail.push(`${rule} at ${at.length} place${at.length > 1 ? 's' : ''}, e.g. ${at.slice(0, 3).join(', ')}`);
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
-console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${removalNote}; ${i18nNote}`);
+console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${removalNote}; ${i18nNote}; ${pageNote}`);

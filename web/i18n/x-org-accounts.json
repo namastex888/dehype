@@ -1,0 +1,4 @@
+{
+ "note": "Owner-reviewed: organisation accounts allowed as a project's X profile (links.x_handle) when the handle shares no 4+ character token with the project's name, slug or repository name; persons never. Keys are handles in lower case with punctuation removed (Alibaba_Qwen is alibabaqwen). hype_build.py own_account and scripts/check_page.mjs read it; the refresh bot never writes it (scripts/check_owner_files.py).",
+ "accounts": {"ampcode": "Amp", "openai": "OpenAI", "cognition": "Cognition", "diabrowser": "The Browser Company / Dia", "pidotdev": "Pi", "alibabaqwen": "Alibaba Qwen", "google": "Google"}
+}

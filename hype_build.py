@@ -4,6 +4,7 @@
 Run standalone:  python3 hype_build.py [--no-history]
 Scrub only:      python3 hype_build.py --scrub web/hype.json   (the public-data rules on the committed file; idempotent; also drops every
                  post that removals.json or checks/dossier-gone.json beside the file names: deletion-only, refresh.yml runs it daily)
+Dossier fields:  python3 hype_build.py --dossier-fields web/hype.json   (slug, field path and SHA256 per prose field, for web/i18n/dossier.pt.json)
 run.py calls build(con=..., run_id=...) automatically when hype/hype_research.json exists.
 
 NEVER INVENTS NUMBERS. Unknown -> null (rendered '—'). All social counts are the research agent's
@@ -245,6 +246,17 @@ def drop_removed(o, drop):
         if isinstance(v, (dict, list)): drop_removed(v, drop)
         elif is_url(v) and url_hash(v) in drop: o[k] = None
 
+def own_account(slug, it, url, orgs=None):
+    """links.x_handle stays only when it is the project's own account: the handle (lower case, punctuation stripped) contains a
+    token of 4+ characters from the project's name, slug or repository name, or the handle (same form) is an organisation account
+    the owner listed in web/i18n/x-org-accounts.json; otherwise it may be a person, and the link goes.
+    scripts/check_page.mjs applies the same rule."""
+    if orgs is None: orgs = load(os.path.join(I18N, 'x-org-accounts.json'), {}).get('accounts') or {}
+    h = re.sub(r'[^a-z0-9]', '', url.rstrip('/').rsplit('/', 1)[-1].lower())
+    if h in orgs: return True
+    repo = ((it.get('links') or {}).get('repo') or '').rstrip('/').rsplit('/', 1)[-1]
+    return any(len(t) >= 4 and t in h for s in (it.get('name') or '', slug, repo) for t in re.split(r'[^a-z0-9]+', s.lower()))
+
 def scrub(H, srcs=None, figs=None, drop=None):
     """Apply the group-A rules to a built hype.json in place; a second run changes nothing. srcs, figs: the owner-reviewed
     skeptic[].by disposition list and X-figure list (default: web/i18n/). An unlisted name or hit is left for CI to fail.
@@ -258,7 +270,7 @@ def scrub(H, srcs=None, figs=None, drop=None):
     keep_by, by_net = set(srcs.get('keep') or []), {e['sha256']: e['by'] for e in srcs.get('network') or []}
     strip = {(e.get('slug'), e['field'], e['sha256']) for e in figs.get('hits') or [] if e['disposition'] == 'strip'}
     place = (figs.get('placeholder') or {}).get('en')
-    for it in H['items'].values():
+    for slug, it in H['items'].items():
         it['posts'] = [p for p in it.get('posts') or [] if not (is_url(p.get('url')) and url_hash(p['url']) in drop)]
         drop_removed(it, drop)
         # counts only: an X, LinkedIn, YouTube, Telegram (or Reddit) post keeps its network and date; other posts lose the author
@@ -266,6 +278,8 @@ def scrub(H, srcs=None, figs=None, drop=None):
                        {k: v for k, v in p.items() if k != 'au' and not (k == 'url' and url_net(v))} for p in it.get('posts') or []]
         for k in ('account', 'followers', 'cand_account'): (it.get('viral') or {}).pop(k, None)
         relink(it)
+        L = it.get('links') or {}
+        if is_url(L.get('x_handle')) and not own_account(slug, it, L['x_handle']): L['x_handle'] = None
         for rows, words in ((it.get('traction') or [], True), ((it.get('evidence_in') or {}).get('usage') or [], False),
                             ((it.get('discovery') or {}).get('metrics') or [], False)):
             for r in rows:                                    # a figure read from a count-only post is not shown
@@ -479,6 +493,15 @@ def scrub_file(path):
           f"{before - after} posts removed (removals.json {len(removed)} entries, checks/dossier-gone.json {len(gone)} hashes); "
           + ('rewritten' if changed else 'unchanged'))
 
+def dossier_fields(path):
+    """--dossier-fields: the slug, field path and SHA256 of every dossier prose field in a built hype.json, one JSON object per line,
+    for web/i18n/dossier.pt.json entries (design row 13, C24). Read-only."""
+    H = json.load(open(path, encoding='utf-8'))
+    for slug, f, c, k in prose_fields(H):
+        t = c[k] if isinstance(c, list) else c.get(k)
+        if isinstance(t, str) and t: print(json.dumps({'slug': slug, 'field': f, 'sha256': sha(t), 'en': t}, ensure_ascii=False))
+
 if __name__ == '__main__':
-    if '--scrub' in sys.argv: scrub_file((sys.argv[sys.argv.index('--scrub') + 1:] or [OUT])[0])
+    if '--dossier-fields' in sys.argv: dossier_fields((sys.argv[sys.argv.index('--dossier-fields') + 1:] or [OUT])[0])
+    elif '--scrub' in sys.argv: scrub_file((sys.argv[sys.argv.index('--scrub') + 1:] or [OUT])[0])
     else: build(record='--no-history' not in sys.argv)
