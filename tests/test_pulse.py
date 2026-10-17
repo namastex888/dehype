@@ -557,7 +557,8 @@ class ScrubTest(unittest.TestCase):
 
     def test_committed_hype_is_scrubbed_with_counts_kept(self):
         # the counts of the committed file at 2bc0ace; from B3 on, the daily refresh's scrub removes the dossier posts that
-        # web/removals.json or web/checks/dossier-gone.json names, so a network may fall by at most that many (a research pass resets them)
+        # web/removals.json or web/checks/dossier-gone.json names (one hash can drop a URL two items share), so a count may only fall,
+        # and no post left in the file is one either list names (a research pass resets the counts)
         raw = open(os.path.join(ROOT, 'web', 'hype.json'), 'rb').read()
         H = json.loads(raw)
         nets = {}
@@ -566,7 +567,9 @@ class ScrubTest(unittest.TestCase):
         base = {'X': 125, 'HN': 268, 'YouTube': 4, 'LinkedIn': 6, 'Telegram': 1, 'GitHub': 1}                         # as at 2bc0ace
         removed, gone = pulse.removal_lists(os.path.join(ROOT, 'web'))
         self.assertEqual(len(H['items']), 82); self.assertLessEqual(set(nets), set(base))
-        for net, n in base.items(): self.assertTrue(n - len(removed) - len(gone) <= nets.get(net, 0) <= n, (net, nets.get(net)))
+        drop = removed | {e['sha256'] for e in gone}
+        for net, n in base.items(): self.assertLessEqual(nets.get(net, 0), n, net)
+        self.assertFalse([x['url'] for it in H['items'].values() for x in it['posts'] if x.get('url') and hashlib.sha256(x['url'].encode()).hexdigest() in drop])
         self.assertEqual(json.dumps(hype_build.scrub(H), ensure_ascii=False, separators=(',', ':')).encode(), raw)   # idempotent
         figs = json.load(open(os.path.join(ROOT, 'web', 'i18n', 'dossier-x-figures.json')))
         keep = {(e['slug'], e['field'], e['sha256']) for e in figs['hits'] if e['disposition'] == 'keep'}
@@ -1385,7 +1388,9 @@ class RecheckTest(unittest.TestCase):
         self.assertIn('web/removals.json', __import__('scripts.check_owner_files', fromlist=['OWNER_FILES']).OWNER_FILES)
 
     def test_committed_lists(self):
-        self.assertEqual(json.loads(read(os.path.join(ROOT, 'web', 'removals.json'))), {'entries': []})
+        R = json.loads(read(os.path.join(ROOT, 'web', 'removals.json')))              # owner-reviewed: grows by pull request, so shape only
+        self.assertEqual(set(R), {'entries'})
+        for e in R['entries']: self.assertEqual(set(e), {'sha256', 'date'}); self.assertRegex(e['sha256'], r'^[0-9a-f]{64}$'); self.assertRegex(e['date'], r'^\d{4}-\d{2}-\d{2}$')
         G = json.loads(read(os.path.join(ROOT, 'web', 'checks', 'dossier-gone.json')))
         for e in G['gone']: self.assertRegex(e['sha256'], r'^[0-9a-f]{64}$'); self.assertRegex(e['found'], r'^\d{4}-\d{2}-\d{2}$')
 
