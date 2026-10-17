@@ -374,6 +374,7 @@ class PublicRulesTest(unittest.TestCase):
         self.assertNotIn('author', pulse.public(rec('GitHub', source='dossier')))                       # a dossier post's poster
         self.assertIsNone(pulse.public(rec('Bluesky', url='https://bsky.app/profile/a.b/post/1'))['url'])
         self.assertIsNone(pulse.public(rec('HN', link='https://x.com/u/status/1'))['link'])
+        self.assertEqual(pulse.public(rec('HN', title='Thanks @dang for @scope/pkg'))['title'], 'Thanks @… for @scope/pkg')
 
     def test_reddit_headline_fallback_order(self):
         at = lambda h: pulse.NOW - timedelta(hours=h)
@@ -459,7 +460,16 @@ class ScrubTest(unittest.TestCase):
         self.assertLess(new['claude']['authors'], old['claude']['authors'])
         self.assertLess(new['claude']['signal'], old['claude']['signal'])
 
+    def test_dossier_post_already_stored_counts_once(self):
+        live = self.fx['live']                                                       # stored live copies of the two HN dossier posts
+        nodes, *_ = pulse.build(pulse.pool(live, pulse.dossier_posts(self.after)), LEX, self.after['items'])
+        w = {z['id']: z for z in nodes}[pulse.PROJECT_TOPIC['claude-code']]['w']['30d']
+        self.assertEqual((w['nets']['HN'], w['where']['HN']['voices']), (2, 2))        # not 4 posts and a third, author-less voice
+        nodes, *_ = pulse.build(live + pulse.dossier_posts(self.after), LEX, self.after['items'])
+        self.assertEqual({z['id']: z for z in nodes}[pulse.PROJECT_TOPIC['claude-code']]['w']['30d']['where']['HN'], {'posts': 4, 'voices': 3})
+
     def test_committed_hype_is_scrubbed_with_counts_kept(self):
+        # the counts of the committed file at 2bc0ace: a group that removes dossier posts (B3) or a research pass must update them
         raw = open(os.path.join(ROOT, 'web', 'hype.json'), 'rb').read()
         H = json.loads(raw)
         nets = {}
@@ -492,9 +502,11 @@ class ScrubTest(unittest.TestCase):
 class LeakFixtureTest(unittest.TestCase):
     """Decision 14: each fixture overlays a copy of the committed web/; check_page.mjs must fail with that rule's own finding."""
     RULES = {'handle': 'person handle: HN author', 'skeptic_handle': 'person handle (@name)', 'account_url': 'account-naming URL (a person handle)',
-             'reddit': 'Reddit link (Reddit is counts only)', 'x': 'X link (X is counts only', 'linkedin': 'LinkedIn link (LinkedIn is counts only)',
-             'youtube': 'YouTube link (YouTube is counts only)', 'telegram': 'Telegram link (Telegram is counts only)',
-             'x_figure': 'unlisted X-figure sentence'}
+             'reddit': 'Reddit link (Reddit is counts only)', 'linkedin': 'LinkedIn link (LinkedIn is counts only)',
+             'x': "X link (X is counts only; only links.x_handle may link the project's own account) at 2 places",   # with and without a scheme
+             'youtube': ('YouTube link (YouTube is counts only)', 'figure from a count-only post is shown at 2 places'),  # traction, metrics
+             'telegram': 'Telegram link (Telegram is counts only)', 'x_figure': 'unlisted X-figure sentence',
+             'title_handle': 'pulse.json: person handle (@name)'}
 
     def check(self, name):
         with tempfile.TemporaryDirectory() as d:
@@ -510,7 +522,7 @@ class LeakFixtureTest(unittest.TestCase):
             with self.subTest(name):
                 r = self.check(name)
                 self.assertEqual(r.returncode, 1, r.stdout)
-                self.assertIn(msg, r.stderr)
+                for m in (msg,) if isinstance(msg, str) else msg: self.assertIn(m, r.stderr)
 
     def test_clean_overlays_pass(self):
         for name in ('clean_pulse', 'clean_hype'):

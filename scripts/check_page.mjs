@@ -42,7 +42,10 @@ function publicRules(file, D) {
     if (typeof v === 'string') {
       if (/\.links\.x_handle$/.test(at) && X_PROFILE.test(v)) return;
       for (const u of v.match(/https?:\/\/[^\s"'<>]+/g) || []) { const n = urlNet(u); if (n) finding(file, RULE[n], at); }
-      if (!/^https?:/.test(v) && /(^|[^\w.])reddit\.com\//i.test(v)) finding(file, RULE.Reddit, at);
+      const bare = v.replace(/https?:\/\/\S+/g, ' ');                // a link written without its scheme
+      if (/(^|[^\w.])reddit\.com\//i.test(bare)) finding(file, RULE.Reddit, at);
+      if (/(^|[^\w.])(x|twitter)\.com\//i.test(bare)) finding(file, RULE.X, at);
+      if (!/\.aliases\[\d+\]$/.test(at) && HANDLE.test(bare)) finding(file, 'person handle (@name)', at);
       if (/\bt3_[a-z0-9]{4,}\b/.test(v)) finding(file, 'Reddit id (t3_)', at);
       return;
     }
@@ -63,16 +66,14 @@ function hypeRules(H) {
     need(['strip', 'keep'].includes(e.disposition) && e.reason && e.field && /^[0-9a-f]{64}$/.test(e.sha256 || ''), `i18n/dossier-x-figures.json entry ${e.slug}/${e.field} incomplete`);
     listed.set(`${e.slug}|${e.field}|${e.sha256}`, e.disposition);
   }
-  walk(H, '', (v, at) => {
-    if (typeof v === 'string' && !/\.aliases\[\d+\]$/.test(at) && HANDLE.test(v.replace(/https?:\/\/\S+/g, ' '))) finding('hype.json', 'person handle (@name)', at);
-  });
   for (const [slug, it] of Object.entries(H.items || {})) {
     for (const k of ['account', 'followers', 'cand_account']) if (it.viral?.[k] != null) finding('hype.json', `viral.${k} publishes an account`, `items.${slug}.viral.${k}`);
     (it.skeptic || []).forEach((s, i) => { if (s.by && !byOk.has(s.by)) finding('hype.json', 'skeptic[].by name not in i18n/dossier-sources.json', `items.${slug}.skeptic[${i}].by`); });
-    (it.traction || []).forEach((r, i) => {
-      const n = urlNet(r.url || '') || [...COUNT_ONLY].find(n => r.url === cite(n));
-      if (COUNT_ONLY.has(n) && typeof r.value === 'number') finding('hype.json', 'traction figure from a count-only post is shown', `items.${slug}.traction[${i}].value`);
-    });
+    for (const [k, rows] of [['traction', it.traction], ['evidence_in.usage', it.evidence_in?.usage], ['discovery.metrics', it.discovery?.metrics]])
+      (rows || []).forEach((r, i) => {
+        const n = urlNet(r.url || '') || [...COUNT_ONLY].find(n => r.url === cite(n));
+        if (COUNT_ONLY.has(n) && typeof r.value === 'number') finding('hype.json', 'figure from a count-only post is shown', `items.${slug}.${k}[${i}].value`);
+      });
   }
   for (const [slug, f, t] of prose(H)) for (const s of sentences(typeof t === 'string' ? t : '')) {
     if (!xFigure(s)) continue;

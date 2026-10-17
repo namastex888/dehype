@@ -1,5 +1,5 @@
 {
- "note": "Synthetic dossier (no real accounts) for the group-A scrub and the dossier copy in pulse.py: tests/test_pulse.py ScrubTest.",
+ "note": "Synthetic dossier (no real accounts) for the group-A scrub and the dossier copy in pulse.py: tests/test_pulse.py ScrubTest. \"live\": stored posts duplicating two dossier HN posts (pulse.pool counts each once).",
  "hype": {
   "content_cutoff": "2026-10-07T00:00:00Z",
   "items": {
@@ -132,5 +132,31 @@
     "sentence": "Zephyr Agent has 300 GitHub stars and 12 HN replies."
    }
   ]
- }
+ },
+ "live": [
+  {
+   "net": "HN",
+   "pid": "9001",
+   "url": "https://news.ycombinator.com/item?id=9001",
+   "title": "Claude Code ships hooks",
+   "author": "hn_a",
+   "created": "2026-10-04T12:00:00Z",
+   "score": 120,
+   "comments": 40,
+   "source": "live",
+   "extra": {}
+  },
+  {
+   "net": "HN",
+   "pid": "9002",
+   "url": "https://news.ycombinator.com/item?id=9002",
+   "title": "Claude Code and long tasks",
+   "author": "hn_b",
+   "created": "2026-10-05T12:00:00Z",
+   "score": 80,
+   "comments": 20,
+   "source": "live",
+   "extra": {}
+  }
+ ]
 }

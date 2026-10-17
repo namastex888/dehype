@@ -486,12 +486,21 @@ def url_net(u):
 
 def public_url(u): return None if url_net(u) else u
 
+def pool(stored, internal):
+    """Stored posts plus the tracker and dossier posts; a dossier post already stored (same network and URL, e.g. an HN item
+    the live fetch also read) counts once, as the stored one."""
+    have = {(p['net'], p['url']) for p in stored}
+    return stored + [p for p in internal if not p['url'] or (p['net'], p['url']) not in have]
+
+HANDLE = re.compile(r'(?<![\w/.@])@[A-Za-z0-9_][\w.-]*(?![\w/-])', re.A)       # @user in a shown title, not an npm @scope/package
+def unhandle(t): return HANDLE.sub('@…', t) if isinstance(t, str) else t
+
 def public(rec):
     """A post record as published: a count-only network keeps its network, date and source; elsewhere a person's author leaves,
     and so does a link that names an account."""
     if rec['net'] in COUNT_ONLY: return {k: v for k, v in rec.items() if k not in POST_BODY}
     named = rec['net'] in NAMED and rec.get('source') != 'dossier'      # a dossier post's author is its poster
-    return {k: public_url(v) if k in ('url', 'link') else v for k, v in rec.items() if k != 'author' or named}
+    return {k: public_url(v) if k in ('url', 'link') else unhandle(v) if k == 'title' else v for k, v in rec.items() if k != 'author' or named}
 
 # ------------------------------------------------------------------ graph
 def shown(p):
@@ -878,7 +887,7 @@ def headline_of(head, members, topic_label):
     """(headline, url, link) of a story. A count-only title is never shown: the earliest post of a shown network stands in,
     else the topic label, else a fixed line naming the network."""
     d = head if head[0]['net'] not in COUNT_ONLY else next((m for m in members if m[0]['net'] not in COUNT_ONLY), None)
-    if d: return shown(d[0])[:220], public_url(d[0]['url']), public_url((d[0].get('extra') or {}).get('link'))
+    if d: return unhandle(shown(d[0])[:220]), public_url(d[0]['url']), public_url((d[0].get('extra') or {}).get('link'))
     return topic_label or f"{head[0]['net']} discussion, title not shown", None, None
 
 def stories(rel, limit=60):
@@ -1120,7 +1129,7 @@ def main():
         for k in ADAPTERS:
             SOURCES.setdefault(k, {'status': 'unknown', 'detail': 'not fetched in this offline rebuild'})
     stored = load_stored(con)
-    posts = stored + internal_posts()
+    posts = pool(stored, internal_posts())
     nodes, edges, totals, projects, extras = build(posts, lex, hype_items, tracker_repos())
     out = {'generated_at': iso(NOW), 'windows': list(WINDOWS), 'sources': SOURCES, 'totals': totals,
            'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days; ' + SIGNAL_METHOD
@@ -1132,7 +1141,7 @@ def main():
                         'tracker papers and repos, and the static HYPE research dossier. '
                         'Bluesky appears only when an app password is configured. X appears only through the static dossier; it is not collected live.',
                         'Topics come from a reviewable lexicon (topics_lexicon.json), automatic model-version names, and capitalised phrases used by at least three distinct authors (marked emerging).',
-                        'A node is only as strong as the posts listed under it; open it to read them.'],
+                        'A node is only as strong as the posts behind it; posts from counts-only networks are counted, not shown.'],
            'stories': extras['stories'], 'nodes': nodes, 'edges': edges, 'projects': projects,
            'citations': {w: {'domains': c['domains']} for w, c in extras['citations'].items()},     # handles stay private (below)
            'official_feeds': official_meta()}
