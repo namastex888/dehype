@@ -4,6 +4,7 @@
 // briefing.json keeps the same rules plus its own: proposals with no label word, "not fetched" for an unfetched source, previews only.
 // verdicts.json and corrections.json (owner-reviewed) keep them too, and every verdict row resolves and carries its fields.
 // No post that removals.json (owner-reviewed) or checks/dossier-gone.json (bot-written) names by URL hash is still published.
+// Our own text has en and pt (i18n/strings.json); headlines carry lang and are never translated; the method copies share anchors.
 // Node standard library only. Usage: node scripts/check_page.mjs [webDir]
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -20,7 +21,7 @@ const warn = [];
 // pulse.json's generated_at (not the clock: a refresh outage never fails links already committed), no unlisted X figure.
 const COUNT_ONLY = new Set(['Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mastodon']);
 const NAMED = new Set(['Newsletter', 'Official', 'arXiv', 'GitHub']);          // newsletter, feed, lab or paper and repo names stay
-const POST_BODY = ['title', 'author', 'url', 'link', 'score', 'comments', 'who'], HYPE_BODY = ['au', 't', 'url', 'likes', 'score', 'cm', 'rp', 'views'];
+const POST_BODY = ['title', 'author', 'url', 'link', 'score', 'comments', 'who', 'lang'], HYPE_BODY = ['au', 't', 'url', 'likes', 'score', 'cm', 'rp', 'views'];
 const NET_URL = [['Reddit', 'reddit\\.com|redd\\.it'], ['X', 'x\\.com|twitter\\.com|t\\.co|nitter\\.net|fxtwitter\\.com|vxtwitter\\.com'], ['LinkedIn', 'linkedin\\.com|lnkd\\.in'],
   ['YouTube', 'youtube\\.com|youtu\\.be|youtube-nocookie\\.com'], ['Telegram', 't\\.me|telegram\\.me']]
   .map(([n, h]) => [n, new RegExp(`^https?://(?:[\\w-]+\\.)*(?:${h})(?=[/:?#]|$)`, 'i')]);
@@ -457,7 +458,107 @@ let removalNote = 'no removals';
   removalNote = `removals: ${R.size} requests, ${G.size} dossier posts found gone, none published` + (pending ? ` (${pending} places in pulse.json or briefing.json await the next daily rebuild)` : '');
 }
 
+// Two languages (design rows 12 and 14; C17, C31, C33): every entry of i18n/strings.json has a non-empty en and pt with the same
+// placeholders; each public field that holds our own text matches one of its entries; every headline and post title pulse.py writes
+// carries a lang tag (source metadata, else "und") and none is translated; the method copies METHODOLOGY.md and METHODOLOGY.pt.md
+// share their anchors and code blocks, explain the data files' method paragraphs, carry the X-route disclosure and the Decision 13
+// figure in their language, and equal their repository-root sources when those are beside webDir.
+const LANG = /^(?:und|[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|\d{3}))?)$/;
+const TRANSLATED = /^(?:(?:headline|title)s?[_.-]?(?:en|pt|es|fr|de|tr|translated|translation|i18n|l10n)|translations?|translated)$/i;
+const SLUG = t => t.toLowerCase().replace(/<[^>]+>/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');    // web/index.html slug()
+const PH = /\{(\w+)\}/g, places = t => [...String(t).matchAll(PH)].map(m => m[1]).sort().join(',');
+const flat = s => s.replace(/\s+/g, ' ');
+function methodDoc(md, explicit) {                                // headings as [level, id], fenced code blocks, ids and internal links
+  const L = md.replace(/\r/g, '').split('\n'), heads = [], code = [], links = [];
+  let fence = null;
+  L.forEach((l, i) => {
+    if (/^```/.test(l)) { if (fence) { code.push(fence.join('\n')); fence = null; } else fence = []; return; }
+    if (fence) { fence.push(l); return; }
+    const m = l.match(/^(#{1,4})\s+(.*)/);
+    if (m) { const a = (L[i - 1] || '').match(/^<a id="([^"]+)"><\/a>$/); heads.push([m[1].length, explicit ? (a ? a[1] : null) : SLUG(m[2])]); }
+    for (const x of l.matchAll(/\]\(#([^)\s]+)\)/g)) links.push(x[1]);
+  });
+  return { heads, code, links, ids: new Set(heads.map(h => h[1]).filter(Boolean)) };
+}
+let i18nNote = 'no strings file';
+{
+  const F = 'i18n/strings.json', I = readJSON(F, `${F} missing (our own text in en and pt, design row 12)`);
+  const md = {};
+  for (const [f, lang] of [['METHODOLOGY.md', 'en'], ['METHODOLOGY.pt.md', 'pt']]) {
+    try { md[lang] = readFileSync(join(web, f), 'utf8'); } catch { fail.push(`${f} missing (the root ${f}, copied into web/ by run.py and the deploy sync step)`); continue; }
+    try { if (readFileSync(join(web, '..', f), 'utf8') !== md[lang]) fail.push(`web/${f} differs from the root ${f} (the root file is the source: copy it)`); } catch { }
+  }
+  const doc = { en: md.en != null && methodDoc(md.en, false), pt: md.pt != null && methodDoc(md.pt, true) };
+  if (doc.en && doc.pt) {
+    const a = doc.en.heads.map(h => h.join(' ')).join('|'), b = doc.pt.heads.map(h => h.join(' ')).join('|');
+    if (a !== b) finding('METHODOLOGY.pt.md', 'headings do not match METHODOLOGY.md: same headings, levels and order, each under <a id="<the English anchor>"></a>',
+      doc.pt.heads.map((h, i) => `${i}:${h.join(' ')}`).filter((h, i) => h !== `${i}:${(doc.en.heads[i] || []).join(' ')}`).slice(0, 3).join(' ') || 'headings');
+    if (doc.en.code.join('\u0000') !== doc.pt.code.join('\u0000')) finding('METHODOLOGY.pt.md', 'code blocks differ from METHODOLOGY.md (formulas and code stay byte-identical)', 'fenced blocks');
+  }
+  for (const [lang, f] of [['en', 'METHODOLOGY.md'], ['pt', 'METHODOLOGY.pt.md']]) if (doc[lang])
+    for (const l of doc[lang].links) if (!doc[lang].ids.has(l)) finding(f, 'internal link to a missing anchor', `#${l}`);
+  if (I) {
+    const S = I.strings || {}, entry = {};
+    for (const [k, v] of Object.entries(S)) {
+      let e = v;
+      if (v && typeof v.ref === 'string') {                        // an entry kept in another i18n file (Decision 10: the X-figure placeholder)
+        const [file, key] = v.ref.split('#'), R = readJSON(`i18n/${file}`);
+        e = R && key.split('.').reduce((o, x) => o && o[x], R);
+        if (!e) { finding(F, 'ref to a missing entry', `strings.${k}`); continue; }
+      }
+      for (const lang of ['en', 'pt']) if (!text(e?.[lang])) finding(F, `entry lacks its ${lang} text (every string of our own text has en and pt)`, `strings.${k}.${lang}`);
+      if (text(e?.en) && text(e?.pt) && places(e.en) !== places(e.pt)) finding(F, 'entry has different placeholders in en and pt', `strings.${k}`);
+      entry[k] = e;
+    }
+    const rx = {};
+    const tpl = k => rx[k] ||= new RegExp('^' + String(entry[k]?.en ?? '\u0000').replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\\?\{(\w+)\\?\}/g, '(?<$1>[\\s\\S]+?)') + '$');
+    const ours = (v, keys, depth = 0) => keys.some(k => { const m = entry[k] && tpl(k).exec(v); return m && (m.groups?.detail == null || (depth < 2 && ours(m.groups.detail, keys.filter(x => x !== k), depth + 1))); });
+    let checked = 0;
+    for (const [f, paths] of Object.entries(I.fields || {})) {
+      const X = f === 'hype.json' ? H : readJSON(f);
+      if (!X) continue;
+      const pats = Object.entries(paths).map(([p, spec]) => {            // spec: [keys], or {keys, when}: only values matching when are ours
+        const keys = Array.isArray(spec) ? spec : spec.keys || [], when = !Array.isArray(spec) && spec.when ? new RegExp(spec.when) : null;
+        for (const k of keys) if (!(k in entry)) finding(F, 'field names a key with no entry', `fields.${f}.${p}: ${k}`);
+        return [new RegExp('^' + p.replace(/[.+?^$()|\\]/g, '\\$&').replace(/\[\]/g, '\\[\\]').replace(/\*/g, '[^\\[\\]]+?') + '$'), keys, when];
+      });
+      walk(X, '', (v, at) => {
+        if (typeof v !== 'string' || /^https?:\/\//.test(v)) return;
+        const p = at.replace(/\[\d+\]/g, '[]'), hit = pats.find(([r]) => r.test(p));
+        if (!hit || (hit[2] && !hit[2].test(v))) return;
+        checked++;
+        if (!ours(v, hit[1])) finding(f, 'own text not in i18n/strings.json (add its en and pt entry)', at);
+      });
+    }
+    for (const [f, m] of Object.entries(I.methods || {})) for (const [field, anchor] of Object.entries(m))
+      for (const lang of ['en', 'pt']) if (doc[lang] && !doc[lang].ids.has(anchor)) finding(F, `method paragraph's anchor not in METHODOLOGY${lang === 'pt' ? '.pt' : ''}.md`, `methods.${f}.${field}: #${anchor}`);
+    for (const k of I.method_keys || []) for (const [lang, f] of [['en', 'METHODOLOGY.md'], ['pt', 'METHODOLOGY.pt.md']])
+      if (md[lang] != null && !(text(entry[k]?.[lang]) && flat(md[lang]).includes(flat(entry[k][lang])))) finding(f, `lacks the ${k} text in ${lang} (i18n/strings.json)`, k);
+    if (!/posts in our sample/.test(entry['x_route.disclosure']?.en || '') || !/posts na nossa amostra/.test(entry['x_route.disclosure']?.pt || ''))
+      finding(F, 'x_route.disclosure does not read "posts in our sample" in both languages', 'strings.x_route.disclosure');
+    // headlines and post titles stay as posted (no translated field), each with a lang tag; our fixed headline line reads "en"
+    const fixed = entry['headline.count_only'] && tpl('headline.count_only');
+    let titles = 0;
+    for (const f of ['pulse.json', 'briefing.json']) {
+      const X = readJSON(f);
+      if (!X) continue;
+      walk(X, '', (o, at) => {
+        if (!o || typeof o !== 'object' || Array.isArray(o)) return;
+        for (const k of Object.keys(o)) if (TRANSLATED.test(k)) finding(f, 'translated headline or title (headlines and post titles stay as posted)', at ? `${at}.${k}` : k);
+        for (const k of ['headline', 'title']) {
+          if (!(k in o) || o[k] == null) continue;
+          if (typeof o[k] !== 'string') { finding(f, 'translated headline or title (headlines and post titles stay as posted)', `${at}.${k}`); continue; }
+          titles++;
+          if (!LANG.test(o.lang || '')) finding(f, 'headline or title without a valid lang tag (source metadata, else "und")', `${at}.lang`);
+          else if (k === 'headline' && fixed && fixed.test(o[k]) && o.lang !== 'en') finding(f, 'our fixed headline line does not read lang "en"', `${at}.lang`);
+        }
+      });
+    }
+    i18nNote = `strings ${Object.keys(S).length} entries in en and pt, ${checked} own-text values matched, ${titles} titles tagged, method ${doc.en ? doc.en.heads.length : 0} anchors in both languages`;
+  }
+}
+
 for (const [rule, at] of Object.entries(found)) fail.push(`${rule} at ${at.length} place${at.length > 1 ? 's' : ''}, e.g. ${at.slice(0, 3).join(', ')}`);
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
-console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${removalNote}`);
+console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${removalNote}; ${i18nNote}`);

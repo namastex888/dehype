@@ -382,8 +382,8 @@ class PublicRulesTest(unittest.TestCase):
         d = lambda net, title, h: (p(net, title[:6], title, 'u', h), at(h), {}, set())
         reddit, hn = d('Reddit', 'GPT 6 leaked benchmark', 9), d('HN', 'GPT 6 benchmark notes', 5)
         self.assertEqual(pulse.headline_of(reddit, [reddit, d('Mastodon', 'GPT 6 toot', 7), hn], 'GPT 6')[0], 'GPT 6 benchmark notes')
-        self.assertEqual(pulse.headline_of(reddit, [reddit], 'GPT 6'), ('GPT 6', None, None))
-        self.assertEqual(pulse.headline_of(reddit, [reddit], None), ('Reddit discussion, title not shown', None, None))
+        self.assertEqual(pulse.headline_of(reddit, [reddit], 'GPT 6'), ('GPT 6', None, None, 'und'))
+        self.assertEqual(pulse.headline_of(reddit, [reddit], None), ('Reddit discussion, title not shown', None, None, 'en'))
 
     def test_built_stories_and_nodes_hold_no_count_only_text(self):
         posts = [p('Reddit', i, f'Claude Opus 5.5 routing is broken {i}', f'r{i}', 2 + i) for i in range(6)]
@@ -762,7 +762,7 @@ class BriefingRulesTest(unittest.TestCase):
         r = pulse.briefing([s], [node], self.sources(), None, self.now, 'm')['records'][0]
         self.assertEqual(r['substance']['repos'], ['https://github.com/example/hooks'])
         self.assertEqual(r['related_in_topic'], {'reading': 'related in topic', 'items': [
-            {'topic': 'p:claude-code', 'net': 'GitHub', 'title': 'hookkit: hooks', 'url': 'https://github.com/example/hookkit'}]})
+            {'topic': 'p:claude-code', 'net': 'GitHub', 'title': 'hookkit: hooks', 'lang': 'und', 'url': 'https://github.com/example/hookkit'}]})
         self.assertEqual(pulse.own_refs(['https://github.com/example/hooks/tree/main', 'https://github.com/Example/Hooks.git', 'https://github.com/features/copilot',
                                          'https://github.com/example', 'https://arxiv.org/pdf/2610.01234v2', 'https://huggingface.co/papers/2610.01234',
                                          'https://www.reddit.com/r/x/comments/abc/github.com/a/b', None]),
@@ -1465,7 +1465,7 @@ class RemovalFixtureTest(unittest.TestCase):
         P = json.loads(read(os.path.join(ROOT, 'web', 'pulse.json')))
         n = P['nodes'][0]
         n['samples'], n['w']['30d']['nets'], n['spread'] = [], {'HN': 1}, [{'net': 'HN', 'at': '2026-10-17T04:00:00Z', 'day_only': False, 'source': 'live'}]
-        for spread, code in ((n['spread'], 0), ([{**n['spread'][0], 'title': 'a shown HN title', 'url': 'https://news.ycombinator.com/item?id=1'}], 1)):
+        for spread, code in ((n['spread'], 0), ([{**n['spread'][0], 'title': 'a shown HN title', 'lang': 'und', 'url': 'https://news.ycombinator.com/item?id=1'}], 1)):
             with tempfile.TemporaryDirectory() as d:
                 web = os.path.join(d, 'web')
                 shutil.copytree(os.path.join(ROOT, 'web'), web)
