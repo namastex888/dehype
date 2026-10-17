@@ -55,8 +55,8 @@ class StringsTest(unittest.TestCase):
     def test_fields_and_methods_name_existing_entries_and_anchors(self):
         I = strings()
         for f, paths in I['fields'].items():
-            for p, keys in paths.items():
-                for k in keys: self.assertIn(k, I['strings'], (f, p))
+            for p, spec in paths.items():
+                for k in (spec if isinstance(spec, list) else spec['keys']): self.assertIn(k, I['strings'], (f, p))
         en = read(os.path.join(ROOT, 'METHODOLOGY.md'))
         for f, m in I['methods'].items():
             for field, anchor in m.items(): self.assertIn(anchor, method_ids(en), (f, field))
@@ -231,6 +231,12 @@ class GateFixtureTest(unittest.TestCase):
         B = json.loads(json.dumps(self.B))
         B['sources']['Lobsters (ai tag)']['detail'] = 'a new sentence nobody translated'
         self.assert_fails(check_page({'briefing.json': B}), 'briefing.json: own text not in i18n/strings.json (add its en and pt entry) at 1 place, e.g. sources.Lobsters (ai tag).detail', only=True)
+
+    def test_count_only_figure_words_are_entries(self):
+        H = json.loads(read(os.path.join(WEB, 'hype.json')))
+        slug, i = next((k, j) for k, it in H['items'].items() for j, r in enumerate(it.get('traction') or []) if r.get('value') == 'figure from an X post, not shown')
+        H['items'][slug]['traction'][i]['value'] = 'figure from somewhere, not shown'
+        self.assert_fails(check_page({'hype.json': H}), f'hype.json: own text not in i18n/strings.json (add its en and pt entry) at 1 place, e.g. items.{slug}.traction[{i}].value', only=True)
 
     def test_method_copy_lacking_the_disclosure(self):
         pt = self.pt.replace(self.S['strings']['x_route.disclosure']['pt'], '')

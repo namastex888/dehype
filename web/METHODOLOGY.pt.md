@@ -45,7 +45,7 @@ Toda falha de fonte recorre, como alternativa, ao último payload válido em cac
 <a id="x-route-and-public-data"></a>
 ## Rota do X e dados públicos
 
-Rota do X: as contagens do X, e as pontuações de atenção calculadas a partir de posts do X, vêm da rodada de pesquisa de 2026-10-07, cujas notas citam relatórios "x_search" e leituras via "X syndication". Não há registro de se essas são interfaces publicadas pelo X, nem de se alguma chamada paga foi feita. Uma contagem do X é um número de posts na nossa amostra, nunca alcance; nenhum texto, link ou número do X é mostrado.
+Rota do X: as contagens do X, e as pontuações de atenção calculadas a partir de posts do X, vêm da rodada de pesquisa de 2026-10-07, cujas notas citam relatórios "x_search" e leituras via "X syndication". Não está registrado se essas são interfaces publicadas pelo X, nem se alguma chamada paga foi feita. Uma contagem do X é um número de posts na nossa amostra, nunca alcance; nenhum texto de post, link de post ou número do X é mostrado (fica apenas o link do perfil do próprio projeto no X).
 
 Os arquivos públicos (`pulse.json`, `briefing.json`, `hype.json`) não trazem nenhum handle de pessoa: autores das redes de conversa, URLs de posts que nomeiam a conta e os campos de conta do dossiê ficam de fora. Posts do Reddit, X, LinkedIn, YouTube, Telegram e Discord aparecem só como contagem, sem título, autor, link ou pontuação; um post do Mastodon é uma contagem, a menos que seu link do mastodon.social sem handle tenha passado numa verificação de renderização sem login menos de 7 dias antes da build. `scripts/check_page.mjs` reprova a build em qualquer um desses casos.
 
@@ -249,7 +249,7 @@ Isto subtrai posições relativas em **populações de referência de proxies di
 
 A aba Pulse responde "sobre o que é a conversa de IA agora, e onde". Ela é gerada por `pulse.py` (biblioteca padrão) a partir de feeds amostrados e é separada das pontuações de ranking acima.
 
-**Feeds (amostras, nunca totais).** Histórias do Hacker News acima de 20 pontos (Algolia), a tag `ai` do Lobsters, nove hashtags do Mastodon em mastodon.social, dez subreddits de IA por meio do arquivo público do Reddit arctic-shift (um arquivo de terceiros sem garantia de disponibilidade; as contagens de votos lá são retratos de um momento), buscas no Bluesky quando uma senha de app está configurada, doze feeds RSS públicos de newsletters de IA listados em `newsletters.json` (uma rede `Newsletter` separada: o ponto em que um tópico chegou aos resumos (digests); edições de newsletter não criam ligações de menção conjunta e não contam como conversa para o *rising* (em alta)), feeds de anúncios de laboratórios e fornecedores listados em `official_feeds.json` (uma rede `Official` separada: OpenAI, Google DeepMind, Google AI and Research, a sala de imprensa corporativa da Meta, NVIDIA, Microsoft, Mistral, Hugging Face, Qwen, lançamentos do DeepSeek no GitHub e a Anthropic por meio de um espelho RSS comunitário da sua página de notícias, porque ela não publica feed; itens Official são a origem de um lançamento, então podem abrir um rastro de espalhamento, mas nunca contam como conversa, nunca criam ligações de menção conjunta e não somam ao alcance), além dos próprios artigos e repositórios ranqueados do rastreador e do dossiê de pesquisa estático do HYPE. O X não é coletado. Cada feed registra `ok`, `partial`, `failed` ou `not connected` na página; um feed com falha mantém os posts que armazenou antes (retenção de 45 dias em `history/signals.sqlite`).
+**Feeds (amostras, nunca totais).** Histórias do Hacker News acima de 20 pontos (Algolia), a tag `ai` do Lobsters, nove hashtags do Mastodon em mastodon.social, dez subreddits de IA por meio do arquivo público do Reddit arctic-shift (um arquivo de terceiros sem garantia de disponibilidade; as contagens de votos lá são retratos de um momento), buscas no Bluesky quando uma senha de app está configurada, doze feeds RSS públicos de newsletters de IA listados em `newsletters.json` (uma rede `Newsletter` separada: o ponto em que um tópico chegou aos resumos (digests); edições de newsletter não criam ligações de menção conjunta e não contam como conversa para o *rising* (em alta)), feeds de anúncios de laboratórios e fornecedores listados em `official_feeds.json` (uma rede `Official` separada: OpenAI, Google DeepMind, Google AI and Research, a sala de imprensa corporativa da Meta, NVIDIA, Microsoft, Mistral, Hugging Face, Qwen, lançamentos do DeepSeek no GitHub e a Anthropic por meio de um espelho RSS comunitário da sua página de notícias, porque ela não publica feed; itens Official são a origem de um lançamento, então podem abrir um rastro de espalhamento, mas nunca contam como conversa, nunca criam ligações de menção conjunta e não somam ao alcance), além dos próprios artigos e repositórios ranqueados do rastreador e do dossiê de pesquisa estático do HYPE. O X não é coletado ao vivo. Cada feed registra `ok`, `partial`, `failed` ou `not connected` na página; um feed com falha mantém os posts que armazenou antes (retenção de 45 dias em `history/signals.sqlite`).
 
 **Tópicos.** Um post é mapeado para tópicos por meio de três regras revisáveis:
 
@@ -257,7 +257,7 @@ A aba Pulse responde "sobre o que é a conversa de IA agora, e onde". Ela é ger
 2. nomes de versão de modelo construídos a partir de famílias versionadas (`Opus 5.5`, `Gemini 4 Argon`, `GPT 6 Astra`): apenas versões de um ou dois dígitos; uma palavra de nível no final (Pro, Flash, ...) ou um codinome com inicial maiúscula passa a fazer parte do nome;
 3. frases emergentes: frases de várias palavras com iniciais maiúsculas ou em CamelCase, vindas da conversa ao vivo e ditas por pelo menos três autores distintos, excluindo hashtags, frases feitas só de palavras comuns, frases já cobertas pelas regras 1-2 e uma lista de exclusão no léxico. Elas são desenhadas com contorno tracejado.
 
-Histórias do Hacker News de interesse geral só contam quando usam uma palavra-chave de IA ou citam um modelo, produto ou versão de IA (um alias de laboratório ou de tema sozinho, como "court" ou "Microsoft", não basta). Frases emergentes podem ser nomes de pessoas; pessoas que não são figuras públicas são adicionadas à lista de exclusão quando notadas. Posts do Mastodon e do Bluesky não têm título, então suas amostras mostram até 200 caracteres do texto público do post. O corpo das newsletters é usado apenas para o casamento; a página mostra o título e o link da edição.
+Histórias do Hacker News de interesse geral só contam quando usam uma palavra-chave de IA ou citam um modelo, produto ou versão de IA (um alias de laboratório ou de tema sozinho, como "court" ou "Microsoft", não basta). Frases emergentes podem ser nomes de pessoas; pessoas que não são figuras públicas são adicionadas à lista de exclusão quando notadas. Posts do Mastodon e do Bluesky não têm título, então suas amostras mostram até 200 caracteres do texto público do post. O corpo das newsletters é usado apenas para a correspondência de tópicos; a página mostra o título e o link da edição.
 
 **Métricas por janela (24h, 7d, 30d).**
 
@@ -306,7 +306,7 @@ story  = "s:" + first 12 hex of sha1("release:" + topic id for a story about one
 repo   = owner/name    paper = arXiv id
 ```
 
-Toda história, amostra de tópico e passo de espalhamento carrega a URL do post original.
+Toda história, amostra de tópico e passo de espalhamento mostrados carregam a URL do post original; um post só de contagem não carrega nenhuma.
 
 <a id="what-s-new"></a>
 ### O que há de novo
@@ -364,7 +364,7 @@ O Reddit fica de fora porque as pontuações do arctic-shift são snapshots tira
 <a id="organic-or-orchestrated"></a>
 ### Orgânico ou orquestrado?
 
-Seis sinais por tópico sobre a conversa ao vivo de 30 dias (HN, Reddit, Mastodon, Lobsters, Bluesky) feita por contas com nome (autores vazios, `[deleted]` e `AutoModerator` ficam de fora). Eles descrevem padrões que empurrões coordenados deixam; cada um também tem causas inocentes, então a página os apresenta como sinais, nunca como prova.
+Seis sinais por tópico sobre a conversa ao vivo de 30 dias (HN, Reddit, Mastodon, Lobsters, Bluesky) feita por contas com nome (autores vazios, `[deleted]` e `AutoModerator` ficam de fora). Eles descrevem padrões que campanhas coordenadas deixam; cada um também tem causas inocentes, então a página os apresenta como sinais, nunca como prova.
 
 | Sinal | Definição | Dispara em | Explicação inocente |
 |---|---|---|---|
@@ -375,7 +375,7 @@ Seis sinais por tópico sobre a conversa ao vivo de 30 dias (HN, Reddit, Mastodo
 | repos | repositórios do rastreador ranqueados na janela de 30 dias que casam com o tópico (por texto, ou por paradigma no caso de um tema com `tracker_tag`), com suas flags antirruído (`stars>activity`, `solo`, `spike`); a proporção de `stars>activity` em todas as linhas de 30 dias é mostrada como linha de base | `stars>activity` em metade de 3+ repositórios | repositórios jovens cuja atividade ainda não acompanhou |
 | dossier | a avaliação de coordenação do dossiê de pesquisa HYPE para os projetos mapeados para o tópico | patrocínio declarado ou uma avaliação de coordenação medida | — |
 
-`link_push` que não pode ser medido aparece como *unknown / not measured* (desconhecido / não medido), o que é diferente de um sinal que foi medido e não disparou. A janela de 30 dias só é tão profunda quanto a coleta: o Reddit (cujo arquivo também alcança cerca de uma semana para trás a cada execução) e o Mastodon começaram há pouco, então, nas primeiras semanas de coleta, a janela deles é mais rasa que 30 dias. O X não é coletado, então empurrões feitos lá são invisíveis aqui; toda leitura diz respeito à nossa amostra.
+`link_push` que não pode ser medido aparece como *unknown / not measured* (desconhecido / não medido), o que é diferente de um sinal que foi medido e não disparou. A janela de 30 dias só é tão profunda quanto a coleta: o Reddit (cujo arquivo também alcança cerca de uma semana para trás a cada execução) e o Mastodon começaram há pouco, então, nas primeiras semanas de coleta, a janela deles é mais rasa que 30 dias. O X não é coletado ao vivo, então campanhas feitas lá são invisíveis aqui; toda leitura diz respeito à nossa amostra.
 
 Rótulo: **too few posts** (poucos posts) abaixo de 10 posts; **strong coordination signals** (sinais fortes de coordenação) quando dois sinais disparam ou um atinge seu nível forte; **some coordination signals** (alguns sinais de coordenação) quando um dispara; caso contrário, **no coordination signal** (nenhum sinal de coordenação). Os limiares são deliberadamente conservadores e não validados; um rótulo é um motivo para ler os posts, não uma conclusão.
 

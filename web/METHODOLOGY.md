@@ -41,7 +41,7 @@ Every source failure falls back to the last good cached payload and is reported 
 
 ## X route and public data
 
-X route: the X counts, and the attention scores built from X posts, come from the 2026-10-07 research pass, whose notes name "x_search" reports and "X syndication" readbacks. Whether those are X's published interfaces, and whether a paid call was made, is not on record. An X count is a number of posts in our sample, never reach; no X text, link or figure is shown.
+X route: the X counts, and the attention scores built from X posts, come from the 2026-10-07 research pass, whose notes name "x_search" reports and "X syndication" readbacks. Whether those are X's published interfaces, and whether a paid call was made, is not on record. An X count is a number of posts in our sample, never reach; no X post text, post link or figure is shown (a project's own X profile link stays).
 
 The public files (`pulse.json`, `briefing.json`, `hype.json`) carry no person handle: conversation-network authors, account-naming post URLs and the dossier's account fields are left out. Reddit, X, LinkedIn, YouTube, Telegram and Discord posts are counts only, with no title, author, link or score; a Mastodon post is a count unless its handle-free mastodon.social link passed a logged-out render check less than 7 days before the build. `scripts/check_page.mjs` fails the build on any of them.
 
@@ -233,7 +233,7 @@ This subtracts relative positions in **different proxy reference populations**, 
 
 The Pulse tab answers "what is the AI conversation about right now, and where". It is built by `pulse.py` (standard library) from sampled feeds and is separate from the ranking scores above.
 
-**Feeds (samples, never totals).** Hacker News stories above 20 points (Algolia), the Lobsters `ai` tag, nine Mastodon hashtags on mastodon.social, ten AI subreddits through the arctic-shift public Reddit archive (a third-party archive with no uptime guarantee; vote counts there are snapshots), Bluesky searches when an app password is configured, twelve public AI newsletter RSS feeds listed in `newsletters.json` (a separate `Newsletter` network: the point where a topic reached the digests; newsletter issues do not create co-mention links and do not count as conversation for *rising*), lab and vendor announcement feeds listed in `official_feeds.json` (a separate `Official` network: OpenAI, Google DeepMind, Google AI and Research, Meta's company newsroom, NVIDIA, Microsoft, Mistral, Hugging Face, Qwen, DeepSeek GitHub releases, and Anthropic through a community RSS mirror of its news page because it publishes no feed; Official items are the origin of a launch, so they can open a spread trace but never count as conversation, never create co-mention links and do not add to reach), plus the tracker's own papers and ranked repos and the static HYPE research dossier. X is not collected. Each feed records `ok`, `partial`, `failed` or `not connected` on the page; a failed feed keeps the posts it stored earlier (45-day retention in `history/signals.sqlite`).
+**Feeds (samples, never totals).** Hacker News stories above 20 points (Algolia), the Lobsters `ai` tag, nine Mastodon hashtags on mastodon.social, ten AI subreddits through the arctic-shift public Reddit archive (a third-party archive with no uptime guarantee; vote counts there are snapshots), Bluesky searches when an app password is configured, twelve public AI newsletter RSS feeds listed in `newsletters.json` (a separate `Newsletter` network: the point where a topic reached the digests; newsletter issues do not create co-mention links and do not count as conversation for *rising*), lab and vendor announcement feeds listed in `official_feeds.json` (a separate `Official` network: OpenAI, Google DeepMind, Google AI and Research, Meta's company newsroom, NVIDIA, Microsoft, Mistral, Hugging Face, Qwen, DeepSeek GitHub releases, and Anthropic through a community RSS mirror of its news page because it publishes no feed; Official items are the origin of a launch, so they can open a spread trace but never count as conversation, never create co-mention links and do not add to reach), plus the tracker's own papers and ranked repos and the static HYPE research dossier. X is not collected live. Each feed records `ok`, `partial`, `failed` or `not connected` on the page; a failed feed keeps the posts it stored earlier (45-day retention in `history/signals.sqlite`).
 
 **Topics.** A post maps to topics through three reviewable rules:
 
@@ -288,7 +288,7 @@ story  = "s:" + first 12 hex of sha1("release:" + topic id for a story about one
 repo   = owner/name    paper = arXiv id
 ```
 
-Every story, topic sample and spread step carries the URL of the original post.
+Every shown story, topic sample and spread step carries the URL of the original post; a count-only post carries none.
 
 ### What's new
 
@@ -352,7 +352,7 @@ Six signals per topic over the 30-day live conversation (HN, Reddit, Mastodon, L
 | repos | tracker repos ranked in the 30-day window that match the topic (by text, or by paradigm for a theme with `tracker_tag`), with their anti-noise flags (`stars>activity`, `solo`, `spike`); the share of `stars>activity` across all 30-day rows is shown as a baseline | `stars>activity` on half of 3+ repos | young repos whose activity has not caught up |
 | dossier | the HYPE research dossier's coordination assessment for projects that map to the topic | disclosed sponsorship or a measured coordination assessment | — |
 
-`link_push` that cannot be measured is shown as *unknown / not measured*, which is different from a signal that was measured and did not fire. The 30-day window is only as deep as collection: Reddit (whose archive also reaches back about a week per run) and Mastodon began recently, so during the first weeks of collection their window is shallower than 30 days. X is not collected, so pushes run there are invisible here; every reading is about our sample.
+`link_push` that cannot be measured is shown as *unknown / not measured*, which is different from a signal that was measured and did not fire. The 30-day window is only as deep as collection: Reddit (whose archive also reaches back about a week per run) and Mastodon began recently, so during the first weeks of collection their window is shallower than 30 days. X is not collected live, so pushes run there are invisible here; every reading is about our sample.
 
 Label: **too few posts** under 10 posts; **strong coordination signals** when two signals fire or one reaches its strong level; **some coordination signals** for one; otherwise **no coordination signal**. Thresholds are deliberately conservative and unvalidated; a label is a reason to read the posts, not a finding.
 

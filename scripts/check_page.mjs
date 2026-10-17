@@ -517,14 +517,15 @@ let i18nNote = 'no strings file';
     for (const [f, paths] of Object.entries(I.fields || {})) {
       const X = f === 'hype.json' ? H : readJSON(f);
       if (!X) continue;
-      const pats = Object.entries(paths).map(([p, keys]) => {
+      const pats = Object.entries(paths).map(([p, spec]) => {            // spec: [keys], or {keys, when}: only values matching when are ours
+        const keys = Array.isArray(spec) ? spec : spec.keys || [], when = !Array.isArray(spec) && spec.when ? new RegExp(spec.when) : null;
         for (const k of keys) if (!(k in entry)) finding(F, 'field names a key with no entry', `fields.${f}.${p}: ${k}`);
-        return [new RegExp('^' + p.replace(/[.+?^$()|\\]/g, '\\$&').replace(/\[\]/g, '\\[\\]').replace(/\*/g, '[^\\[\\]]+?') + '$'), keys];
+        return [new RegExp('^' + p.replace(/[.+?^$()|\\]/g, '\\$&').replace(/\[\]/g, '\\[\\]').replace(/\*/g, '[^\\[\\]]+?') + '$'), keys, when];
       });
       walk(X, '', (v, at) => {
         if (typeof v !== 'string' || /^https?:\/\//.test(v)) return;
         const p = at.replace(/\[\d+\]/g, '[]'), hit = pats.find(([r]) => r.test(p));
-        if (!hit) return;
+        if (!hit || (hit[2] && !hit[2].test(v))) return;
         checked++;
         if (!ours(v, hit[1])) finding(f, 'own text not in i18n/strings.json (add its en and pt entry)', at);
       });
