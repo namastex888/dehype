@@ -812,8 +812,21 @@ class BriefingRulesTest(unittest.TestCase):
         st = {s['kind']: s for s in pulse.build(posts, LEX, HYPE)[4]['stories']}
         sha = lambda k: 's:' + hashlib.sha1(k.encode()).hexdigest()[:12]
         self.assertEqual((st['news']['label'], st['chatter']['label']), ('Qwen 3.8', 'Qwen 3.8'))
-        self.assertEqual(st['chatter']['id'], sha('release:v:qwen-3.8'))                     # five posts name it: keeps the release key
-        self.assertEqual(st['news']['id'], sha('https://example.test/HN/1'))                  # the other: its earliest editorial post
+        self.assertEqual(st['news']['id'], sha('release:v:qwen-3.8'))                        # earliest editorial post (10h ago): release key
+        self.assertEqual(st['chatter']['id'], sha('https://example.test/Mastodon/14'))       # the other: its earliest post (6h ago)
+        # more posts naming the release on the later story do not swap the two ids
+        more = posts + [p('Mastodon', 40 + i, f'Qwen 3.8 is great at coding, again {i}', f'n{i}', 1) for i in range(8)]
+        st2 = {s['kind']: s['id'] for s in pulse.build(more, LEX, HYPE)[4]['stories']}
+        self.assertEqual(st2, {'news': st['news']['id'], 'chatter': st['chatter']['id']})
+
+    def test_node_samples_with_equal_scores_keep_one_order(self):
+        posts = [p('HN', 1, 'Claude Opus 5.5 lands in the API', 'a', 3, score=50), p('HN', 2, 'Claude Opus 5.5 pricing explained', 'b', 3, score=50),
+                 p('HN', 3, 'Claude Opus 5.5 benchmarks for agents', 'c', 3, score=50)]
+        urls = lambda ps: {n['id']: [x['url'] for x in n['samples']] for n in pulse.build(ps, LEX, HYPE)[0]}
+        fwd, rev = urls(posts), urls(posts[::-1])
+        self.assertEqual(fwd, rev)
+        self.assertTrue(any(len(u) == 3 for u in fwd.values()), fwd)
+        for u in fwd.values(): self.assertEqual(u, sorted(u))            # equal score and age: by url
 
 
 class OfflineRebuildTest(unittest.TestCase):
@@ -909,8 +922,8 @@ class DayFilesTest(unittest.TestCase):
 class BriefingFixtureTest(unittest.TestCase):
     """Decision 14 for the briefing: each fixture overlays a copy of the committed web/ with its briefing.json; check_page.mjs must fail
     with that rule's own finding (SC-10 REAL-carrying record and not-fetched, SC-15 trend at 13 ledger days, SC-25 shipped gauge)."""
-    RULES = {'real_record': 'briefing.json: pipeline record carries a label word (REAL)',
-             'trend_13_days': 'briefing.json: trend or arrow before 14 ledger days',
+    RULES = {'real_record': 'briefing.json: pipeline record carries a label word (REAL)',          # state "REAL (proposed)"
+             'trend_13_days': 'briefing.json: trend or arrow before 14 ledger days at 1 place',     # with a 13-entry ledger/index.json
              'shipped_gauge': 'briefing.json: gauge marked shipped (no gauge ships in S1)',
              'unfetched_false': 'briefing.json: Official not fully fetched but a count reads false (must read "not fetched")',
              'combined_score': 'briefing.json: gauge not named by the council (no combined score)',
@@ -930,6 +943,8 @@ class BriefingFixtureTest(unittest.TestCase):
                 r = self.check(name)
                 self.assertEqual(r.returncode, 1, r.stdout)
                 self.assertIn(msg, r.stderr)
+        r = self.check('trend_13_days')                                    # the 13-day path alone: ledger_days agrees with the ledger
+        self.assertEqual([l for l in r.stderr.splitlines() if l.startswith('- ')], ['- ' + self.RULES['trend_13_days'] + ', e.g. gauges[0].trend'])
 
     def test_clean_overlay_passes(self):
         for name in self.CLEAN:

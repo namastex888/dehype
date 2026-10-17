@@ -301,6 +301,7 @@ python3 -m unittest tests.test_pulse
 
 **Interfaces:**
 - Consumes: B1's `web/briefing.json` story ids and `pulse.json` stories.
+- B1 note: alias resolution must prefer the post-carry-over alias (old id to the new id that took its posts) over a live id that still exists but whose posts moved; B1 ids are unique per day, and when two stories name one release the earliest editorial post keeps the `release:` key (STORY_METHOD).
 - Produces: `web/verdicts.json` row fields named above (exact key names not fixed by the design beyond the `s:` id prefix); `web/story-aliases.json` (old id to new id); `web/corrections.json`; the read shape of `web/ledger/ids/YYYY-MM-DD.json`, fixed here and written by E1 (Decision 13); whether the corrections check is an inline `ci.yml` step or a script is not fixed by the design.
 
 **Acceptance Criteria:**
@@ -514,6 +515,7 @@ node scripts/check_page.mjs
 
 **Interfaces:**
 - Consumes: B3's post-recheck lists (the manifest omits posts found gone), D's `compose.mjs`, B2's archive shape, C3's `web/audit.html`.
+- B1 note: `pulse.py` (`ledger_days`) and `check_page.mjs` (`ledgerCount`) count ledger days from `web/ledger/index.json` read as a JSON list of day entries or as `{"entries": [...]}`; any other shape counts as 0 days, which holds trends.
 - Produces: `web/ledger/index.json` entries (one per day; carries the ledger SHA256; E2 adds the proof date and block height); `scripts/manifest.py`'s CLI is not fixed by the design, E1 fixes it; the attestation action is not named by the design (pin it by commit SHA like the existing actions).
 
 **Acceptance Criteria:**

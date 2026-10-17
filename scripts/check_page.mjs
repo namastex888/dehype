@@ -257,8 +257,11 @@ function briefingRules(B) {
     const at = `records[${i}]`;
     if (r.state !== 'proposed') finding(F, 'pipeline record state is not "proposed"', `${at}.state`);
     for (const k of ['label', 'verdict']) if (k in r) finding(F, `pipeline record carries a ${k} field`, `${at}.${k}`);
-    // a label word as a value (headlines and titles are what was posted, not a reading)
-    walk(r, at, (v, p) => { if (typeof v === 'string' && LABEL_WORDS.has(v.trim()) && !/\.(headline|title)$/.test(p)) finding(F, `pipeline record carries a label word (${v.trim()})`, p); });
+    // a label word anywhere in a value, as an upper-case word ("REAL", "REAL (proposed)"); headlines and titles are what was posted
+    walk(r, at, (v, p) => {
+      if (typeof v !== 'string' || /\.(headline|title)$/.test(p)) return;
+      for (const w of v.split(/[^A-Z]+/)) if (LABEL_WORDS.has(w)) finding(F, `pipeline record carries a label word (${w})`, p);
+    });
     need(/^s:[0-9a-f]{12}$/.test(r.id || '') && r.method_version === B.method?.version && r.config_hash === B.method?.config_hash,
       `briefing record ${r.id} lacks its stable id, method version or config hash`);
     need(r.seen === 'new today' || /^first seen \d{4}-\d{2}-\d{2}$/.test(r.seen || ''), `briefing record ${r.id} lacks "new today" or its first-seen date`);

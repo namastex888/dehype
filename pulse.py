@@ -683,7 +683,7 @@ def build(posts, lex, hype_items, repos=None, links=frozenset()):
                     'engagement': s['obs'], 'weight': round(len(s['authors']) * (1 + 0.5 * max(0, nets - 1)), 2)}
         conv1, conv7 = n['w']['1d']['conv'], n['w']['7d']['conv']
         rising = round(conv1 / (conv7 / 7), 2) if conv7 >= 4 and conv1 >= 2 else None
-        n['samples'].sort(key=lambda x: -x[0])
+        n['samples'].sort(key=lambda x: (-x[0], x[1]['url'] or '', x[1]['net'], str(x[1]['pid'])))   # ties: a fixed order, not the input's
         seen_u, samples = set(), []
         for _, p, dt in n['samples']:
             if p['url'] in seen_u or hidden(p, links): continue                   # a count-only post is in the counts, never a sample
@@ -1079,7 +1079,7 @@ def stories(rel, limit=60, links=frozenset()):
         covered = bool(set(nets) & SEED_NETS) or bool(nl)
         pain = sum(1 for d in c if mode(shown(d[0])) == 'pain') / len(c)
         kind = 'news' if covered else 'pain' if pain >= 0.5 else 'chatter'
-        out.append({'id': cid, '_alt': alt, '_n': ac.get(top_a, 0), 'label': label, 'covered': covered, 'kind': kind, 'pain': round(pain, 2),
+        out.append({'id': cid, '_alt': alt, '_e0': iso(e0[1]), 'label': label, 'covered': covered, 'kind': kind, 'pain': round(pain, 2),
                     'headline': headline, 'url': url, 'link': link, 'first': iso(c[0][1]), 'last': iso(c[-1][1]),
                     'voices': len(voices), 'nets': nets, 'newsletters': sorted(nl), 'official': 'Official' in nets, 'hn_points': hn or None,
                     'key': key, 'path': path[:8], 'tags': [t for t, _ in sorted(tags.items(), key=lambda x: -x[1])[:5]],
@@ -1088,15 +1088,16 @@ def stories(rel, limit=60, links=frozenset()):
                     'posts': [public({'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': link_url(d[0], links), 'author': d[0]['author'], 'at': iso(d[1]),
                                       'score': d[0]['score'], 'comments': d[0]['comments']}, links)
                               for d in sorted(c, key=lambda d: -(d[0]['score'] or 0)) if not hidden(d[0], links)][:10]})
-    # one id per story: when two clusters name the same release, the one with more posts naming it (then the earlier, then the lower
-    # fallback key) keeps "release:<topic>", and every other takes its earliest editorial post's key, as a story about no named release does
+    # one id per story: when two clusters name the same release, the one whose earliest editorial post is earliest (then the lower
+    # fallback key) keeps "release:<topic>": later posts do not move it, so the two ids do not swap as a story grows. Every
+    # other takes its earliest editorial post's key, as a story about no named release does; a key still taken gets '#' appended
     taken = set()
-    for x in sorted(out, key=lambda x: (not x['id'].startswith('release:'), -x['_n'], x['first'], x['_alt'])):
+    for x in sorted(out, key=lambda x: (not x['id'].startswith('release:'), x['_e0'], x['_alt'])):
         k = x['id'] if x['id'] not in taken else x['_alt']
         while k in taken: k += '#'
         taken.add(k)
         x['id'] = 's:' + hashlib.sha1(k.encode()).hexdigest()[:12]
-        del x['_alt'], x['_n']
+        del x['_alt'], x['_e0']
     out.sort(key=lambda x: -x['heat'])
     return ([x for x in out if x['kind'] == 'news'][:limit] + [x for x in out if x['kind'] == 'chatter'][:limit // 2]
             + [x for x in out if x['kind'] == 'pain'][:limit // 3])
@@ -1110,8 +1111,9 @@ STORY_METHOD = ('stories (last 7 days): an event is a cluster of posts. HN, Lobs
                 'A newsletter carries a story when its item names all of the story\'s key words (up to three uncommon words shared by its editorial posts). '
                 'heat = (2 x log2(1 + voices) + networks outside newsletters/official + 1.5 x newsletters carrying it + 1 if a lab or vendor posted it + log10(1 + HN points)) '
                 'x 0.5^(hours since the newest post / 48). id = "s:" + first 12 hex of sha1("release:" + topic id when the story is about one named release, '
-                'else the canonical target link of its earliest editorial post, else that post\'s URL); when two stories name the same release, the one with '
-                'more posts naming it (then the earlier first post) keeps the release key and the other takes its earliest editorial post\'s key, so ids are unique. '
+                'else the canonical target link of its earliest editorial post, else that post\'s URL); when two stories name the same release, the one whose '
+                'earliest editorial post is earliest (then the lower key) keeps the release key and the other takes its earliest editorial post\'s key, '
+                'with "#" appended while that key is still taken, so ids are unique and do not swap as posts arrive. '
                 'Reddit, X, LinkedIn, YouTube and Telegram posts (and Mastodon posts without a logged-out render check passed in the last 7 days) count but are never shown: no title, '
                 'author, link or score; a headline that would be one reads the earliest shown post\'s title, else the topic label, '
                 'else "<network> discussion, title not shown". Conversation-network authors are never published. '
