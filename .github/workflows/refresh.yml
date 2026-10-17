@@ -4,6 +4,8 @@ name: refresh
 # ever evicted the next run starts a new history and the page says so (first run: everything new).
 # The semantic index (web/search-*.{json,bin}) is rebuilt from the new data with a pinned local model.
 # HYPE is rebuilt only where the private research dossier exists, so web/hype.json is not touched here.
+# Mastodon posts link to mastodon.social/statuses/<id> only after a logged-out render check passed (cached in
+# web/checks/mastodon-links.json); the check is time-capped and fail-closed, so a failure leaves every unchecked post a count.
 on:
   schedule:
     - cron: '17 9 * * *'   # 06:17 America/Sao_Paulo
@@ -39,6 +41,7 @@ jobs:
           GH_TOKEN: ${{ secrets.TRENDING_GH_TOKEN || github.token }}
         run: python run.py
       - name: Collect conversation for the Pulse topic map
+        id: pulse
         # optional secrets enable Bluesky and the official Reddit API; arctic-shift, HN, Lobsters and Mastodon need none
         env:
           BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
@@ -67,6 +70,29 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '22'
+      - name: Install the Mastodon render-check browser (playwright-core 1.59.1, lockfile, and the Chromium headless shell it pins)
+        id: browser
+        if: steps.pulse.outcome == 'success'
+        continue-on-error: true   # no browser: no check, every Mastodon post without a fresh pass stays a count
+        timeout-minutes: 3
+        run: |
+          npm ci --prefix scripts/checks --ignore-scripts --no-audit --no-fund
+          node scripts/checks/node_modules/playwright-core/cli.js install --only-shell chromium
+      - name: Mastodon render check (logged out, per post, time cap 180s)
+        # prints candidates, due, pass, fail and not-reached counts and the time cap; writes web/checks/mastodon-links.json
+        if: steps.browser.outcome == 'success'
+        continue-on-error: true   # fail-closed: a post the check did not reach shows as a count
+        timeout-minutes: 4
+        run: node scripts/check_mastodon_links.mjs --candidates history/mastodon-candidates.json --cache web/checks/mastodon-links.json --cap-seconds 180
+      - name: Rebuild Pulse with the checked Mastodon links
+        id: relink
+        if: steps.pulse.outcome == 'success'
+        continue-on-error: true   # a relink failure must not block the data commit: the next step keeps the committed pair consistent
+        run: python pulse.py --relink
+      - name: Keep pulse.json and the check cache consistent after a failed relink
+        # the first pulse.json was built from the checked-out cache, so it is committed with that cache, not the new one
+        if: steps.relink.outcome == 'failure'
+        run: git restore --source=HEAD -- web/checks/mastodon-links.json && echo "::warning::relink failed; Mastodon check cache restored from HEAD"
       - name: Build semantic search index
         run: npm ci --prefix scripts/embed --ignore-scripts --no-audit --no-fund && node scripts/embed/embed.mjs web
       - name: Gate
@@ -77,7 +103,7 @@ jobs:
         run: |
           git config user.name "trend-observatory-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json
+          git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json web/checks/mastodon-links.json
           if git diff --cached --quiet; then echo "no data change"; exit 0; fi
           git commit -m "data: daily refresh $(date -u +%Y-%m-%d)"
           remote="https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"

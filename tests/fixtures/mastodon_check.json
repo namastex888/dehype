@@ -1,0 +1,117 @@
+{
+ "note": "Replay for scripts/check_mastodon_links.mjs --fixture (tests/test_pulse.py MastodonCheckTest): recorded API lookups and page snapshots, no network.",
+ "now": "2026-10-17T05:00:00Z",
+ "ms_per_check": 0,
+ "candidates": {
+  "ids": [
+   "209",
+   "208",
+   "207",
+   "206",
+   "205",
+   "204",
+   "203",
+   "202",
+   "201"
+  ]
+ },
+ "cache": {
+  "statuses": {
+   "204": {
+    "result": "pass",
+    "checked_at": "2026-10-15T05:00:00Z",
+    "passed_at": "2026-10-15T05:00:00Z",
+    "api_status": 200
+   },
+   "205": {
+    "result": "pass",
+    "checked_at": "2026-10-10T17:00:00Z",
+    "passed_at": "2026-10-10T17:00:00Z",
+    "api_status": 200
+   },
+   "206": {
+    "result": "fail",
+    "checked_at": "2026-10-17T03:00:00Z",
+    "passed_at": null,
+    "api_status": 200,
+    "reason": "empty page after 15s"
+   },
+   "300": {
+    "result": "pass",
+    "checked_at": "2026-08-28T05:00:00Z",
+    "passed_at": "2026-08-28T05:00:00Z",
+    "api_status": 200
+   },
+   "301": {
+    "result": "fail",
+    "checked_at": "2026-10-07T05:00:00Z",
+    "passed_at": null,
+    "api_status": 404,
+    "reason": "api 404"
+   }
+  }
+ },
+ "lookups": {
+  "201": {
+   "status": 200,
+   "remaining": 250
+  },
+  "203": {
+   "status": 200,
+   "remaining": 250
+  },
+  "205": {
+   "status": 200,
+   "remaining": 250
+  },
+  "207": {
+   "status": 200,
+   "remaining": 250
+  },
+  "208": {
+   "status": 200,
+   "remaining": 250
+  },
+  "202": {
+   "status": 404,
+   "remaining": 249
+  }
+ },
+ "pages": {
+  "201": {
+   "host": "mastodon.social",
+   "path": "/statuses/201",
+   "textLength": 40,
+   "notFound": false,
+   "login": false
+  },
+  "203": {
+   "host": "mastodon.social",
+   "path": "/redirect/statuses/203",
+   "textLength": 0,
+   "notFound": false,
+   "login": false
+  },
+  "205": {
+   "host": "mastodon.social",
+   "path": "/statuses/205",
+   "textLength": 0,
+   "notFound": true,
+   "login": false
+  },
+  "207": {
+   "host": "mastodon.social",
+   "path": "/auth/sign_in",
+   "textLength": 0,
+   "notFound": false,
+   "login": true
+  },
+  "208": {
+   "host": "mastodon.social",
+   "path": "/statuses/208",
+   "textLength": 0,
+   "notFound": false,
+   "login": false
+  }
+ }
+}

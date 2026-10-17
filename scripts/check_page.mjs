@@ -1,5 +1,6 @@
 // Static page gate: the inline script parses, the data files parse, every field the page reads exists, and the public
-// files keep the public-data rules (no person handle; Reddit, X, LinkedIn, YouTube, Telegram counts only; no unlisted X figure).
+// files keep the public-data rules (no person handle; Reddit, X, LinkedIn, YouTube, Telegram counts only; Mastodon counts only
+// unless linked by its handle-free mastodon.social/statuses link with a fresh passing render check; no unlisted X figure).
 // Node standard library only. Usage: node scripts/check_page.mjs [webDir]
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -11,14 +12,32 @@ const need = (cond, msg) => { if (!cond) fail.push(msg); };
 const warn = [];
 
 // Public-data rules (design group A; pulse.py and hype_build.py apply them, this gate fails what they miss): no person handle,
-// Reddit, X, LinkedIn, YouTube and Telegram as counts only (Mastodon too until its render check, group A2), no unlisted X figure.
+// Reddit, X, LinkedIn, YouTube and Telegram as counts only, Mastodon as a count unless its post record links to
+// https://mastodon.social/statuses/<id> with a render check in checks/mastodon-links.json that passed less than 7 days before
+// pulse.json's generated_at (not the clock: a refresh outage never fails links already committed), no unlisted X figure.
 const COUNT_ONLY = new Set(['Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mastodon']);
 const NAMED = new Set(['Newsletter', 'Official', 'arXiv', 'GitHub']);          // newsletter, feed, lab or paper and repo names stay
 const POST_BODY = ['title', 'author', 'url', 'link', 'score', 'comments', 'who'], HYPE_BODY = ['au', 't', 'url', 'likes', 'score', 'cm', 'rp', 'views'];
 const NET_URL = [['Reddit', 'reddit\\.com|redd\\.it'], ['X', 'x\\.com|twitter\\.com'], ['LinkedIn', 'linkedin\\.com|lnkd\\.in'],
   ['YouTube', 'youtube\\.com|youtu\\.be'], ['Telegram', 't\\.me|telegram\\.me']]
   .map(([n, h]) => [n, new RegExp(`^https?://(?:[\\w-]+\\.)*(?:${h})(?=[/:?#]|$)`, 'i')]);
-const ACCOUNT_URL = /^https?:\/\/(?!(?:[\w-]+\.)*npmjs\.(?:org|com)\/)[^\s?#]*\/@|bsky\.app\/profile\/[^/\s]+\/post\/|did:(?:plc|web):/i;
+const ACCOUNT_URL = /^https?:\/\/(?!(?:[\w-]+\.)*npmjs\.(?:org|com)\/)[^\s?#]*\/@|bsky\.app\/profile\/[^/\s]+\/post\/|\/users\/[^/\s]+\/statuses\/|did:(?:plc|web):/i;
+const STATUS_URL = /^https:\/\/mastodon\.social\/statuses\/(\d{1,20})$/, LINK_MS = 7 * 864e5;
+let MC = {}, genAt = NaN;                                        // the render-check cache; pulse.json generated_at (ms)
+try { MC = JSON.parse(readFileSync(join(web, 'checks', 'mastodon-links.json'), 'utf8')).statuses || {}; }
+catch (e) { if (e.code !== 'ENOENT') fail.push(`checks/mastodon-links.json unreadable: ${e.message}`); }
+const MASTO_RULE = 'Mastodon link without a render check passed less than 7 days before pulse.json generated_at';
+// the same rule pulse.py load_links applies at its NOW: the latest check passed, 0 to 7 days before generated_at
+function mastoLink(id) {                                         // null when the link may stand, else why not
+  const e = MC[id];
+  if (!e) return 'no check in checks/mastodon-links.json';
+  if (!e.passed_at) return 'its check never passed';
+  if (e.result !== 'pass' || e.passed_at !== e.checked_at) return 'its latest check failed';
+  const age = genAt - Date.parse(e.passed_at);
+  if (age < 0) return 'its pass is later than generated_at';
+  return age < LINK_MS ? null : 'its last pass is 7 days or more before generated_at';
+}
+const STATUS_ANY = /mastodon\.social\/(?:redirect\/)?statuses\//i;           // any other spelling of a status link is never published
 const X_PROFILE = /^https?:\/\/(?:www\.)?(?:x|twitter)\.com\/\w+\/?$/i;
 const HANDLE = /(?<![A-Za-z0-9_/.@])@[A-Za-z0-9_][A-Za-z0-9_.-]*(?![A-Za-z0-9_/-])/;
 const X_WORD = /(?<![A-Za-z0-9_-])X(?![A-Za-z0-9_-])/;
@@ -41,7 +60,12 @@ function publicRules(file, D) {
   walk(D, '', (v, at) => {
     if (typeof v === 'string') {
       if (/\.links\.x_handle$/.test(at) && X_PROFILE.test(v)) return;
-      for (const u of v.match(/https?:\/\/[^\s"'<>]+/g) || []) { const n = urlNet(u); if (n) finding(file, RULE[n], at); }
+      for (const u of v.match(/https?:\/\/[^\s"'<>]+/g) || []) {
+        const n = urlNet(u), m = STATUS_URL.exec(u), why = m && mastoLink(m[1]);
+        if (n) finding(file, RULE[n], at);
+        if (why) finding(file, `${MASTO_RULE} (${why})`, at);
+        if (!m && STATUS_ANY.test(u)) finding(file, 'Mastodon status link not in the form https://mastodon.social/statuses/<id>', at);
+      }
       const bare = v.replace(/https?:\/\/\S+/g, ' ');                // a link written without its scheme
       if (/(^|[^\w.])reddit\.com\//i.test(bare)) finding(file, RULE.Reddit, at);
       if (/(^|[^\w.])(x|twitter)\.com\//i.test(bare)) finding(file, RULE.X, at);
@@ -52,8 +76,11 @@ function publicRules(file, D) {
     const net = typeof v.net === 'string' ? v.net : typeof v.pl === 'string' ? v.pl : null;
     if (!net) return;
     const body = 'pl' in v ? HYPE_BODY : POST_BODY, who = 'pl' in v ? 'au' : 'author';
-    if (COUNT_ONLY.has(net)) for (const k of body) { if (v[k] != null && v[k] !== '') finding(file, `count-only ${net} record carries ${k}`, at); }
+    // a Mastodon post record shown with its handle-free link (its check is the string rule above); any other is a count
+    const linked = net === 'Mastodon' && who === 'author' && STATUS_URL.test(v.url || '');
+    if (COUNT_ONLY.has(net) && !linked) for (const k of body) { if (v[k] != null && v[k] !== '') finding(file, `count-only ${net} record carries ${k}`, at); }
     else if (v[who] && (who === 'au' || v.source === 'dossier' || !NAMED.has(net))) finding(file, `person handle: ${net} ${who}`, at);
+    if (linked && v.who) finding(file, 'person handle: Mastodon who', at);
   });
 }
 function hypeRules(H) {
@@ -185,7 +212,9 @@ try {
   } else warn.push('pulse.json predates reach_pct / organic signals; the next pulse.py run adds them');
   // privacy: cited X handles are a ranking of (often pseudonymous) accounts; they stay in history/citations.json, never on the site
   need(!/"x_handles"/.test(readFileSync(join(web, 'pulse.json'), 'utf8')), 'pulse.json publishes x_handles (keep them in history/citations.json)');
-  pulseNote = `pulse ${P.nodes.length} topics${P.projects ? `, ${Object.keys(P.projects).length} projects` : ''}`;
+  genAt = Date.parse(P.generated_at);
+  const links = new Set((readFileSync(join(web, 'pulse.json'), 'utf8').match(/https:\/\/mastodon\.social\/statuses\/\d+/g) || []));
+  pulseNote = `pulse ${P.nodes.length} topics${P.projects ? `, ${Object.keys(P.projects).length} projects` : ''}, ${links.size} Mastodon links`;
   publicRules('pulse.json', P);
 } catch (e) { if (e.code !== 'ENOENT') fail.push(`pulse.json unreadable: ${e.message}`); }
 publicRules('hype.json', H);

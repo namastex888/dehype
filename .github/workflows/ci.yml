@@ -21,8 +21,12 @@ jobs:
         run: python -m unittest discover tests && python eval.py --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json
       - name: Scoring smoke
         run: python eval.py --issue11-smoke --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json --compare-v2
-      - name: Page data, script and public-data check (handles, Reddit, X/LinkedIn/YouTube/Telegram, X figures)
+      - name: Page data, script and public-data check (handles, Reddit, X/LinkedIn/YouTube/Telegram, X figures, Mastodon links)
         run: node scripts/check_page.mjs
+      - name: Mastodon render-check pin (playwright-core 1.59.1 from the lockfile; no browser download, no network check)
+        run: |
+          npm ci --prefix scripts/checks --ignore-scripts --no-audit --no-fund
+          npm ls playwright-core --prefix scripts/checks | grep -q 'playwright-core@1.59.1'
   search-index:
     # Proves the semantic index builds on a clean Linux runner (same step refresh.yml and deploy.yml run).
     runs-on: ubuntu-latest

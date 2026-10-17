@@ -360,6 +360,7 @@ class PublicRulesTest(unittest.TestCase):
                        ('https://x.com/user/status/1', 'X'), ('https://mobile.twitter.com/u', 'X'), ('https://www.linkedin.com/posts/a', 'LinkedIn'),
                        ('https://youtu.be/abc', 'YouTube'), ('https://t.me/chan/7', 'Telegram'), ('https://mastodon.social/@user/1', 'account'),
                        ('https://bsky.app/profile/did:plc:abc/post/1', 'account'), ('https://fosstodon.org/@a/2', 'account'),
+                       ('https://fosstodon.org/users/a/statuses/2', 'account'), ('https://mastodon.social/statuses/2', 'Mastodon'),
                        ('https://api.npmjs.org/downloads/point/last-month/@anthropic-ai/claude-code', None),
                        ('https://news.ycombinator.com/item?id=1', None), ('https://box.com/x', None), ('https://art.me/x', None)]:
             self.assertEqual(pulse.url_net(u), net, u)
@@ -368,7 +369,7 @@ class PublicRulesTest(unittest.TestCase):
         rec = lambda net, **k: {'net': net, 'title': 't', 'url': 'https://example.test/1', 'author': 'someone', 'score': 3, 'comments': 1,
                                 'source': 'live', **k}
         self.assertEqual(pulse.public(rec('Reddit')), {'net': 'Reddit', 'source': 'live'})
-        self.assertEqual(pulse.public(rec('Mastodon', at='2026-10-16')), {'net': 'Mastodon', 'source': 'live', 'at': '2026-10-16'})  # until A2
+        self.assertEqual(pulse.public(rec('Mastodon', at='2026-10-16')), {'net': 'Mastodon', 'source': 'live', 'at': '2026-10-16'})  # no check
         self.assertNotIn('author', pulse.public(rec('HN')))
         self.assertEqual(pulse.public(rec('Newsletter'))['author'], 'someone')                         # newsletter names stay
         self.assertNotIn('author', pulse.public(rec('GitHub', source='dossier')))                       # a dossier post's poster
@@ -395,6 +396,92 @@ class PublicRulesTest(unittest.TestCase):
             self.assertFalse(any(r['net'] in pulse.COUNT_ONLY or 'author' in r for r in st['posts']))
             self.assertTrue(all(not set(r) & set(pulse.POST_BODY) for r in st['path'] if r['net'] in pulse.COUNT_ONLY))
             self.assertNotIn('broken', st['headline'])
+
+
+class MastodonLinkTest(unittest.TestCase):
+    """Design row 3 (C25): a live mastodon.social post links to /statuses/<id> only while its latest check passed < 7 days ago."""
+    def cache(self, statuses):
+        d = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, d)
+        f = os.path.join(d, 'mastodon-links.json')
+        with open(f, 'w') as fh: json.dump({'statuses': statuses}, fh)
+        return f
+
+    def test_only_a_fresh_latest_pass_links(self):
+        at = lambda days: pulse.iso(pulse.NOW - timedelta(days=days))
+        ok = lambda days: {'result': 'pass', 'checked_at': at(days), 'passed_at': at(days), 'api_status': 200}
+        f = self.cache({'1': ok(6.9), '2': ok(7.1), '3': {'result': 'fail', 'checked_at': at(1), 'passed_at': at(2), 'api_status': 404},
+                        '4': ok(-1), '5': 'junk'})
+        self.assertEqual(pulse.load_links(f), {'1'})              # stale, failed since, from the future, malformed: none link
+        self.assertEqual(pulse.load_links(f + '.missing'), set())  # no cache, no link (fail-closed)
+
+    def test_link_is_handle_free_and_only_for_live_mastodon_social_posts(self):
+        links = {'7', '8'}
+        here = pulse.post('Mastodon', '7', 'https://mastodon.social/@someone/7', 'Opus 5.5 is out', 'someone', pulse.iso(pulse.NOW), 3, 1)
+        away = pulse.post('Mastodon', '8', 'https://fosstodon.org/@a/99', 'Opus 5.5 is out', 'a', pulse.iso(pulse.NOW))
+        self.assertEqual(pulse.masto_link(here, links), 'https://mastodon.social/statuses/7')
+        self.assertIsNone(pulse.masto_link(away, links))                                  # another server: mastodon.social redirects it
+        self.assertIsNone(pulse.masto_link({**here, 'source': 'dossier'}, links))
+        self.assertIsNone(pulse.masto_link({**here, 'pid': '9'}, links))                   # no passing check
+        rec = {'net': 'Mastodon', 'title': 'hi @someone', 'url': pulse.link_url(here, links), 'author': 'someone', 'score': 3, 'comments': 1}
+        self.assertEqual(pulse.public(rec, links), {'net': 'Mastodon', 'title': 'hi @…', 'url': 'https://mastodon.social/statuses/7', 'score': 3, 'comments': 1})
+        self.assertNotIn('title', pulse.public(rec))                                       # no links given: a count
+        self.assertNotIn('title', pulse.public({**rec, 'url': 'https://mastodon.social/statuses/9'}, links))
+        self.assertNotIn('title', pulse.public({**rec, 'url': here['url']}, links))
+        # an orphan status link (an HN target, a story link) never publishes, checked or not: only a Mastodon record's own url does
+        for u in ('https://mastodon.social/statuses/7', 'http://mastodon.social/statuses/7?x=1', 'https://mastodon.social/redirect/statuses/7'):
+            self.assertIsNone(pulse.public({'net': 'HN', 'title': 't', 'url': 'https://news.ycombinator.com/item?id=1', 'link': u}, links)['link'], u)
+        self.assertIsNone(pulse.public({'net': 'HN', 'title': 't', 'url': 'https://mastodon.social/statuses/7'}, links)['url'])
+
+    def test_built_outputs_link_passed_posts_and_list_candidates(self):
+        at = lambda h: pulse.iso(pulse.NOW - timedelta(hours=h))
+        posts = [pulse.post('Mastodon', str(100 + i), f'https://mastodon.social/@m{i}/{100 + i}', f'Claude Opus 5.5 routing take {i}', f'm{i}',
+                            at(2 + i), 5 + i, 1) for i in range(3)]
+        posts += [pulse.post('Mastodon', '200', 'https://fosstodon.org/@far/200', 'Claude Opus 5.5 routing from afar', 'far', at(3), 50, 1),
+                  pulse.post('HN', '9', 'https://news.ycombinator.com/item?id=9', 'Claude Opus 5.5 spotted in the API', 'h', at(30), 300, 1,
+                             extra={'link': 'https://mastodon.social/statuses/555'})]
+        want = pulse.mastodon_candidates(posts, LEX, HYPE, None)
+        self.assertEqual(want, ['102', '101', '100'])                                     # newest first; the remote post never
+        nodes, _, _, _, extras = pulse.build(posts, LEX, HYPE, links={'101', '555'})
+        out = json.dumps([nodes, extras['stories']])
+        self.assertEqual(set(pulse.STATUS_URL.findall(out)), {'101'})                    # the HN post's status target link is dropped
+        self.assertNotIn('/@', out); self.assertNotIn('"author": "m1"', out)
+        for x in nodes:
+            for r in x['samples'] + x['spread']:
+                if r['net'] == 'Mastodon': self.assertTrue(r.get('url') == 'https://mastodon.social/statuses/101' or not set(r) & set(pulse.POST_BODY), r)
+
+
+@unittest.skipUnless(shutil.which('node'), 'node not installed')
+class MastodonCheckTest(unittest.TestCase):
+    """scripts/check_mastodon_links.mjs on recorded lookups and page snapshots (--fixture): no network, no browser."""
+    def run_check(self, cap='300', **over):
+        F = json.load(open(os.path.join(FIX, 'mastodon_check.json'))); F.update(over)
+        d = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, d)
+        for name, key in (('fixture.json', None), ('candidates.json', 'candidates'), ('cache.json', 'cache')):
+            with open(os.path.join(d, name), 'w') as fh: json.dump(F[key] if key else F, fh)
+        r = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_mastodon_links.mjs'), '--fixture', os.path.join(d, 'fixture.json'),
+                            '--candidates', os.path.join(d, 'candidates.json'), '--cache', os.path.join(d, 'cache.json'), '--cap-seconds', cap],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout, json.load(open(os.path.join(d, 'cache.json')))['statuses']
+
+    def test_results_reasons_and_lookup_status_per_id(self):
+        out, st = self.run_check()
+        self.assertIn('9 candidates, 7 due, 1 pass, 5 fail, 1 not reached (time cap 300s)', out)
+        self.assertEqual({k: (v['result'], v.get('reason'), v['api_status']) for k, v in st.items() if v['checked_at'] == '2026-10-17T05:00:00Z'}, {
+            '201': ('pass', None, 200), '202': ('fail', 'api 404', 404),
+            '203': ('fail', 'redirects off mastodon.social (a post from another server)', 200),
+            '205': ('fail', 'not-found page', 200), '207': ('fail', 'login wall', 200), '208': ('fail', 'empty page after 15s', 200)})
+        self.assertEqual(st['201']['passed_at'], '2026-10-17T05:00:00Z')
+        self.assertEqual(st['205']['passed_at'], '2026-10-10T17:00:00Z')                  # the last pass is kept through a later fail
+        self.assertEqual(st['204']['checked_at'], '2026-10-15T05:00:00Z')                 # a 2-day-old pass is not due
+        self.assertEqual(st['206']['checked_at'], '2026-10-17T03:00:00Z')                 # nor a fail from 2 hours ago
+        self.assertNotIn('209', st)                                                        # not reached: no entry, so a count
+        self.assertNotIn('300', st); self.assertIn('301', st)                              # pruned after 45 days unless needed
+
+    def test_time_cap_stops_and_leaves_the_rest_unreached(self):
+        out, st = self.run_check(cap='2', ms_per_check=1000)
+        self.assertIn('0 pass, 2 fail, 5 not reached (time cap 2s; stopped: time cap reached)', out)
+        self.assertEqual(sorted(k for k, v in st.items() if v['checked_at'] >= '2026-10-17T05:00:00Z'), ['207', '208'])
 
 
 class ScrubTest(unittest.TestCase):
@@ -501,23 +588,34 @@ class ScrubTest(unittest.TestCase):
 @unittest.skipUnless(shutil.which('node'), 'node not installed')
 class LeakFixtureTest(unittest.TestCase):
     """Decision 14: each fixture overlays a copy of the committed web/; check_page.mjs must fail with that rule's own finding."""
+    MASTO = 'Mastodon link without a render check passed less than 7 days before pulse.json generated_at'
     RULES = {'handle': 'person handle: HN author', 'skeptic_handle': 'person handle (@name)', 'account_url': 'account-naming URL (a person handle)',
              'reddit': 'Reddit link (Reddit is counts only)', 'linkedin': 'LinkedIn link (LinkedIn is counts only)',
              'x': "X link (X is counts only; only links.x_handle may link the project's own account) at 2 places",   # with and without a scheme
              'youtube': ('YouTube link (YouTube is counts only)', 'figure from a count-only post is shown at 2 places'),  # traction, metrics
              'telegram': 'Telegram link (Telegram is counts only)', 'x_figure': 'unlisted X-figure sentence',
-             'title_handle': 'pulse.json: person handle (@name)'}
+             'title_handle': 'pulse.json: person handle (@name)',
+             # design row 3: a Mastodon link needs a passing check younger than 7 days before generated_at, a handle-free URL and no author
+             'mastodon_unchecked': f'pulse.json: {MASTO} (no check in checks/mastodon-links.json)',
+             'mastodon_origin_url': ('pulse.json: count-only Mastodon record carries url', 'pulse.json: account-naming URL (a person handle)'),
+             'mastodon_author': 'pulse.json: person handle: Mastodon author',
+             'mastodon_failed_after_pass': (f'pulse.json: {MASTO} (its latest check failed) at 1 place',    # 111: a 404 after a pass
+                                            f'pulse.json: {MASTO} (its check never passed) at 1 place'),   # 112: never passed
+             'mastodon_stale_or_future': (f'pulse.json: {MASTO} (its last pass is 7 days or more before generated_at) at 1 place',  # 111
+                                          f'pulse.json: {MASTO} (its pass is later than generated_at) at 1 place'),               # 112
+             'mastodon_noncanonical': 'pulse.json: Mastodon status link not in the form https://mastodon.social/statuses/<id>'}
+    CLEAN = ['clean_hype', 'clean_pulse', 'clean_mastodon']    # clean_mastodon: a pass 6 days before generated_at, weeks before the clock
 
     def check(self, name):
         with tempfile.TemporaryDirectory() as d:
             web = os.path.join(d, 'web')
             shutil.copytree(os.path.join(ROOT, 'web'), web)
             src = os.path.join(FIX, 'public_leaks', name)
-            for f in os.listdir(src): shutil.copy(os.path.join(src, f), web)
+            shutil.copytree(src, web, dirs_exist_ok=True)                 # files and subdirectories (checks/) over the copy
             return subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
 
     def test_each_leak_fails_on_its_own_rule(self):
-        self.assertEqual(sorted(os.listdir(os.path.join(FIX, 'public_leaks'))), sorted(list(self.RULES) + ['clean_hype', 'clean_pulse']))
+        self.assertEqual(sorted(os.listdir(os.path.join(FIX, 'public_leaks'))), sorted(list(self.RULES) + self.CLEAN))
         for name, msg in self.RULES.items():
             with self.subTest(name):
                 r = self.check(name)
@@ -525,7 +623,7 @@ class LeakFixtureTest(unittest.TestCase):
                 for m in (msg,) if isinstance(msg, str) else msg: self.assertIn(m, r.stderr)
 
     def test_clean_overlays_pass(self):
-        for name in ('clean_pulse', 'clean_hype'):
+        for name in self.CLEAN:
             with self.subTest(name):
                 r = self.check(name)
                 self.assertEqual(r.returncode, 0, r.stderr)

@@ -3,6 +3,8 @@
 
 Run:   python3 pulse.py              fetch live feeds, merge with web/data.json + web/hype.json, write web/pulse.json
        python3 pulse.py --offline    rebuild from stored signals only (no network)
+       python3 pulse.py --relink     the same rebuild after the Mastodon render check, keeping this run's source status as written
+                                     (refresh.yml only, inside the same run as the live pulse.py: it republishes that run's sources)
 Env:   REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT   enable the Reddit adapter (official OAuth API)
        BSKY_HANDLE, BSKY_APP_PASSWORD                               enable the Bluesky adapter (app password)
 State: history/signals.sqlite keeps 45 days of normalised posts; it rides in the same Actions cache as run.py's history.
@@ -470,19 +472,25 @@ def emerging_phrases(posts, known_labels, covered=None, min_authors=3, limit=30)
     return [ph for ph, _ in keep[:limit]]
 
 # ------------------------------------------------------------------ public-data rules: what of a post a public file may carry
-# Reddit, X, LinkedIn, YouTube and Telegram are counts only (their terms); Mastodon too until its render check lands (group A2).
+# Reddit, X, LinkedIn, YouTube and Telegram are counts only (their terms); Mastodon too, except a post whose render check passed (below).
 COUNT_ONLY = {'Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mastodon'}
 NAMED = DIGEST | OFFICIAL | {'arXiv', 'GitHub'}       # newsletter, feed, lab or paper and repo names stay; other authors are person handles
 POST_BODY = ('title', 'author', 'url', 'link', 'score', 'comments', 'who')
 NET_URL = [(n, re.compile(r'^https?://(?:[\w-]+\.)*(?:' + h + r')(?=[/:?#]|$)', re.I)) for n, h in
            (('Reddit', r'reddit\.com|redd\.it'), ('X', r'x\.com|twitter\.com'), ('LinkedIn', r'linkedin\.com|lnkd\.in'),
             ('YouTube', r'youtube\.com|youtu\.be'), ('Telegram', r't\.me|telegram\.me'))]
-# a URL that names an account: an /@user path segment (npm scoped packages are not people), a Bluesky profile post, a DID
-ACCOUNT_URL = re.compile(r'^https?://(?!(?:[\w-]+\.)*npmjs\.(?:org|com)/)[^\s?#]*/@|bsky\.app/profile/[^/\s]+/post/|did:(?:plc|web):', re.I)
+# a URL that names an account: an /@user path segment (npm scoped packages are not people), a Fediverse /users/<name>/statuses/
+# URI, a Bluesky profile post, a DID
+ACCOUNT_URL = re.compile(r'^https?://(?!(?:[\w-]+\.)*npmjs\.(?:org|com)/)[^\s?#]*/@|bsky\.app/profile/[^/\s]+/post/|/users/[^/\s]+/statuses/|did:(?:plc|web):', re.I)
+
+# a mastodon.social status link in any form: published only as a checked Mastodon record's own url (public() below), never as an
+# HN or newsletter target link, a story link or text, so no link reaches a file without its own passing check
+STATUS_ANY = re.compile(r'mastodon\.social/(?:redirect/)?statuses/', re.I)
 
 def url_net(u):
     """The count-only network a URL points into, 'account' for a URL that names an account, else None (publishable)."""
-    return next((n for n, rx in NET_URL if rx.match(u or '')), None) or ('account' if ACCOUNT_URL.search(u or '') else None)
+    return (next((n for n, rx in NET_URL if rx.match(u or '')), None) or ('account' if ACCOUNT_URL.search(u or '') else None)
+            or ('Mastodon' if STATUS_ANY.search(u or '') else None))
 
 def public_url(u): return None if url_net(u) else u
 
@@ -495,12 +503,48 @@ def pool(stored, internal):
 HANDLE = re.compile(r'(?<![\w/.@])@[A-Za-z0-9_][\w.-]*(?![\w/-])', re.A)       # @user in a shown title, not an npm @scope/package
 def unhandle(t): return HANDLE.sub('@…', t) if isinstance(t, str) else t
 
-def public(rec):
-    """A post record as published: a count-only network keeps its network, date and source; elsewhere a person's author leaves,
-    and so does a link that names an account."""
-    if rec['net'] in COUNT_ONLY: return {k: v for k, v in rec.items() if k not in POST_BODY}
+# A live Mastodon post links to https://mastodon.social/statuses/<id> (mastodon.social's own status id, no handle) only while its latest
+# logged-out render check (scripts/check_mastodon_links.mjs, cached in web/checks/mastodon-links.json) passed less than LINK_DAYS
+# before NOW; every other Mastodon post is a count. An unreadable cache links nothing (fail-closed).
+CHECKS, CANDIDATES = os.path.join(WEB, 'checks', 'mastodon-links.json'), os.path.join(HIST, 'mastodon-candidates.json')
+LINK_DAYS = 7
+STATUS_URL = re.compile(r'https://mastodon\.social/statuses/(\d{1,20})')
+class _Every:                                  # the links set while main() lists the candidates a page would show
+    def __contains__(self, _): return True
+EVERY = _Every()
+
+def load_links(path=CHECKS):
+    try: C = json.load(open(path))['statuses']
+    except (OSError, ValueError, KeyError, TypeError): return set()
+    ok = set()
+    for sid, e in C.items():
+        at = parse_dt(e.get('passed_at')) if isinstance(e, dict) and e.get('result') == 'pass' else None
+        if at and at == parse_dt(e.get('checked_at')) and timedelta(0) <= NOW - at < timedelta(days=LINK_DAYS): ok.add(sid)
+    return ok
+
+def masto_link(p, links):
+    """The handle-free link of a live Mastodon post with a fresh passing check, else None. Only a post made on mastodon.social can pass:
+    logged out, mastodon.social sends a post from another server off-site, so such a post stays a count and is never checked."""
+    if p['net'] != 'Mastodon' or p.get('source') != 'live' or not re.fullmatch(r'\d{1,20}', str(p.get('pid') or '')): return None
+    if not (p.get('url') or '').startswith('https://mastodon.social/'): return None   # a post from another server: mastodon.social redirects it
+    return f"https://mastodon.social/statuses/{p['pid']}" if p['pid'] in links else None
+
+def hidden(p, links): return p['net'] in COUNT_ONLY and not masto_link(p, links)
+def link_url(p, links): return masto_link(p, links) or p['url']
+
+def linked_url(net, u, links):
+    m = net == 'Mastodon' and STATUS_URL.fullmatch(u or '')
+    return bool(m) and m[1] in links
+
+def public(rec, links=frozenset()):
+    """A post record as published: a count-only network keeps its network, date and source (a Mastodon post with a passing check
+    keeps its text, score and handle-free link too); elsewhere a person's author leaves, and so does a link that names an account.
+    links: the ids whose check passed (load_links)."""
+    own = linked_url(rec['net'], rec.get('url'), links)
+    if rec['net'] in COUNT_ONLY and not own: return {k: v for k, v in rec.items() if k not in POST_BODY}
     named = rec['net'] in NAMED and rec.get('source') != 'dossier'      # a dossier post's author is its poster
-    return {k: public_url(v) if k in ('url', 'link') else unhandle(v) if k == 'title' else v for k, v in rec.items() if k != 'author' or named}
+    return {k: (v if k == 'url' and own else public_url(v)) if k in ('url', 'link') else unhandle(v) if k == 'title' else v
+            for k, v in rec.items() if k != 'author' or named}
 
 # ------------------------------------------------------------------ graph
 def shown(p):
@@ -508,8 +552,9 @@ def shown(p):
     t = p['title'] or ''
     return t.split('\u241f', 1)[0].strip() if p['net'] in DIGEST | OFFICIAL else t
 
-def build(posts, lex, hype_items, repos=None):
-    """posts -> (nodes, edges, totals, projects, extras). repos: tracker repo rows [{id, text, tag, gained: {w}, flags: {w}}]."""
+def build(posts, lex, hype_items, repos=None, links=frozenset()):
+    """posts -> (nodes, edges, totals, projects, extras). repos: tracker repo rows [{id, text, tag, gained: {w}, flags: {w}}].
+    links: Mastodon ids with a fresh passing render check (load_links); EVERY lists the candidates."""
     topics, fams, vrx, kw = compile_lexicon(lex, hype_items)
     by_id = {t['id']: t for t in topics}
     rel, author_total = [], {}
@@ -640,13 +685,13 @@ def build(posts, lex, hype_items, repos=None):
         n['samples'].sort(key=lambda x: -x[0])
         seen_u, samples = set(), []
         for _, p, dt in n['samples']:
-            if p['url'] in seen_u or p['net'] in COUNT_ONLY: continue      # a count-only post is in the counts, never a sample
+            if p['url'] in seen_u or hidden(p, links): continue                   # a count-only post is in the counts, never a sample
             seen_u.add(p['url'])
-            samples.append(public({'net': p['net'], 'title': shown(p)[:200], 'url': p['url'], 'date': iso(dt)[:10],
-                                   'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']}))
+            samples.append(public({'net': p['net'], 'title': shown(p)[:200], 'url': link_url(p, links), 'date': iso(dt)[:10],
+                                   'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']}, links))
             if len(samples) >= 8: break
-        spread = [public({'net': net, 'at': iso(dt), 'day_only': dt.hour == dt.minute == dt.second == 0, 'author': p['author'], 'url': p['url'],
-                          'title': shown(p)[:160], 'source': p['source']})
+        spread = [public({'net': net, 'at': iso(dt), 'day_only': dt.hour == dt.minute == dt.second == 0, 'author': p['author'], 'url': link_url(p, links),
+                          'title': shown(p)[:160], 'source': p['source']}, links)
                   for net, (dt, p) in sorted(n['origin'].items(), key=lambda x: (x[1][0].date(), x[0] in DIGEST, x[1][0]))]
         out_nodes.append({'id': n['id'], 'label': n['label'], 'kind': n['kind'], 'parent': n['parent'], 'w': W, 'rising': rising, 'spread': spread,
                           'first': (n['first'] or '')[:10], 'last': (n['last'] or '')[:10], 'samples': samples,
@@ -675,7 +720,7 @@ def build(posts, lex, hype_items, repos=None):
             if age <= days: totals[w][p['net']] = totals[w].get(p['net'], 0) + 1
     projects = {hid: {w: {'voices': len(s['authors']), 'posts': s['posts'], 'nets': len(s['nets'])} for w, s in ws.items()}
                 for hid, ws in proj.items()}
-    return out_nodes, out_edges, totals, projects, {'citations': cite_table(rel), 'stories': stories(rel)}
+    return out_nodes, out_edges, totals, projects, {'citations': cite_table(rel), 'stories': stories(rel, links=links)}
 
 REACH_PCT_METHOD = ('reach_pct (per window) = mean of the five highest item percentiles among the items matching the topic; an item\'s percentile '
                     'is taken within its own type and window: posts per network (HN points, Mastodon favourites + boosts, Lobsters score, Bluesky likes + reposts; '
@@ -883,14 +928,14 @@ def _uf(n):
     def join(a, b): par[find(b)] = find(a)
     return find, join
 
-def headline_of(head, members, topic_label):
+def headline_of(head, members, topic_label, links=frozenset()):
     """(headline, url, link) of a story. A count-only title is never shown: the earliest post of a shown network stands in,
     else the topic label, else a fixed line naming the network."""
-    d = head if head[0]['net'] not in COUNT_ONLY else next((m for m in members if m[0]['net'] not in COUNT_ONLY), None)
-    if d: return unhandle(shown(d[0])[:220]), public_url(d[0]['url']), public_url((d[0].get('extra') or {}).get('link'))
+    d = head if not hidden(head[0], links) else next((m for m in members if not hidden(m[0], links)), None)
+    if d: return unhandle(shown(d[0])[:220]), masto_link(d[0], links) or public_url(d[0]['url']), public_url((d[0].get('extra') or {}).get('link'))
     return topic_label or f"{head[0]['net']} discussion, title not shown", None, None
 
-def stories(rel, limit=60):
+def stories(rel, limit=60, links=frozenset()):
     """Cluster the last 7 days into events. Seeds: HN, Lobsters, newsletter and official items, joined when they share
     a canonical target link or most of their idf-weighted title words. Reddit, Mastodon and Bluesky posts attach to the
     best-matching seed; chatter that matches no seed forms its own story only with >= 5 voices on it.
@@ -997,12 +1042,12 @@ def stories(rel, limit=60):
         for d in c:
             k = d[0]['author'] if d[0]['net'] in DIGEST else d[0]['net']
             if k in got: continue
-            got.add(k); path.append(public({'net': d[0]['net'], 'who': d[0]['author'] if d[0]['net'] in DIGEST | OFFICIAL else None, 'at': iso(d[1]), 'url': d[0]['url']}))
+            got.add(k); path.append(public({'net': d[0]['net'], 'who': d[0]['author'] if d[0]['net'] in DIGEST | OFFICIAL else None, 'at': iso(d[1]), 'url': link_url(d[0], links)}, links))
         tags = {}
         for d in c:
             for tid in d[2]: tags[tid] = tags.get(tid, 0) + 1
         top_t = max(tags, key=tags.get) if tags else None
-        headline, url, link = headline_of(head, c, label or next((x[top_t]['label'] for _, _, x, _ in c if top_t in x), None))
+        headline, url, link = headline_of(head, c, label or next((x[top_t]['label'] for _, _, x, _ in c if top_t in x), None), links)
         hn = max([d[0]['score'] or 0 for d in c if d[0]['net'] == 'HN'] or [0])
         age_h = (NOW - c[-1][1]).total_seconds() / 3600
         spread = (2 * math.log2(1 + len(voices)) + len([n for n in nets if n not in DIGEST | OFFICIAL]) + 1.5 * len(nl)
@@ -1017,9 +1062,9 @@ def stories(rel, limit=60):
                     'voices': len(voices), 'nets': nets, 'newsletters': sorted(nl), 'official': 'Official' in nets, 'hn_points': hn or None,
                     'key': key, 'path': path[:8], 'tags': [t for t, _ in sorted(tags.items(), key=lambda x: -x[1])[:5]],
                     'heat': round(spread * 0.5 ** (age_h / 48), 3),
-                    'posts': [public({'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': d[0]['url'], 'author': d[0]['author'], 'at': iso(d[1]),
-                                      'score': d[0]['score'], 'comments': d[0]['comments']})
-                              for d in sorted(c, key=lambda d: -(d[0]['score'] or 0)) if d[0]['net'] not in COUNT_ONLY][:10]})
+                    'posts': [public({'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': link_url(d[0], links), 'author': d[0]['author'], 'at': iso(d[1]),
+                                      'score': d[0]['score'], 'comments': d[0]['comments']}, links)
+                              for d in sorted(c, key=lambda d: -(d[0]['score'] or 0)) if not hidden(d[0], links)][:10]})
     out.sort(key=lambda x: -x['heat'])
     return ([x for x in out if x['kind'] == 'news'][:limit] + [x for x in out if x['kind'] == 'chatter'][:limit // 2]
             + [x for x in out if x['kind'] == 'pain'][:limit // 3])
@@ -1034,7 +1079,7 @@ STORY_METHOD = ('stories (last 7 days): an event is a cluster of posts. HN, Lobs
                 'heat = (2 x log2(1 + voices) + networks outside newsletters/official + 1.5 x newsletters carrying it + 1 if a lab or vendor posted it + log10(1 + HN points)) '
                 'x 0.5^(hours since the newest post / 48). id = "s:" + first 12 hex of sha1("release:" + topic id when the story is about one named release, '
                 'else the canonical target link of its earliest editorial post, else that post\'s URL). '
-                'Reddit, X, LinkedIn, YouTube and Telegram posts (and Mastodon posts until their link check) count but are never shown: no title, '
+                'Reddit, X, LinkedIn, YouTube and Telegram posts (and Mastodon posts without a logged-out render check passed in the last 7 days) count but are never shown: no title, '
                 'author, link or score; a headline that would be one reads the earliest shown post\'s title, else the topic label, '
                 'else "<network> discussion, title not shown". Conversation-network authors are never published')
 
@@ -1099,8 +1144,15 @@ PROJECT_WINDOWS = ('7d', '30d')
 ADAPTERS = ['Hacker News (Algolia)', 'Lobsters (ai tag)', 'Mastodon (mastodon.social tags)', 'Reddit (arctic-shift archive)',
             'Reddit (official API)', 'Bluesky (app password)', 'Newsletters (RSS)', 'Official feeds (RSS)']
 
+def mastodon_candidates(posts, lex, hype_items, repos):
+    """The live Mastodon ids the outputs would show if every one passed its render check, newest first: built once with every
+    such post linked, then read off the output (the check runs on these; history/, so never published)."""
+    nodes, _, _, _, extras = build(posts, lex, hype_items, repos, links=EVERY)
+    return sorted(set(STATUS_URL.findall(json.dumps([nodes, extras['stories']]))), key=int, reverse=True)
+
 def main():
-    offline = '--offline' in sys.argv
+    relink = '--relink' in sys.argv
+    offline = '--offline' in sys.argv or relink
     lex = json.load(open(os.path.join(BASE, 'topics_lexicon.json')))
     EMERGING_STOP.update(x.lower() for x in lex.get('emerging_stop', []))
     try: hype_items = json.load(open(os.path.join(WEB, 'hype.json')))['items']
@@ -1124,13 +1176,17 @@ def main():
             prev = json.load(open(os.path.join(WEB, 'pulse.json'))).get('sources', {})
             for k, v in prev.items():
                 if k not in ('Tracker (papers + repos)', 'HYPE research dossier'):
-                    SOURCES[k] = {'status': v['status'], 'detail': v['detail'].split(' [as of last live run]')[0] + ' [as of last live run]'}
+                    SOURCES[k] = v if relink else {'status': v['status'], 'detail': v['detail'].split(' [as of last live run]')[0] + ' [as of last live run]'}
         except (OSError, ValueError, KeyError): pass
         for k in ADAPTERS:
             SOURCES.setdefault(k, {'status': 'unknown', 'detail': 'not fetched in this offline rebuild'})
     stored = load_stored(con)
-    posts = pool(stored, internal_posts())
-    nodes, edges, totals, projects, extras = build(posts, lex, hype_items, tracker_repos())
+    posts, repos = pool(stored, internal_posts()), tracker_repos()
+    want = mastodon_candidates(posts, lex, hype_items, repos)
+    os.makedirs(HIST, exist_ok=True)
+    with open(CANDIDATES, 'w') as f: json.dump({'generated_at': iso(NOW), 'ids': want}, f)
+    links = load_links()
+    nodes, edges, totals, projects, extras = build(posts, lex, hype_items, repos, links=links)
     out = {'generated_at': iso(NOW), 'windows': list(WINDOWS), 'sources': SOURCES, 'totals': totals,
            'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days; ' + SIGNAL_METHOD
                      + '; ' + REACH_PCT_METHOD + '; ' + ORGANIC_METHOD + '; ' + NOVELTY_METHOD + '; ' + STORY_METHOD,
@@ -1151,7 +1207,9 @@ def main():
     with open(os.path.join(HIST, 'citations.json'), 'w') as f:
         json.dump({'generated_at': iso(NOW), 'note': 'private: X handles cited by newsletter items, a candidate follow list; not published',
                    'x_handles': {w: c['x_handles'] for w, c in extras['citations'].items()}}, f, ensure_ascii=False, indent=1)
-    print(f'pulse: {len(nodes)} topics, {len(edges)} links, 7d posts by network {totals["7d"]}')
+    shown_ids = set(STATUS_URL.findall(json.dumps([nodes, extras['stories']])))
+    print(f'pulse: {len(nodes)} topics, {len(edges)} links, 7d posts by network {totals["7d"]}; Mastodon render-check candidates {len(want)}, '
+          f'linked {len(shown_ids)} (fresh passes in the cache {len(links)})')
 
 if __name__ == '__main__':
     main()
