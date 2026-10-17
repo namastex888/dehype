@@ -1,0 +1,19 @@
+{
+"_doc": "Top 10 recompute fixture (B1, SC-14): new today first by heat, then heat fill; ties by newest post then id; chatter and stories with no post in the 24h are out",
+"generated_at": "2026-10-17T08:25:00Z",
+"stories": [
+  {"id": "s:aaaaaaaaaaaa", "kind": "news", "covered": true, "first": "2026-10-17T01:00:00Z", "last": "2026-10-17T07:00:00Z", "heat": 3.0, "headline": "s:aaaaaaaaaaaa"},
+  {"id": "s:bbbbbbbbbbbb", "kind": "news", "covered": true, "first": "2026-10-16T09:00:00Z", "last": "2026-10-17T05:00:00Z", "heat": 5.0, "headline": "s:bbbbbbbbbbbb"},
+  {"id": "s:cccccccccccc", "kind": "news", "covered": true, "first": "2026-10-10T12:00:00Z", "last": "2026-10-17T08:00:00Z", "heat": 20.0, "headline": "s:cccccccccccc"},
+  {"id": "s:dddddddddddd", "kind": "news", "covered": true, "first": "2026-10-12T02:00:00Z", "last": "2026-10-16T10:00:00Z", "heat": 7.0, "headline": "s:dddddddddddd"},
+  {"id": "s:eeeeeeeeeeee", "kind": "news", "covered": true, "first": "2026-10-16T12:00:00Z", "last": "2026-10-17T06:00:00Z", "heat": 3.0, "headline": "s:eeeeeeeeeeee"},
+  {"id": "s:0fffffffffff", "kind": "news", "covered": true, "first": "2026-10-16T12:00:00Z", "last": "2026-10-17T06:00:00Z", "heat": 3.0, "headline": "s:0fffffffffff"},
+  {"id": "s:999999999999", "kind": "chatter", "covered": false, "first": "2026-10-17T00:00:00Z", "last": "2026-10-17T08:00:00Z", "heat": 50.0, "headline": "s:999999999999"},
+  {"id": "s:888888888888", "kind": "news", "covered": true, "first": "2026-10-14T00:00:00Z", "last": "2026-10-16T08:00:00Z", "heat": 30.0, "headline": "s:888888888888"},
+  {"id": "s:111111111111", "kind": "news", "covered": true, "first": "2026-10-13T00:00:00Z", "last": "2026-10-17T01:00:00Z", "heat": 7.0, "headline": "s:111111111111"},
+  {"id": "s:222222222222", "kind": "news", "covered": true, "first": "2026-10-11T00:00:00Z", "last": "2026-10-16T20:00:00Z", "heat": 1.0, "headline": "s:222222222222"},
+  {"id": "s:333333333333", "kind": "news", "covered": true, "first": "2026-10-11T00:00:00Z", "last": "2026-10-16T20:00:00Z", "heat": 0.9, "headline": "s:333333333333"},
+  {"id": "s:444444444444", "kind": "news", "covered": true, "first": "2026-10-11T00:00:00Z", "last": "2026-10-16T20:00:00Z", "heat": 0.8, "headline": "s:444444444444"},
+  {"id": "s:555555555555", "kind": "news", "covered": true, "first": "2026-10-11T00:00:00Z", "last": "2026-10-16T20:00:00Z", "heat": 0.7, "headline": "s:555555555555"},
+  {"id": "s:666666666666", "kind": "news", "covered": true, "first": "2026-10-16T08:25:00Z", "last": "2026-10-16T09:00:00Z", "heat": 0.5, "headline": "s:666666666666"}]
+}

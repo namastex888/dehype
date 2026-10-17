@@ -1,0 +1,14 @@
+{
+"generated_at": "2026-10-17T08:25:00Z",
+"top10": [
+  {"rank": 1, "id": "s:bbbbbbbbbbbb", "seen": "new today", "heat": 5.0, "last": "2026-10-17T05:00:00Z"},
+  {"rank": 2, "id": "s:aaaaaaaaaaaa", "seen": "new today", "heat": 3.0, "last": "2026-10-17T07:00:00Z"},
+  {"rank": 3, "id": "s:0fffffffffff", "seen": "new today", "heat": 3.0, "last": "2026-10-17T06:00:00Z"},
+  {"rank": 4, "id": "s:eeeeeeeeeeee", "seen": "new today", "heat": 3.0, "last": "2026-10-17T06:00:00Z"},
+  {"rank": 5, "id": "s:666666666666", "seen": "new today", "heat": 0.5, "last": "2026-10-16T09:00:00Z"},
+  {"rank": 6, "id": "s:cccccccccccc", "seen": "first seen 2026-10-10", "heat": 20.0, "last": "2026-10-17T08:00:00Z"},
+  {"rank": 7, "id": "s:111111111111", "seen": "first seen 2026-10-12", "heat": 7.0, "last": "2026-10-17T01:00:00Z"},
+  {"rank": 8, "id": "s:dddddddddddd", "seen": "first seen 2026-10-11", "heat": 7.0, "last": "2026-10-16T10:00:00Z"},
+  {"rank": 9, "id": "s:222222222222", "seen": "first seen 2026-10-10", "heat": 1.0, "last": "2026-10-16T20:00:00Z"},
+  {"rank": 10, "id": "s:333333333333", "seen": "first seen 2026-10-10", "heat": 0.9, "last": "2026-10-16T20:00:00Z"}]
+}

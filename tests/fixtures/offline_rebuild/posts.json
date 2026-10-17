@@ -1,0 +1,16 @@
+{
+ "_doc": "Offline-rebuild fixture (B1): posts stored in a fresh history DB, rebuilt with pulse.py --offline at NOW 2026-10-17T08:25:00Z with no previous pulse.json, so every adapter reads unknown",
+ "now": "2026-10-17T08:25:00Z",
+ "posts": [
+  ["HN", "501", "https://news.ycombinator.com/item?id=501", "HookMarket: a plugin marketplace for Claude Code hooks", "hn_a", "2026-10-17T06:25:00Z", 320, 80, "live", {"link": "https://github.com/example/hooks"}],
+  ["Lobsters", "lb1", "https://lobste.rs/s/lb1", "HookMarket plugin marketplace for Claude Code explained", "lob_a", "2026-10-17T05:25:00Z", 30, 4, "live", {"link": "https://github.com/example/hooks/tree/main"}],
+  ["Mastodon", "9001", "https://mastodon.social/@m_a/9001", "Trying HookMarket for Claude Code hooks today", "m_a", "2026-10-17T04:25:00Z", 5, 1, "live", null],
+  ["Mastodon", "9002", "https://mastodon.social/@m_b/9002", "HookMarket for Claude Code is neat", "m_b", "2026-10-17T03:25:00Z", 3, 0, "live", null],
+  ["Reddit", "t3_r1", "https://www.reddit.com/r/ClaudeAI/comments/r1/x/", "HookMarket thoughts after a week of Claude Code", "r_a", "2026-10-17T02:25:00Z", 12, 3, "live", {"link": "https://github.com/example/reddit-linked"}],
+  ["Official", "https://lab.example/muse", "https://lab.example/muse", "Introducing Muse Spark Open ␟ weights today", "Meta AI", "2026-10-14T10:00:00Z", null, null, "official", null],
+  ["HN", "502", "https://news.ycombinator.com/item?id=502", "Muse Spark Open: open weights for a new LLM", "hn_b", "2026-10-14T12:00:00Z", 200, 40, "live", {"link": "https://arxiv.org/abs/2610.01234v2"}],
+  ["Mastodon", "9003", "https://mastodon.social/@m_c/9003", "Muse Spark Open looks strong for coding", "m_c", "2026-10-17T01:00:00Z", 4, 0, "live", null],
+  ["Mastodon", "9004", "https://mastodon.social/@m_d/9004", "Muse Spark Open looks strong for coding 2", "m_d", "2026-10-17T02:00:00Z", 4, 0, "live", null],
+  ["Mastodon", "9005", "https://mastodon.social/@m_e/9005", "Muse Spark Open looks strong for coding 3", "m_e", "2026-10-17T03:00:00Z", 4, 0, "live", null]
+ ]
+}
