@@ -301,6 +301,7 @@ python3 -m unittest tests.test_pulse
 
 **Interfaces:**
 - Consumes: B1's `web/briefing.json` story ids and `pulse.json` stories.
+- B2 note: no upgraded verdict row (REAL, OVERHYPED, FALSE, PUSHED) is added to `web/verdicts.json` before E1 lands the `web/ledger/ids/` archive: until then a row whose story leaves the 7-day window resolves to nothing and fails `check_page.mjs` in the refresh Gate, which blocks that day's data commit (stated in `web/POLICY.md` and `web/POLICY.pt.md`).
 - B1 note: alias resolution must prefer the post-carry-over alias (old id to the new id that took its posts) over a live id that still exists but whose posts moved; B1 ids are unique per day, and when two stories name one release the earliest editorial post keeps the `release:` key (STORY_METHOD).
 - Produces: `web/verdicts.json` row fields named above (exact key names not fixed by the design beyond the `s:` id prefix); `web/story-aliases.json` (old id to new id); `web/corrections.json`; the read shape of `web/ledger/ids/YYYY-MM-DD.json`, fixed here and written by E1 (Decision 13); whether the corrections check is an inline `ci.yml` step or a script is not fixed by the design.
 

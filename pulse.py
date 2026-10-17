@@ -478,8 +478,8 @@ COUNT_ONLY = {'Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mast
 NAMED = DIGEST | OFFICIAL | {'arXiv', 'GitHub'}       # newsletter, feed, lab or paper and repo names stay; other authors are person handles
 POST_BODY = ('title', 'author', 'url', 'link', 'score', 'comments', 'who')
 NET_URL = [(n, re.compile(r'^https?://(?:[\w-]+\.)*(?:' + h + r')(?=[/:?#]|$)', re.I)) for n, h in
-           (('Reddit', r'reddit\.com|redd\.it'), ('X', r'x\.com|twitter\.com'), ('LinkedIn', r'linkedin\.com|lnkd\.in'),
-            ('YouTube', r'youtube\.com|youtu\.be'), ('Telegram', r't\.me|telegram\.me'))]
+           (('Reddit', r'reddit\.com|redd\.it'), ('X', r'x\.com|twitter\.com|t\.co|nitter\.net|fxtwitter\.com|vxtwitter\.com'), ('LinkedIn', r'linkedin\.com|lnkd\.in'),
+            ('YouTube', r'youtube\.com|youtu\.be|youtube-nocookie\.com'), ('Telegram', r't\.me|telegram\.me'))]
 # a URL that names an account: an /@user path segment (npm scoped packages are not people), a Fediverse /users/<name>/statuses/
 # URI, a Bluesky profile post, a DID
 ACCOUNT_URL = re.compile(r'^https?://(?!(?:[\w-]+\.)*npmjs\.(?:org|com)/)[^\s?#]*/@|bsky\.app/profile/[^/\s]+/post/|/users/[^/\s]+/statuses/|did:(?:plc|web):', re.I)
@@ -1345,16 +1345,16 @@ def briefing(stories_, nodes, sources, D, now, method, days=0):
 
 # ------------------------------------------------------------------ story-id aliases (web/story-aliases.json; design row 7, C2, C32)
 ALIAS_METHOD = ('story-id aliases (bot-written each run, apart from the owner-reviewed web/verdicts.json): the day\'s stories are compared with '
-                'the previous pulse.json. A post is its network and shown link (network and date for a post with no shown link); newsletter '
-                'issues are left out because one issue carries many stories. An earlier story maps to the story of the day that holds the most '
+                'the previous pulse.json. A post is its network and its post time, never its link (a Mastodon link comes and goes with the render '
+                'check, and pulse.json publishes no post id); newsletter issues are left out because one issue carries many stories. An earlier story maps to the story of the day that holds the most '
                 'of its posts when that is at least half of them and more than the story under its own id still holds (a tie keeps no alias; '
                 'among other stories the lower id wins). The map is cumulative: an old alias follows its target\'s move, an alias back to itself '
                 'is dropped, and since = the BRT date the alias was first written. A verdict row resolves through an alias before a live story '
                 'of the same id, because the alias names the story that took its posts')
 
 def post_keys(s):
-    """A story's posts as the public file shows them: (network, link), or (network, date) for a post with no shown link."""
-    return {(x.get('net'), x.get('url') or '@' + str(x.get('at'))) for x in (s.get('posts') or []) + (s.get('path') or [])
+    """A story's posts by a stable identity: (network, post time), whether or not a link is shown (pulse.json carries no post id)."""
+    return {(x.get('net'), x.get('at')) for x in (s.get('posts') or []) + (s.get('path') or [])
             if x.get('net') not in DIGEST}
 
 def story_aliases(prev, today, old=None, day=''):

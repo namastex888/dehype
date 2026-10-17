@@ -955,8 +955,10 @@ class BriefingFixtureTest(unittest.TestCase):
 
 
 # ------------------------------------------------------------------ verdicts, story-id aliases and corrections (design row 7; group B2)
-def story(sid, *urls, net='HN'):
-    return {'id': sid, 'posts': [{'net': net, 'url': u, 'at': '2026-10-16T10:00:00Z'} for u in urls], 'path': []}
+def story(sid, *names, net='HN', link=True):
+    # one post per name, at a time of its own (the alias key is network and post time; the link is never part of it)
+    at = lambda n: pulse.iso(datetime(2026, 10, 16, tzinfo=timezone.utc) + timedelta(seconds=int(hashlib.sha1(n.encode()).hexdigest()[:5], 16)))
+    return {'id': sid, 'posts': [{'net': net, 'at': at(n), **({'url': 'https://example.test/' + n} if link else {})} for n in names], 'path': []}
 
 
 class StoryAliasTest(unittest.TestCase):
@@ -997,6 +999,15 @@ class StoryAliasTest(unittest.TestCase):
         prev = [story('s:aaaaaaaaaaaa', 'u1', 'u2', 'u3')]
         today = [story('s:aaaaaaaaaaaa', 'u9', 'u1'), story('s:bbbbbbbbbbbb', 'u2', 'u3', 'u4')]
         self.assertEqual(pulse.story_aliases(prev, today, {}, 'd'), {'s:aaaaaaaaaaaa': {'to': 's:bbbbbbbbbbbb', 'since': 'd'}})
+
+    def test_a_post_maps_the_same_with_or_without_its_link(self):
+        # a Mastodon post gains or loses its handle-free link with the render check; the alias follows its posts either way
+        prev = [story('s:aaaaaaaaaaaa', 'm1', 'm2', net='Mastodon')]
+        today = [story('s:bbbbbbbbbbbb', 'm1', 'm2', 'm3', net='Mastodon', link=False)]
+        self.assertEqual(pulse.post_keys(prev[0]), pulse.post_keys(story('s:aaaaaaaaaaaa', 'm1', 'm2', net='Mastodon', link=False)))
+        self.assertEqual(pulse.story_aliases(prev, today, {}, 'd'), {'s:aaaaaaaaaaaa': {'to': 's:bbbbbbbbbbbb', 'since': 'd'}})
+        self.assertEqual(pulse.story_aliases(today, [story('s:cccccccccccc', 'm1', 'm2', 'm3', net='Mastodon')], {}, 'd'),
+                         {'s:bbbbbbbbbbbb': {'to': 's:cccccccccccc', 'since': 'd'}})
 
     def test_no_alias_without_most_of_the_posts(self):
         prev = [story('s:aaaaaaaaaaaa', 'u1', 'u2', 'u3'), story('s:cccccccccccc', 'n1', net='Newsletter') ]
@@ -1047,8 +1058,10 @@ class VerdictFixtureTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             web = os.path.join(d, 'web')
             shutil.copytree(os.path.join(ROOT, 'web'), web)
+            with open(os.path.join(web, 'story-aliases.json'), 'w') as f: json.dump({'aliases': {}}, f)   # the committed map moves daily
             if tree: shutil.copytree(tree, web, dirs_exist_ok=True)
             for rel, body in (files or {}).items():
+                if body is None: os.remove(os.path.join(web, rel)); continue
                 text = body if isinstance(body, str) else json.dumps(body, ensure_ascii=False)
                 text = text.replace('$LIVE0', self.live[0]).replace('$LIVE1', self.live[1])
                 os.makedirs(os.path.dirname(os.path.join(web, rel)), exist_ok=True)
@@ -1081,6 +1094,11 @@ class VerdictFixtureTest(unittest.TestCase):
         r = self.check(files={'ledger/ids/2026-10-08.json': {'date': '2026-10-08', 'ids': ['s:1b1b1b1b1b1b']}}, tree=tree)
         self.assertEqual(r.returncode, 1)                                # the same row without its id in the archive is orphaned
         self.assertIn('verdicts.json: orphaned s: id', r.stderr)
+
+    def test_x_and_youtube_mirrors_are_counts_only_in_pulse_too(self):
+        for u, net in [('https://t.co/AbCdEf123', 'X'), ('https://nitter.net/i/status/1', 'X'), ('https://fxtwitter.com/i/status/1', 'X'),
+                       ('https://vxtwitter.com/i/status/1', 'X'), ('https://www.youtube-nocookie.com/embed/x', 'YouTube'), ('https://t.com/x', None)]:
+            with self.subTest(u): self.assertEqual(pulse.url_net(u), net)
 
     def test_committed_owner_files_are_valid_and_empty(self):
         self.assertEqual(json.loads(read(os.path.join(ROOT, 'web', 'verdicts.json'))), {'rows': []})
@@ -1150,6 +1168,15 @@ class OwnerFilesTest(unittest.TestCase):
         self.assertIn('fetch-depth: 0', ci)
         self.assertIn('python scripts/check_owner_files.py "$BASE"', ci)
         self.assertIn('github.event.pull_request.base.sha || github.event.before', ci)
+        # the refresh pushes with github.token (no ci.yml run), so it checks its own commit after `git commit` and before the push
+        wf = read(os.path.join(ROOT, '.github', 'workflows', 'refresh.yml')).decode()
+        c, k, push = wf.index('git commit -m "data: daily refresh'), wf.index('python scripts/check_owner_files.py HEAD~1'), wf.index('git push')
+        self.assertLess(c, k); self.assertLess(k, push)
+        dep = read(os.path.join(ROOT, '.github', 'workflows', 'deploy.yml')).decode()
+        self.assertEqual(dep.count('python3 scripts/check_owner_files.py "$BASE"'), 2)          # both publishing jobs
+        self.assertEqual(dep.count('fetch-depth: 0'), 2)
+        for job in dep.split('\n  cloudflare:'):
+            self.assertLess(job.index('check_owner_files.py'), job.index('check_page.mjs'))
 
 if __name__ == '__main__':
     unittest.main()

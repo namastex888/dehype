@@ -20,8 +20,8 @@ const warn = [];
 const COUNT_ONLY = new Set(['Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mastodon']);
 const NAMED = new Set(['Newsletter', 'Official', 'arXiv', 'GitHub']);          // newsletter, feed, lab or paper and repo names stay
 const POST_BODY = ['title', 'author', 'url', 'link', 'score', 'comments', 'who'], HYPE_BODY = ['au', 't', 'url', 'likes', 'score', 'cm', 'rp', 'views'];
-const NET_URL = [['Reddit', 'reddit\\.com|redd\\.it'], ['X', 'x\\.com|twitter\\.com'], ['LinkedIn', 'linkedin\\.com|lnkd\\.in'],
-  ['YouTube', 'youtube\\.com|youtu\\.be'], ['Telegram', 't\\.me|telegram\\.me']]
+const NET_URL = [['Reddit', 'reddit\\.com|redd\\.it'], ['X', 'x\\.com|twitter\\.com|t\\.co|nitter\\.net|fxtwitter\\.com|vxtwitter\\.com'], ['LinkedIn', 'linkedin\\.com|lnkd\\.in'],
+  ['YouTube', 'youtube\\.com|youtu\\.be|youtube-nocookie\\.com'], ['Telegram', 't\\.me|telegram\\.me']]
   .map(([n, h]) => [n, new RegExp(`^https?://(?:[\\w-]+\\.)*(?:${h})(?=[/:?#]|$)`, 'i')]);
 const ACCOUNT_URL = /^https?:\/\/(?!(?:[\w-]+\.)*npmjs\.(?:org|com)\/)[^\s?#]*\/@|bsky\.app\/profile\/[^/\s]+\/post\/|\/users\/[^/\s]+\/statuses\/|did:(?:plc|web):/i;
 const STATUS_URL = /^https:\/\/mastodon\.social\/statuses\/(\d{1,20})$/, LINK_MS = 7 * 864e5;
@@ -323,12 +323,13 @@ try {
 const VERDICT_KEYS = new Set(['id', 'label', 'claim', 'document', 'source', 'reason', 'commit', 'confirmed', 'reply']);
 const UPGRADED = new Set(['REAL', 'OVERHYPED', 'FALSE', 'PUSHED']), CLAIMED = new Set(['REAL', 'OVERHYPED', 'FALSE']);
 const NO_SOURCE_NET = new Set(['X', 'LinkedIn', 'YouTube']), REPLY_PATH = 'POLICY.md#reply';
-const SID = /^s:[0-9a-f]{12}$/, DAY = /^\d{4}-\d{2}-\d{2}$/, COMMIT = /^[0-9a-f]{7,40}$/;
+const SID = /^s:[0-9a-f]{12}$/, COMMIT = /^[0-9a-f]{7,40}$/;
+const DAY = { test: s => /^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s };   // a real calendar date
 const CORRECTION_KEYS = new Set(['id', 'date', 'kind', 'about', 'text', 'link']);
 const text = v => typeof v === 'string' && v.trim() !== '';
-function readJSON(f) {                                           // null when absent
+function readJSON(f, missing) {                                  // null when absent (with the missing message, if one is given) or unreadable
   try { return JSON.parse(readFileSync(join(web, f), 'utf8')); }
-  catch (e) { if (e.code !== 'ENOENT') fail.push(`${f} unreadable: ${e.message}`); return null; }
+  catch (e) { if (e.code !== 'ENOENT') fail.push(`${f} unreadable: ${e.message}`); else if (missing) fail.push(missing); return null; }
 }
 function archive() {                                             // ledger/ids/YYYY-MM-DD.json (written by group E1): {"date", "ids": [...]}
   const ids = new Set(); let files = [];
@@ -367,13 +368,17 @@ function verdictRules(V, C) {
     return seen.some(x => ar.ids.has(x)) ? 'archive' : null;
   }
   const rows = Array.isArray(V?.rows) ? V.rows : [];
-  need(Array.isArray(V?.rows), 'verdicts.json lacks its rows list');
+  if (V) need(Array.isArray(V.rows), 'verdicts.json lacks its rows list');
+  const claims = new Set();
   rows.forEach((r, i) => {
     const at = `rows[${i}]`;
     if (!r || typeof r !== 'object' || Array.isArray(r)) return finding(F, 'verdict row is not an object', at);
     for (const k of Object.keys(r)) if (!VERDICT_KEYS.has(k)) finding(F, `verdict row carries a field outside the verdict shape (${k}); a label is on a claim or story, never on a person or account`, `${at}.${k}`);
     if (!SID.test(r.id || '')) finding(F, 'verdict row id is not a story id ("s:" and 12 hex)', `${at}.id`);
     else { const h = resolve(r.id); if (h) how[h]++; else finding(F, 'orphaned s: id: resolves to no story in pulse.json, no id in a ledger/ids/ archive file and no story-aliases.json alias', `${at}.id`); }
+    const key = JSON.stringify([r.id, r.claim ?? null, r.document ?? null]);
+    if (claims.has(key)) finding(F, 'two verdict rows on one story and the same claim or document (one row per claim: change the row by a pull request and log the change in corrections.json)', at);
+    claims.add(key);
     if (!LABEL_WORDS.has(r.label)) return finding(F, 'verdict row label is not REAL, OVERHYPED, FALSE, PUSHED or UNVERIFIED', `${at}.label`);
     if (r.source != null && NO_SOURCE_NET.has(urlNet(String(r.source)))) finding(F, 'verdict row primary source is an X, LinkedIn or YouTube post (a claim with only an X source stays UNVERIFIED and names the account and date with no link)', `${at}.source`);
     if (!UPGRADED.has(r.label)) return;
@@ -387,7 +392,7 @@ function verdictRules(V, C) {
   });
   // corrections.json: entries c:1, c:2, ... in order (appended, never edited over: scripts/check_owner_files.py compares the base commit)
   const E = Array.isArray(C?.entries) ? C.entries : [];
-  need(Array.isArray(C?.entries), 'corrections.json lacks its entries list');
+  if (C) need(Array.isArray(C.entries), 'corrections.json lacks its entries list');
   E.forEach((e, i) => {
     const at = `entries[${i}]`;
     if (!e || typeof e !== 'object' || Array.isArray(e)) return finding('corrections.json', 'correction entry is not an object', at);
@@ -403,10 +408,10 @@ function verdictRules(V, C) {
 }
 let verdictNote = 'no verdicts';
 {
-  const V = readJSON('verdicts.json'), C = readJSON('corrections.json');
+  const V = readJSON('verdicts.json', 'verdicts.json missing (owner-reviewed; {"rows": []} when it holds no row)');
+  const C = readJSON('corrections.json', 'corrections.json missing (owner-reviewed, append-only; {"entries": []} when it holds no entry)');
   if (V) publicRules('verdicts.json', V);
   if (C) publicRules('corrections.json', C);
-  need(V && C, 'verdicts.json or corrections.json missing (owner-reviewed files: {"rows": []}, {"entries": []})');
   verdictNote = verdictRules(V, C);
 }
 

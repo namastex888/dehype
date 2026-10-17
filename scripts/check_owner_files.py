@@ -37,15 +37,15 @@ def main(argv=None):
         print(f'notice: no base commit given; comparing with {base}', file=sys.stderr)
     if git(repo, 'rev-parse', '--verify', '--quiet', f'{base}^{{commit}}').returncode:
         print(f'owner-file check FAILED\n- base commit {base} is not in the checkout (check out with fetch-depth: 0)', file=sys.stderr); return 1
-    short = git(repo, 'rev-parse', '--short', base).stdout.strip()
+    short, hshort = (git(repo, 'rev-parse', '--short', r).stdout.strip() for r in (base, head))
     fail = []
     try: old, new = entries(repo, base), entries(repo, head)
     except ValueError as e: old, new = [], []; fail.append(str(e))
     at = {e.get('id'): i for i, e in enumerate(new) if isinstance(e, dict)}
     for i, e in enumerate(old):
         name = e.get('id') if isinstance(e, dict) and e.get('id') else f'#{i + 1}'
-        if not isinstance(e, dict) or name not in at: fail.append(f'{CORRECTIONS} entry {name} removed since the base commit {short}')
-        elif at[name] != i or new[i] != e: fail.append(f'{CORRECTIONS} entry {name} edited since the base commit {short} (append a new entry instead)')
+        if not isinstance(e, dict) or name not in at: fail.append(f'{CORRECTIONS} entry {name} removed since the base commit {short} (at {hshort})')
+        elif at[name] != i or new[i] != e: fail.append(f'{CORRECTIONS} entry {name} edited since the base commit {short} (at {hshort}; append a new entry instead)')
     log = git(repo, 'log', '--format=%x00%h%x09%an%x09%ae%x09%cn%x09%ce', '--name-only', f'{base}..{head}', '--', *OWNER_FILES).stdout
     commits = [c for c in log.split('\x00') if c.strip()]
     for c in commits:
