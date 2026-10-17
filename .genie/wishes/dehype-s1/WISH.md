@@ -301,6 +301,7 @@ python3 -m unittest tests.test_pulse
 
 **Interfaces:**
 - Consumes: B1's `web/briefing.json` story ids and `pulse.json` stories.
+- B2 note: no upgraded verdict row (REAL, OVERHYPED, FALSE, PUSHED) is added to `web/verdicts.json` before E1 lands the `web/ledger/ids/` archive: until then a row whose story leaves the 7-day window resolves to nothing and fails `check_page.mjs` in the refresh Gate, which blocks that day's data commit (stated in `web/POLICY.md` and `web/POLICY.pt.md`).
 - B1 note: alias resolution must prefer the post-carry-over alias (old id to the new id that took its posts) over a live id that still exists but whose posts moved; B1 ids are unique per day, and when two stories name one release the earliest editorial post keeps the `release:` key (STORY_METHOD).
 - Produces: `web/verdicts.json` row fields named above (exact key names not fixed by the design beyond the `s:` id prefix); `web/story-aliases.json` (old id to new id); `web/corrections.json`; the read shape of `web/ledger/ids/YYYY-MM-DD.json`, fixed here and written by E1 (Decision 13); whether the corrections check is an inline `ci.yml` step or a script is not fixed by the design.
 
@@ -339,6 +340,7 @@ python3 -m unittest tests.test_pulse
 
 **Interfaces:**
 - Consumes: A1's `hype_build.py --scrub`, A2's recorded Mastodon lookup, B1's `web/briefing.json`, B2's `web/POLICY.md` and `web/POLICY.pt.md`.
+- B2 note: `web/POLICY.md` and `web/POLICY.pt.md` carry the sections `<a id="reply"></a>` and `<a id="corrections"></a>` that `check_page.mjs` requires; the removal section is added beside them. `scripts/check_owner_files.py` (`OWNER_FILES`) is where `web/removals.json` joins the no-bot-commit rule.
 - Produces: `web/removals.json` and `web/checks/dossier-gone.json` (shapes not fixed by the design; the hash input, the URL string as stored, is fixed by B3 and stated in the policy); the recheck's place in `pulse.py`'s `main()` between the lists and the output writes; the time-cap value is not fixed by the design.
 
 **Acceptance Criteria:**
@@ -515,6 +517,7 @@ node scripts/check_page.mjs
 
 **Interfaces:**
 - Consumes: B3's post-recheck lists (the manifest omits posts found gone), D's `compose.mjs`, B2's archive shape, C3's `web/audit.html`.
+- B2 note: the story-id archive read shape (Decision 13) is `web/ledger/ids/YYYY-MM-DD.json` = `{"date": "YYYY-MM-DD", "ids": ["s:<12 hex>", ...]}` E1 names the file by the America/Sao_Paulo date of the briefing's `generated_at`; B2 requires only that `date` equals the file name's date, ignores extra keys (the fixture also writes `generated_at`), unions `ids` over every file in the directory, and fails a file in another shape. Example: `tests/fixtures/verdicts/archive/ledger/ids/2026-10-08.json`.
 - B1 note: `pulse.py` (`ledger_days`) and `check_page.mjs` (`ledgerCount`) count ledger days from `web/ledger/index.json` read as a JSON list of day entries or as `{"entries": [...]}`; any other shape counts as 0 days, which holds trends.
 - Produces: `web/ledger/index.json` entries (one per day; carries the ledger SHA256; E2 adds the proof date and block height); `scripts/manifest.py`'s CLI is not fixed by the design, E1 fixes it; the attestation action is not named by the design (pin it by commit SHA like the existing actions).
 

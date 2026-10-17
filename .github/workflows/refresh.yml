@@ -103,9 +103,11 @@ jobs:
         run: |
           git config user.name "trend-observatory-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json web/briefing.json web/checks/mastodon-links.json
+          git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json web/briefing.json web/checks/mastodon-links.json web/story-aliases.json
           if git diff --cached --quiet; then echo "no data change"; exit 0; fi
           git commit -m "data: daily refresh $(date -u +%Y-%m-%d)"
+          # this push uses github.token, so it triggers no ci.yml run: the bot checks its own commit before pushing (no push on a failure)
+          python scripts/check_owner_files.py HEAD~1
           remote="https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           # dev may have moved during the 20-40 min run: replay the data commit on top (fresh data wins), retry twice
           for i in 1 2 3; do

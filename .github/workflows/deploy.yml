@@ -31,6 +31,11 @@ jobs:
         with:
           ref: dev
           persist-credentials: false
+          fetch-depth: 0               # the owner-file check reads the push's before commit
+      - name: Owner-reviewed files (no edited or removed corrections entry, no bot commit on verdicts or corrections, before publishing)
+        env:
+          BASE: ${{ github.event.before }}
+        run: python3 scripts/check_owner_files.py "$BASE"
       - name: Sync methodology and check the page
         run: |
           cp METHODOLOGY.md web/METHODOLOGY.md
@@ -48,6 +53,11 @@ jobs:
         with:
           ref: dev
           persist-credentials: false
+          fetch-depth: 0
+      - name: Owner-reviewed files (as in the GitHub Pages job)
+        env:
+          BASE: ${{ github.event.before }}
+        run: python3 scripts/check_owner_files.py "$BASE"
       - name: Check credentials
         id: creds
         env:

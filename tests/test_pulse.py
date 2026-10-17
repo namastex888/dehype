@@ -953,5 +953,230 @@ class BriefingFixtureTest(unittest.TestCase):
                 self.assertEqual(r.returncode, 0, r.stderr)
 
 
+
+# ------------------------------------------------------------------ verdicts, story-id aliases and corrections (design row 7; group B2)
+def story(sid, *names, net='HN', link=True):
+    # one post per name, at a time of its own (the alias key is network and post time; the link is never part of it)
+    at = lambda n: pulse.iso(datetime(2026, 10, 16, tzinfo=timezone.utc) + timedelta(seconds=int(hashlib.sha1(n.encode()).hexdigest()[:5], 16)))
+    return {'id': sid, 'posts': [{'net': net, 'at': at(n), **({'url': 'https://example.test/' + n} if link else {})} for n in names], 'path': []}
+
+
+class StoryAliasTest(unittest.TestCase):
+    """SC-11, alias part (C2, C32): pulse.py maps a story id whose posts carried over to a new id, from the previous pulse.json."""
+    def setUp(self): self.now = pulse.NOW
+
+    def tearDown(self): pulse.NOW = self.now
+
+    def posts(self):
+        posts = [p('HN', 1, 'Llama.cpp runs on a jailbroken PS5 console with any GGUF model', 'h1', 10, score=300),
+                 p('Lobsters', 2, 'A jailbroken PS5 console runs llama.cpp GGUF models', 'l1', 9)]
+        return posts + [p('Mastodon', 100 + i, f'zq{i}word xv{i}thing kp{i}stuff', f'f{i}', 30) for i in range(250)]   # uncommon-word floor
+
+    def test_story_gaining_an_earlier_post_maps_old_id_to_new(self):
+        posts = self.posts()
+        prev = [s for s in pulse.build(posts, LEX, HYPE)[4]['stories'] if 'PS5' in s['headline']]
+        self.assertEqual(len(prev), 1)
+        earlier = p('HN', 0, 'Llama.cpp runs on a jailbroken PS5 console with any GGUF model', 'h0', 20, score=50)   # an earlier submission
+        today = [s for s in pulse.build(posts + [earlier], LEX, HYPE)[4]['stories'] if 'PS5' in s['headline']]
+        self.assertEqual(len(today), 1)
+        old, new = prev[0]['id'], today[0]['id']
+        self.assertEqual(old, 's:' + hashlib.sha1(b'https://example.test/HN/1').hexdigest()[:12])
+        self.assertEqual(new, 's:' + hashlib.sha1(b'https://example.test/HN/0').hexdigest()[:12])       # the earlier post's key
+        with tempfile.TemporaryDirectory() as d:
+            with open(os.path.join(d, 'pulse.json'), 'w') as f: json.dump({'stories': prev}, f)          # the previous pulse.json
+            path = os.path.join(d, 'story-aliases.json')
+            pulse.NOW = datetime(2026, 10, 17, 8, 25, tzinfo=timezone.utc)
+            pulse.write_aliases(json.loads(read(os.path.join(d, 'pulse.json')))['stories'], today, pulse.NOW, path)
+            A = json.loads(read(path))
+            self.assertEqual(A['aliases'], {old: {'to': new, 'since': '2026-10-17'}})
+            self.assertEqual(A['generated_at'], '2026-10-17T08:25:00Z')
+            self.assertNotIn(b'\n', read(path))                                         # generated: one compact line (Decision 19)
+            pulse.write_aliases(today, today, pulse.NOW, path)                           # a later run with no move keeps the alias
+            self.assertEqual(json.loads(read(path))['aliases'], {old: {'to': new, 'since': '2026-10-17'}})
+
+    def test_alias_wins_over_a_live_id_whose_posts_moved(self):
+        # B1 note: the old id still exists today, but the story that took its posts is the other one
+        prev = [story('s:aaaaaaaaaaaa', 'u1', 'u2', 'u3')]
+        today = [story('s:aaaaaaaaaaaa', 'u9', 'u1'), story('s:bbbbbbbbbbbb', 'u2', 'u3', 'u4')]
+        self.assertEqual(pulse.story_aliases(prev, today, {}, 'd'), {'s:aaaaaaaaaaaa': {'to': 's:bbbbbbbbbbbb', 'since': 'd'}})
+
+    def test_a_post_maps_the_same_with_or_without_its_link(self):
+        # a Mastodon post gains or loses its handle-free link with the render check; the alias follows its posts either way
+        prev = [story('s:aaaaaaaaaaaa', 'm1', 'm2', net='Mastodon')]
+        today = [story('s:bbbbbbbbbbbb', 'm1', 'm2', 'm3', net='Mastodon', link=False)]
+        self.assertEqual(pulse.post_keys(prev[0]), pulse.post_keys(story('s:aaaaaaaaaaaa', 'm1', 'm2', net='Mastodon', link=False)))
+        self.assertEqual(pulse.story_aliases(prev, today, {}, 'd'), {'s:aaaaaaaaaaaa': {'to': 's:bbbbbbbbbbbb', 'since': 'd'}})
+        self.assertEqual(pulse.story_aliases(today, [story('s:cccccccccccc', 'm1', 'm2', 'm3', net='Mastodon')], {}, 'd'),
+                         {'s:bbbbbbbbbbbb': {'to': 's:cccccccccccc', 'since': 'd'}})
+
+    def test_no_alias_without_most_of_the_posts(self):
+        prev = [story('s:aaaaaaaaaaaa', 'u1', 'u2', 'u3'), story('s:cccccccccccc', 'n1', net='Newsletter') ]
+        cases = {'a third carried': [story('s:bbbbbbbbbbbb', 'u1', 'x')],
+                 'tie with its own id': [story('s:aaaaaaaaaaaa', 'u1', 'u2'), story('s:bbbbbbbbbbbb', 'u2', 'u3')],
+                 'a shared newsletter issue only': [story('s:dddddddddddd', 'n1', net='Newsletter')]}
+        for name, today in cases.items():
+            with self.subTest(name): self.assertEqual(pulse.story_aliases(prev, today, {}, 'd'), {})
+
+    def test_aliases_are_cumulative_follow_moves_and_drop_self_maps(self):
+        old = {'s:aaaaaaaaaaaa': {'to': 's:bbbbbbbbbbbb', 'since': 'd0'}, 's:eeeeeeeeeeee': {'to': 's:ffffffffffff', 'since': 'd0'}}
+        prev = [story('s:bbbbbbbbbbbb', 'u1', 'u2'), story('s:ffffffffffff', 'v1', 'v2')]
+        today = [story('s:cccccccccccc', 'u1', 'u2', 'u3'), story('s:eeeeeeeeeeee', 'v1', 'v2')]   # f moved back to e
+        self.assertEqual(pulse.story_aliases(prev, today, old, 'd1'),
+                         {'s:aaaaaaaaaaaa': {'to': 's:cccccccccccc', 'since': 'd0'}, 's:bbbbbbbbbbbb': {'to': 's:cccccccccccc', 'since': 'd1'},
+                          's:ffffffffffff': {'to': 's:eeeeeeeeeeee', 'since': 'd1'}})
+
+    def test_offline_run_writes_the_alias_file_without_a_previous_pulse(self):
+        with tempfile.TemporaryDirectory() as d:
+            A = json.loads(read(os.path.join(offline_rebuild(d), 'story-aliases.json')))
+            self.assertEqual((A['aliases'], A['generated_at']), ({}, '2026-10-17T08:25:00Z'))
+            self.assertEqual(A['method'], pulse.ALIAS_METHOD)
+
+    def test_refresh_stages_aliases_and_never_the_owner_files(self):
+        wf = read(os.path.join(ROOT, '.github', 'workflows', 'refresh.yml')).decode()
+        add = [l for l in wf.splitlines() if l.strip().startswith('git add ')]
+        self.assertEqual(len(add), 1)
+        self.assertIn('web/story-aliases.json', add[0].split())
+        for f in ('web/verdicts.json', 'web/corrections.json', 'web', 'web/', '.', '-A', '--all'): self.assertNotIn(f, add[0].split()[2:])
+
+    def test_committed_alias_file_maps_ids(self):
+        A = json.loads(read(os.path.join(ROOT, 'web', 'story-aliases.json')))
+        for k, e in A['aliases'].items():
+            self.assertRegex(k, r'^s:[0-9a-f]{12}$'); self.assertRegex(e['to'], r'^s:[0-9a-f]{12}$'); self.assertNotEqual(k, e['to'])
+
+
+@unittest.skipUnless(shutil.which('node'), 'node not installed')
+class VerdictFixtureTest(unittest.TestCase):
+    """SC-11 (C2, C10, C11, C30, C32), Decision 14: each case overlays a copy of the committed web/ with its files; check_page.mjs exits 1
+    with exactly that case's findings, or 0 with its summary; archive/ is a row confirmed 9 days before the committed pulse.json whose
+    story is gone from it but whose id is in that day's archive file."""
+    @classmethod
+    def setUpClass(cls):
+        cls.cases = json.loads(read(os.path.join(FIX, 'verdicts', 'cases.json')))['cases']
+        cls.live = [s['id'] for s in json.loads(read(os.path.join(ROOT, 'web', 'pulse.json')))['stories']]
+
+    def check(self, files=None, tree=None):
+        with tempfile.TemporaryDirectory() as d:
+            web = os.path.join(d, 'web')
+            shutil.copytree(os.path.join(ROOT, 'web'), web)
+            with open(os.path.join(web, 'story-aliases.json'), 'w') as f: json.dump({'aliases': {}}, f)   # the committed map moves daily
+            if tree: shutil.copytree(tree, web, dirs_exist_ok=True)
+            for rel, body in (files or {}).items():
+                if body is None: os.remove(os.path.join(web, rel)); continue
+                text = body if isinstance(body, str) else json.dumps(body, ensure_ascii=False)
+                text = text.replace('$LIVE0', self.live[0]).replace('$LIVE1', self.live[1])
+                os.makedirs(os.path.dirname(os.path.join(web, rel)), exist_ok=True)
+                with open(os.path.join(web, rel), 'w') as f: f.write(text)
+            return subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+
+    def test_each_case_fails_on_its_own_rule_or_passes(self):
+        self.assertNotIn('s:000000000000', self.live)
+        for name, c in self.cases.items():
+            with self.subTest(name):
+                r = self.check(c['files'])
+                if 'ok' in c:
+                    self.assertEqual(r.returncode, 0, r.stderr); self.assertIn(c['ok'], r.stdout)
+                    continue
+                self.assertEqual(r.returncode, 1, r.stdout)
+                got = [l[2:] for l in r.stderr.splitlines() if l.startswith('- ')]
+                want = [m.replace('$LIVE0', self.live[0]) for m in c['expect']]
+                self.assertEqual(len(got), len(want), r.stderr)
+                for m in want: self.assertTrue(any(g.startswith(m) for g in got), (m, got))
+
+    def test_row_confirmed_nine_days_before_resolves_through_the_archive(self):
+        tree = os.path.join(FIX, 'verdicts', 'archive')
+        V = json.loads(read(os.path.join(tree, 'verdicts.json')))['rows'][0]
+        A = json.loads(read(os.path.join(tree, 'ledger', 'ids', V['confirmed'] + '.json')))
+        self.assertEqual(V['confirmed'], '2026-10-08')                  # 9 days before the 2026-10-17 pulse.json this group committed
+        self.assertNotIn(V['id'], self.live); self.assertIn(V['id'], A['ids'])
+        r = self.check(tree=tree)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn('verdicts 1 rows (0 live, 0 by alias, 1 by archive; 0 aliases, 1 archive days)', r.stdout)
+        r = self.check(files={'ledger/ids/2026-10-08.json': {'date': '2026-10-08', 'ids': ['s:1b1b1b1b1b1b']}}, tree=tree)
+        self.assertEqual(r.returncode, 1)                                # the same row without its id in the archive is orphaned
+        self.assertIn('verdicts.json: orphaned s: id', r.stderr)
+
+    def test_x_and_youtube_mirrors_are_counts_only_in_pulse_too(self):
+        for u, net in [('https://t.co/AbCdEf123', 'X'), ('https://nitter.net/i/status/1', 'X'), ('https://fxtwitter.com/i/status/1', 'X'),
+                       ('https://vxtwitter.com/i/status/1', 'X'), ('https://www.youtube-nocookie.com/embed/x', 'YouTube'), ('https://t.com/x', None)]:
+            with self.subTest(u): self.assertEqual(pulse.url_net(u), net)
+
+    def test_committed_owner_files_are_valid_and_empty(self):
+        self.assertEqual(json.loads(read(os.path.join(ROOT, 'web', 'verdicts.json'))), {'rows': []})
+        self.assertEqual(json.loads(read(os.path.join(ROOT, 'web', 'corrections.json'))), {'entries': []})
+
+
+@unittest.skipUnless(shutil.which('git'), 'git not installed')
+class OwnerFilesTest(unittest.TestCase):
+    """SC-12 (C11, C40): the ci.yml check fails a commit that edits or removes a web/corrections.json entry against the base commit and
+    passes one that appends; and it fails a refresh-bot commit that touches web/verdicts.json or web/corrections.json."""
+    FX = json.loads(read(os.path.join(FIX, 'corrections_commits.json')))
+
+    def repo(self, d):
+        def git(*a, who=('Owner', 'owner@example.org')):
+            env = dict(os.environ, GIT_AUTHOR_NAME=who[0], GIT_AUTHOR_EMAIL=who[1], GIT_COMMITTER_NAME=who[0], GIT_COMMITTER_EMAIL=who[1])
+            return subprocess.run(['git', '-C', d, *a], capture_output=True, text=True, env=env, check=True).stdout.strip()
+        git('init', '-q'); os.makedirs(os.path.join(d, 'web'))
+        return git
+
+    def commit(self, git, d, rel, body, who=('Owner', 'owner@example.org')):
+        with open(os.path.join(d, rel), 'w') as f: json.dump(body, f, indent=1)
+        git('add', rel, who=who); git('commit', '-q', '-m', rel, who=who)
+        return git('rev-parse', 'HEAD')
+
+    def run_check(self, d, base):
+        return subprocess.run([sys.executable, os.path.join(ROOT, 'scripts', 'check_owner_files.py'), '--repo', d, base], capture_output=True, text=True)
+
+    def test_edit_and_remove_fail_append_passes(self):
+        want = {'edit': (1, 'web/corrections.json entry c:2 edited since the base commit'),
+                'remove': (1, 'web/corrections.json entry c:2 removed since the base commit'),
+                'append': (0, 'web/corrections.json 2 entries at')}
+        for name, (code, msg) in want.items():
+            with self.subTest(name), tempfile.TemporaryDirectory() as d:
+                git = self.repo(d)
+                base = self.commit(git, d, 'web/corrections.json', self.FX['base'])
+                self.commit(git, d, 'web/corrections.json', self.FX[name])
+                r = self.run_check(d, base)
+                self.assertEqual(r.returncode, code, r.stdout + r.stderr)
+                self.assertIn(msg, r.stderr if code else r.stdout)
+                if code: self.assertEqual(len([l for l in r.stderr.splitlines() if l.startswith('- ')]), 1, r.stderr)
+                else: self.assertIn('(1 appended)', r.stdout)
+
+    def test_bot_commit_touching_an_owner_file_fails(self):
+        bot = ('trend-observatory-bot', '41898282+github-actions[bot]@users.noreply.github.com')   # refresh.yml's identity
+        with tempfile.TemporaryDirectory() as d:
+            git = self.repo(d)
+            base = self.commit(git, d, 'web/verdicts.json', {'rows': []})
+            self.commit(git, d, 'web/pulse.json', {'stories': []}, who=bot)              # the bot's own data: fine
+            r = self.run_check(d, base)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            sha = self.commit(git, d, 'web/verdicts.json', {'rows': [{'id': 's:0a0a0a0a0a0a', 'label': 'UNVERIFIED'}]}, who=bot)
+            r = self.run_check(d, base)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn(f'commit {sha[:7]}', r.stderr)
+            self.assertIn('by the refresh bot touches web/verdicts.json (owner-reviewed: enters only by a merged pull request)', r.stderr)
+
+    def test_missing_base_falls_back_to_the_parent_and_ci_passes_the_base(self):
+        with tempfile.TemporaryDirectory() as d:
+            git = self.repo(d)
+            self.commit(git, d, 'web/corrections.json', self.FX['base'])
+            self.assertEqual(self.run_check(d, '').returncode, 0)                       # one commit: nothing to compare
+            self.commit(git, d, 'web/corrections.json', self.FX['remove'])
+            r = self.run_check(d, '0' * 40)
+            self.assertEqual(r.returncode, 1); self.assertIn('entry c:2 removed', r.stderr)
+            self.assertEqual(self.run_check(d, 'f' * 40).returncode, 1)                 # an unknown base fails closed
+        ci = read(os.path.join(ROOT, '.github', 'workflows', 'ci.yml')).decode()
+        self.assertIn('fetch-depth: 0', ci)
+        self.assertIn('python scripts/check_owner_files.py "$BASE"', ci)
+        self.assertIn('github.event.pull_request.base.sha || github.event.before', ci)
+        # the refresh pushes with github.token (no ci.yml run), so it checks its own commit after `git commit` and before the push
+        wf = read(os.path.join(ROOT, '.github', 'workflows', 'refresh.yml')).decode()
+        c, k, push = wf.index('git commit -m "data: daily refresh'), wf.index('python scripts/check_owner_files.py HEAD~1'), wf.index('git push')
+        self.assertLess(c, k); self.assertLess(k, push)
+        dep = read(os.path.join(ROOT, '.github', 'workflows', 'deploy.yml')).decode()
+        self.assertEqual(dep.count('python3 scripts/check_owner_files.py "$BASE"'), 2)          # both publishing jobs
+        self.assertEqual(dep.count('fetch-depth: 0'), 2)
+        for job in dep.split('\n  cloudflare:'):
+            self.assertLess(job.index('check_owner_files.py'), job.index('check_page.mjs'))
+
 if __name__ == '__main__':
     unittest.main()
