@@ -1,5 +1,5 @@
 name: ci
-# Offline gate: unit tests, fixture evaluation, scoring smoke and a page script parse check. No network collection.
+# Offline gate: unit tests (leak fixtures included), fixture evaluation, scoring smoke, and the page and public-data check. No network collection.
 on:
   pull_request:
   push:
@@ -21,7 +21,7 @@ jobs:
         run: python -m unittest discover tests && python eval.py --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json
       - name: Scoring smoke
         run: python eval.py --issue11-smoke --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json --compare-v2
-      - name: Page data and script check
+      - name: Page data, script and public-data check (handles, Reddit, X/LinkedIn/YouTube/Telegram, X figures)
         run: node scripts/check_page.mjs
   search-index:
     # Proves the semantic index builds on a clean Linux runner (same step refresh.yml and deploy.yml run).
@@ -36,7 +36,7 @@ jobs:
           node-version: '22'
       - name: Build index into a scratch copy and check it
         run: |
-          mkdir -p "$RUNNER_TEMP/web" && cp web/*.json web/index.html "$RUNNER_TEMP/web/"
+          cp -R web "$RUNNER_TEMP/"                  # the whole tree: the gate also reads web/i18n/
           npm ci --prefix scripts/embed --ignore-scripts --no-audit --no-fund
           node scripts/embed/embed.mjs "$RUNNER_TEMP/web"
           node scripts/check_page.mjs "$RUNNER_TEMP/web"

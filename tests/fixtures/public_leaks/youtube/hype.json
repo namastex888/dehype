@@ -1,0 +1,15 @@
+{
+ "items": {
+  "claude-code": {"name": "Claude Code", "aliases": ["@anthropic-ai/claude-code"], "links": {"x_handle": "https://x.com/claudeai"}, "summary": "Claude Code is a terminal coding agent.", "summary_urls": ["https://example.test/a", "an X post"], "viral": {"platform": null, "post": null, "reason": "not established", "cand_platform": "X", "cand_post": "an X post"}, "coord": {"assessment": "not assessed", "limitations": "No audit.", "disclosed": false, "evidence": []}, "traction": [{"type": "claimed_monthly_active_users", "value": 13000, "unit": "users", "url": "https://www.youtube.com/watch?v=abc", "notes": "Video description."}], "skeptic": [{"claim": "Users report long waits.", "by": "X user, sampled X post", "d": null, "url": "an X post"}], "posts": [{"pl": "HN", "d": "2026-10-04", "score": 120, "cm": 40, "url": "https://news.ycombinator.com/item?id=9001", "t": "Claude Code ships hooks"}, {"pl": "X", "d": "2026-10-01"}], "notes": {"momentum": "An X figure is not shown here: X appears as counts only. See the method page. Release dated October 1."}, "discovery": {"metrics": [{"value": 13000, "unit": "users", "type": "claimed_monthly_active_users", "url": "a YouTube post"}]}}
+ },
+ "views": [
+  "all"
+ ],
+ "windows": {},
+ "n_projects": 1,
+ "weights": {},
+ "gap_min_coverage": 0.5,
+ "coverage": [
+  "Sampled posts, not totals."
+ ]
+}

@@ -2,6 +2,7 @@
 """HYPE tab builder: hype/hype_research.json -> web/hype.json (compact) + rank history.
 
 Run standalone:  python3 hype_build.py [--no-history]
+Scrub only:      python3 hype_build.py --scrub web/hype.json   (the public-data rules on the committed file; idempotent)
 run.py calls build(con=..., run_id=...) automatically when hype/hype_research.json exists.
 
 NEVER INVENTS NUMBERS. Unknown -> null (rendered '—'). All social counts are the research agent's
@@ -14,13 +15,14 @@ Verification, freshness and common-origin independence remain unqualified.
 Usage operations, users and customers never enter one pooled magnitude.
 The attention/discovery gap is a relative heuristic, not a validation verdict.
 """
-import os, sys, re, json, math, time, sqlite3, glob, urllib.request, urllib.error
+import os, sys, re, json, math, time, sqlite3, glob, hashlib, urllib.request, urllib.error
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE)
 import scoring
+from pulse import COUNT_ONLY, url_net          # the network and URL rules the daily file uses
 WEB, HIST = (os.path.join(BASE, d) for d in ('web', 'history'))
 CACHE = os.environ.get('TRENDING_CACHE') or os.path.join(BASE, 'cache')
 RESEARCH = os.path.join(BASE, 'hype', 'hype_research.json')
@@ -186,6 +188,86 @@ def project(it, cutoff):
         notes=dict(momentum=rn.get('momentum_evidence'), traction=rn.get('traction_evidence'), gap=rn.get('hype_gap_evidence'),
                    confidence=rn.get('confidence')),
     )
+
+# ---------------------------------------------------------------- public-data rules (design group A): the full build and --scrub share them
+I18N = os.path.join(WEB, 'i18n')
+X_PROFILE = re.compile(r'^https?://(?:www\.)?(?:x|twitter)\.com/\w+/?$', re.I)     # links.x_handle: the project's own account
+X_WORD = re.compile(r'(?<![\w-])X(?![\w-])', re.A)
+X_TERMS = re.compile(r'x\.com|twitter|tweet|repost|retweet|x_search|syndication|\b(?:likes|replies|views|reposts|followers|impressions|bookmarks)\b', re.I | re.A)
+
+def cite(net): return {'X': 'an X post', 'account': 'a post whose link names its account'}.get(net) or f'a {net} post'
+def link_net(u):
+    """Network of a link, or of the words that replaced it."""
+    return url_net(u) if is_url(u) else next((n for n in sorted(COUNT_ONLY) + ['account'] if u == cite(n)), None)
+def sha(s): return hashlib.sha256(s.encode()).hexdigest()
+def sentences(t): return [s for s in re.split(r'(?<=[.!?])\s+', t or '') if s]
+def x_figure(s):
+    """A sentence that may quote an X figure: a numeral plus an X or engagement term."""
+    return bool(re.search(r'[0-9]', s) and (X_WORD.search(s) or X_TERMS.search(s)))
+
+def prose_fields(H):
+    """(slug, field path, container, key) of every prose field the research pass wrote; slug None for file-level text.
+    scripts/check_page.mjs walks the same list."""
+    for k in ('ranking_interpretation', 'gap_note'): yield None, k, H, k
+    for k in ('coverage', 'coverage_short'):
+        for i in range(len(H.get(k) or [])): yield None, f'{k}[{i}]', H[k], i
+    for slug, it in H['items'].items():
+        for k in ('summary', 'status', 'first_seen_meaning', 'peak_reason', 'category'): yield slug, k, it, k
+        yield slug, 'viral.reason', it.get('viral') or {}, 'reason'
+        for k in ('assessment', 'limitations'): yield slug, f'coord.{k}', it.get('coord') or {}, k
+        for i, e in enumerate((it.get('coord') or {}).get('evidence') or []): yield slug, f'coord.evidence[{i}].t', e, 't'
+        for i, s in enumerate(it.get('traction') or []): yield slug, f'traction[{i}].notes', s, 'notes'
+        for i, s in enumerate(it.get('skeptic') or []):
+            yield slug, f'skeptic[{i}].claim', s, 'claim'
+            yield slug, f'skeptic[{i}].by', s, 'by'
+        for k in sorted(it.get('notes') or {}): yield slug, f'notes.{k}', it['notes'], k
+        if it.get('qual_gap'): yield slug, 'qual_gap.text', it['qual_gap'], 'text'
+
+def x_hits(H):
+    """[(slug, field, sentence)] of every X-figure detector hit in the prose."""
+    out = []
+    for slug, f, c, k in prose_fields(H):
+        t = c[k] if isinstance(c, list) else c.get(k)
+        if isinstance(t, str): out += [(slug, f, s) for s in sentences(t) if x_figure(s)]
+    return out
+
+def relink(o):
+    """Every link into a count-only network, or naming an account, becomes the words for it ("an X post"); the claim stays.
+    links.x_handle keeps the project's own profile link."""
+    for k, v in (o.items() if isinstance(o, dict) else enumerate(o)):
+        if isinstance(v, (dict, list)): relink(v)
+        elif is_url(v) and url_net(v) and not (k == 'x_handle' and X_PROFILE.match(v)): o[k] = cite(url_net(v))
+
+def scrub(H, srcs=None, figs=None):
+    """Apply the group-A rules to a built hype.json in place; a second run changes nothing. srcs, figs: the owner-reviewed
+    skeptic[].by disposition list and X-figure list (default: web/i18n/). An unlisted name or hit is left for CI to fail."""
+    srcs = srcs if srcs is not None else load(os.path.join(I18N, 'dossier-sources.json'), {})
+    figs = figs if figs is not None else load(os.path.join(I18N, 'dossier-x-figures.json'), {})
+    keep_by, by_net = set(srcs.get('keep') or []), {e['sha256']: e['by'] for e in srcs.get('network') or []}
+    strip = {(e.get('slug'), e['field'], e['sha256']) for e in figs.get('hits') or [] if e['disposition'] == 'strip'}
+    place = (figs.get('placeholder') or {}).get('en')
+    for it in H['items'].values():
+        # counts only: an X, LinkedIn, YouTube, Telegram (or Reddit) post keeps its network and date; other posts lose the author
+        it['posts'] = [{'pl': p['pl'], 'd': p.get('d')} if p.get('pl') in COUNT_ONLY else
+                       {k: v for k, v in p.items() if k != 'au' and not (k == 'url' and url_net(v))} for p in it.get('posts') or []]
+        for k in ('account', 'followers', 'cand_account'): (it.get('viral') or {}).pop(k, None)
+        relink(it)
+        for rows, words in ((it.get('traction') or [], True), ((it.get('evidence_in') or {}).get('usage') or [], False),
+                            ((it.get('discovery') or {}).get('metrics') or [], False)):
+            for r in rows:                                    # a figure read from a count-only post is not shown
+                n = link_net(r.get('url'))
+                if n in COUNT_ONLY: r['value'] = f'figure from {cite(n)}, not shown' if words else None
+        for s in it.get('skeptic') or []:
+            if s.get('by') and s['by'] not in keep_by and sha(s['by']) in by_net: s['by'] = by_net[sha(s['by'])]
+    for slug, f, c, k in prose_fields(H):
+        t = c[k] if isinstance(c, list) else c.get(k)
+        if not isinstance(t, str) or not any((slug, f, sha(s)) in strip for s in sentences(t)): continue
+        out = []
+        for s in sentences(t):
+            s = place if (slug, f, sha(s)) in strip else s
+            if not (s == place and out and out[-1] == place): out.append(s)
+        c[k] = ' '.join(out)
+    return H
 
 # ---------------------------------------------------------------- history
 def db_connect():
@@ -358,11 +440,24 @@ def build(con=None, run_id=None, repo_trust=None, tagger=None, tags=None, record
         missing=dict(acceleration='No growth series in the research (no repeated snapshots; HN sample = first 100 hits by date, so a recent/older ratio would be biased). Weight renormalised over the other three.'),
         component_counts=comp_counts, n_projects=len(ids), views=views, windows=win_meta,
         items=items, **out_w)
-    save(OUT, data)
+    save(OUT, scrub(data))
     sz = os.path.getsize(OUT)
     log(f'[HYPE v{scoring.SCORING_VERSION}] wrote {OUT} ({sz/1024:.0f} KB): {len(ids)} projects; windows ' +
         ', '.join(f'{w}={len(out_w[w]["all"]["rows"])}' for w in out_w) + f'; prev hype run: {prev_ts}')
     return data
 
+def scrub_file(path):
+    """--scrub: apply the rules to a committed hype.json without a research pass; rewrites only when a byte changes."""
+    raw = open(path, 'rb').read()
+    H = scrub(json.loads(raw))
+    changed = json.dumps(H, ensure_ascii=False, separators=(',', ':')).encode() != raw
+    if changed: save(path, H)
+    nets = {}
+    for it in H['items'].values():
+        for p in it.get('posts') or []: nets[p.get('pl')] = nets.get(p.get('pl'), 0) + 1
+    print(f"scrub {path}: {len(H['items'])} items, posts by network {nets}, {len(x_hits(H))} X-figure hits kept; "
+          + ('rewritten' if changed else 'unchanged'))
+
 if __name__ == '__main__':
-    build(record='--no-history' not in sys.argv)
+    if '--scrub' in sys.argv: scrub_file((sys.argv[sys.argv.index('--scrub') + 1:] or [OUT])[0])
+    else: build(record='--no-history' not in sys.argv)

@@ -807,10 +807,10 @@ function storyRow(x,i,chat){const nets=Object.entries(x.nets).filter(([k])=>k!='
  const path=x.path.slice(0,6).map(p=>`<i>${esc(p.who||NETL[p.net]||p.net)}</i> ${esc(p.at.slice(5,10))}`).join(' → ');
  const tags=(x.tags||[]).map(t=>PU.nodes.find(n=>n.id==t)?.label).filter(Boolean).slice(0,3);
  const open=PS.bopen==x.id;
- return `<div class="st${chat?' ch':''}" id="${esc(x.id)}"><span class=rk>${i+1}</span><div><a class=hd href="${esc(x.link||x.url)}" target=_blank rel=noopener>${esc(x.headline)}</a>${x.label?`<span class=lb>${esc(x.label)}</span>`:''}
+ return `<div class="st${chat?' ch':''}" id="${esc(x.id)}"><span class=rk>${i+1}</span><div>${x.link||x.url?`<a class=hd href="${esc(x.link||x.url)}" target=_blank rel=noopener>${esc(x.headline)}</a>`:`<span class=hd>${esc(x.headline)}</span>`}${x.label?`<span class=lb>${esc(x.label)}</span>`:''}
  <div class=mt><b>${x.voices}</b> voices · ${nets||'—'}${x.official?' · <b>lab post</b>':''}${x.pain>=.25?` · <span title="share of its posts that report an outage, a limit or a bug" style="color:var(--warning)">${Math.round(x.pain*100)}% complaints</span>`:''}${x.hn_points?` · ${x.hn_points} HN pts`:''}${nl} · newest ${ago(x.last)}</div>
  <div class=pth title="first post per network or newsletter, oldest first">${path}${tags.length?` <span class=dim>· ${tags.map(esc).join(', ')}</span>`:''}</div>
- <button class=more data-s="${esc(x.id)}">${open?'▾ hide posts':`▸ ${Math.min(10,x.posts.length)} posts`}</button>${open?`<ul>${x.posts.map(p=>`<li><span class=nettag>${esc(NETL[p.net]||p.net)}</span> <a href="${esc(p.url)}" target=_blank rel=noopener>${esc(p.title)}</a> <span class=dim>· ${esc(p.author)} · ${esc(p.at.slice(5,10))}${p.score!=null?` · ${p.score}`:''}</span></li>`).join('')}</ul>`:''}</div></div>`}
+ ${x.posts.length?`<button class=more data-s="${esc(x.id)}">${open?'▾ hide posts':`▸ ${Math.min(10,x.posts.length)} posts`}</button>`:''}${open?`<ul>${x.posts.map(p=>`<li><span class=nettag>${esc(NETL[p.net]||p.net)}</span> ${A(p.url,esc(p.title))} <span class=dim>· ${esc(p.author)} · ${esc(p.at.slice(5,10))}${p.score!=null?` · ${p.score}`:''}</span></li>`).join('')}</ul>`:''}</div></div>`}
 function newWhy(n){const v=n.new;if(!v)return '';const deep=v.deep.map(k=>k=='Newsletter'?'newsletters':k).join(' + ');
  if(v.leg=='build')return `${v.born} of ${v.repos} repos born in the last 30 days`;
  return v.base==0?`new: ${v.now} mentions on ${deep} this week, none in the 3 weeks before`:`${v.lift}× its usual share on ${deep} (${v.now} this week vs ${v.base} in the 3 weeks before)`}

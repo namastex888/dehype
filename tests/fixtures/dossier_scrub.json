@@ -1,0 +1,162 @@
+{
+ "note": "Synthetic dossier (no real accounts) for the group-A scrub and the dossier copy in pulse.py: tests/test_pulse.py ScrubTest. \"live\": stored posts duplicating two dossier HN posts (pulse.pool counts each once).",
+ "hype": {
+  "content_cutoff": "2026-10-07T00:00:00Z",
+  "items": {
+   "claude-code": {
+    "name": "Claude Code",
+    "aliases": [
+     "Claude Code CLI"
+    ],
+    "category": "terminal coding agent",
+    "links": {
+     "site": "https://example.test/claude-code",
+     "x_handle": "https://x.com/claudeai"
+    },
+    "summary": "Claude Code is a terminal coding agent.",
+    "summary_urls": [
+     "https://example.test/a",
+     "https://x.com/user_b/status/1002",
+     "https://www.reddit.com/r/ClaudeAI/comments/abc123/a_title/"
+    ],
+    "first_seen": "2026-10-01",
+    "first_seen_url": "https://x.com/user_a/status/1001",
+    "first_seen_meaning": "earliest sampled post",
+    "status": "Release notes are dated.",
+    "status_urls": [
+     "https://t.me/somechannel/7"
+    ],
+    "viral": {
+     "platform": null,
+     "post": null,
+     "account": null,
+     "followers": null,
+     "reason": "origin not established",
+     "cand_platform": "X",
+     "cand_post": "https://x.com/user_a/status/1001",
+     "cand_account": "@user_a"
+    },
+    "coord": {
+     "assessment": "not assessed",
+     "limitations": "No account-network audit.",
+     "disclosed": false,
+     "evidence": [{"t": "Vendor promotes its own trial.", "url": "https://x.com/user_e/status/1005", "d": ""}]
+    },
+    "traction": [
+     {"type": "reported_users", "value": 5000, "unit": "users", "ver": "self_report", "asof": "2026-10-01", "url": "https://x.com/user_a/status/1001", "notes": "Self-reported in a sampled post."},
+     {"type": "github_stars_snapshot", "value": 1000, "unit": "stars", "ver": "platform_observation", "asof": "2026-10-06", "url": "https://api.github.com/repos/example/cc", "notes": "Snapshot."}
+    ],
+    "skeptic": [
+     {"claim": "Users report long waits; unverified.", "by": "@user_d, sampled X post", "d": null, "url": "https://x.com/user_d/status/1004"},
+     {"claim": "A review notes the cost.", "by": "Example Outlet", "d": "2026-10-02", "url": "https://example.test/review"}
+    ],
+    "posts": [
+     {"pl": "X", "au": "user_a", "d": "2026-10-01", "likes": 100, "score": null, "cm": null, "rp": 5, "views": 1000, "url": "https://x.com/user_a/status/1001", "t": "Claude Code tip of the day"},
+     {"pl": "X", "au": "user_b", "d": "2026-10-02", "likes": 50, "score": null, "cm": null, "rp": null, "views": null, "url": "https://x.com/user_b/status/1002", "t": "Claude Code is great"},
+     {"pl": "X", "au": "user_c", "d": "2026-10-03", "likes": 20, "score": null, "cm": null, "rp": null, "views": null, "url": "https://x.com/user_c/status/1003", "t": "my new terminal setup"},
+     {"pl": "HN", "au": "hn_a", "d": "2026-10-04", "likes": null, "score": 120, "cm": 40, "rp": null, "views": null, "url": "https://news.ycombinator.com/item?id=9001", "t": "Claude Code ships hooks"},
+     {"pl": "HN", "au": "hn_b", "d": "2026-10-05", "likes": null, "score": 80, "cm": 20, "rp": null, "views": null, "url": "https://news.ycombinator.com/item?id=9002", "t": "Claude Code and long tasks"},
+     {"pl": "LinkedIn", "au": "Jane Doe", "d": "2026-10-05", "likes": 10, "score": null, "cm": 2, "rp": null, "views": null, "url": "https://www.linkedin.com/posts/jane-doe_activity-1", "t": "Claude Code at work"},
+     {"pl": "YouTube", "au": "Some Channel", "d": "2026-10-06", "likes": null, "score": null, "cm": null, "rp": null, "views": 500, "url": "https://www.youtube.com/watch?v=abc", "t": "Claude Code tutorial"},
+     {"pl": "Telegram", "au": "chan", "d": "2026-10-06", "likes": null, "score": null, "cm": null, "rp": null, "views": 30, "url": "https://t.me/somechannel/7", "t": ""}
+    ],
+    "notes": {
+     "momentum": "The launch post has 1,234 likes and 56 replies. Release dated October 1.",
+     "traction": "Self-reported only.",
+     "gap": null,
+     "confidence": "low"
+    },
+    "evidence_in": {
+     "usage": [{"value": 5000, "unit": "users", "type": "reported_users", "url": "https://x.com/user_a/status/1001", "missingness": "observed"}]
+    },
+    "discovery": {
+     "metrics": [{"value": 5000, "unit": "users", "type": "reported_users", "url": "https://x.com/user_a/status/1001", "missingness": "observed"}]
+    }
+   },
+   "zephyr": {
+    "name": "Zephyr Agent",
+    "aliases": [],
+    "category": "agent framework",
+    "links": {},
+    "summary": "Zephyr Agent has 300 GitHub stars and 12 HN replies.",
+    "summary_urls": [],
+    "viral": {
+     "reason": "not established"
+    },
+    "coord": {
+     "evidence": []
+    },
+    "traction": [],
+    "skeptic": [],
+    "notes": {},
+    "posts": [
+     {"pl": "HN", "au": "hn_c", "d": "2026-10-04", "likes": null, "score": 60, "cm": 10, "rp": null, "views": null, "url": "https://news.ycombinator.com/item?id=9003", "t": "Zephyr Agent 1.0 released"},
+     {"pl": "HN", "au": "hn_d", "d": "2026-10-05", "likes": null, "score": 30, "cm": 5, "rp": null, "views": null, "url": "https://news.ycombinator.com/item?id=9004", "t": "Zephyr Agent on small models"},
+     {"pl": "X", "au": "user_f", "d": "2026-10-05", "likes": 40, "score": null, "cm": null, "rp": null, "views": null, "url": "https://x.com/user_f/status/1006", "t": "Zephyr Agent launch thread"}
+    ]
+   }
+  }
+ },
+ "dossier_sources": {
+  "keep": [
+   "Example Outlet"
+  ],
+  "network": [
+   {
+    "sha256": "5deebd1649a7339c9d00f37a28f5092f80c5661c7ebfa224c28e103970abbc26",
+    "network": "X",
+    "by": "X user, sampled X post"
+   }
+  ]
+ },
+ "dossier_x_figures": {
+  "placeholder": {
+   "en": "An X figure is not shown here: X appears as counts only. See the method page.",
+   "pt": "Um número do X não é mostrado aqui: o X aparece apenas como contagem. Veja a página de método."
+  },
+  "hits": [
+   {
+    "slug": "claude-code",
+    "field": "notes.momentum",
+    "sha256": "0fc8f5908f50938283e56887c95332b9b4f2af85722ec55a8400eecbafe3ecfe",
+    "disposition": "strip",
+    "reason": "likes and replies of an X post",
+    "sentence": "The launch post has #,### likes and ## replies."
+   },
+   {
+    "slug": "zephyr",
+    "field": "summary",
+    "sha256": "d124bf38055dd99775f03c39bf33e55545a6b792b8f279b0d2e37048bf5dec11",
+    "disposition": "keep",
+    "reason": "GitHub stars and HN replies, not X",
+    "sentence": "Zephyr Agent has 300 GitHub stars and 12 HN replies."
+   }
+  ]
+ },
+ "live": [
+  {
+   "net": "HN",
+   "pid": "9001",
+   "url": "https://news.ycombinator.com/item?id=9001",
+   "title": "Claude Code ships hooks",
+   "author": "hn_a",
+   "created": "2026-10-04T12:00:00Z",
+   "score": 120,
+   "comments": 40,
+   "source": "live",
+   "extra": {}
+  },
+  {
+   "net": "HN",
+   "pid": "9002",
+   "url": "https://news.ycombinator.com/item?id=9002",
+   "title": "Claude Code and long tasks",
+   "author": "hn_b",
+   "created": "2026-10-05T12:00:00Z",
+   "score": 80,
+   "comments": 20,
+   "source": "live",
+   "extra": {}
+  }
+ ]
+}
