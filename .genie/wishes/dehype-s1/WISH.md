@@ -434,6 +434,8 @@ node scripts/check_page.mjs
 
 ---
 
+> C1 note for C2/C3: the method pages carry `<a id="<english-slug>"></a>` lines before each pt heading; md2html must use them as the next heading id and skip auto-slugs for the pt file. The English `method` paragraphs in pulse.json/briefing.json must not render on pt pages; link the pt method anchor from strings.json `methods` instead. Data strings are rendered English: reuse check_page.mjs `ours` to map them back to keys.
+
 ### Group C3: Briefing first screen, method and audit pages, and the fold
 
 **Goal:** `web/index.html` becomes the dehype briefing with the gauge header, the method and audit pages exist, and every console URL and tab anchor in use today resolves to its dehype page, with search kept.

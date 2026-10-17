@@ -306,7 +306,7 @@ story  = "s:" + first 12 hex of sha1("release:" + topic id for a story about one
 repo   = owner/name    paper = arXiv id
 ```
 
-Toda história, amostra de tópico e passo de espalhamento mostrados carregam a URL do post original; um post só de contagem não carrega nenhuma.
+Cada história, amostra de tópico e passo de espalhamento mostrado carrega a URL do post original; um post só de contagem não carrega nenhuma.
 
 <a id="what-s-new"></a>
 ### O que há de novo
