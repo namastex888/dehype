@@ -4,6 +4,7 @@
 // briefing.json keeps the same rules plus its own: proposals with no label word, "not fetched" for an unfetched source, previews only.
 // verdicts.json and corrections.json (owner-reviewed) keep them too, and every verdict row resolves and carries its fields.
 // No post that removals.json (owner-reviewed) or checks/dossier-gone.json (bot-written) names by URL hash is still published.
+// The four feeds and the two page tables (scripts/dehype/compose.mjs) keep the same rules, and the pages load their language's table.
 // Our own text has en and pt (i18n/strings.json); headlines carry lang and are never translated; the method copies share anchors.
 // The dehype pages (the briefing in index.html, stories, output, hype, method, audit) load the shared dehype.css and dehype.js, name their
 // data files and keep the same rules; i18n/dossier.pt.json entries keep their form; every console URL and tab anchor folds to its page.
@@ -445,24 +446,58 @@ function hashList(f, key, dateKey, missing) {                    // {sha256: dat
   });
   return out;
 }
+// Feeds and page tables (design rows 15, 16; Decision 9; group D): scripts/dehype/compose.mjs writes the four feeds (RSS 2.0 and JSON
+// Feed 1.1, en and pt) and the per-language tables the pages load; all keep the public-data rules above (an RSS file read as text, its
+// entities decoded twice: its description holds escaped HTML), and the removal checks below cover the feeds. Their structure, the same
+// ids and headlines in both languages and their freshness against briefing.json are tests/test_feed.py's (a fixture here may change
+// briefing.json or strings.json alone).
+const FEEDS = ['feed.xml', 'feed.json', 'feed.pt.xml', 'feed.pt.json'], TABLES = { en: 'i18n/table.en.json', pt: 'i18n/table.pt.json' };
+const unxml = s => s.replace(/&(lt|gt|quot|apos|amp);/g, (m, e) => ({ lt: '<', gt: '>', quot: '"', apos: "'", amp: '&' })[e]);
+const FEED = {};
+let feedNote = 'no feeds';
+{
+  let items = 0;
+  for (const f of FEEDS) {
+    let raw;
+    try { raw = readFileSync(join(web, f), 'utf8'); } catch { fail.push(`${f} missing (scripts/dehype/compose.mjs writes the four feeds)`); continue; }
+    if (f.endsWith('.json')) { try { FEED[f] = JSON.parse(raw); } catch (e) { fail.push(`${f} unreadable: ${e.message}`); continue; } items = Math.max(items, (FEED[f].items || []).length); }
+    else FEED[f] = unxml(unxml(raw));
+  }
+  // the feeds count Mastodon posts and never link them: a feed reader keeps an item after a later check fails or the post is deleted
+  for (const [f, X] of Object.entries(FEED)) {
+    publicRules(f, X);
+    for (const u of (typeof X === 'string' ? X : JSON.stringify(X)).match(/https?:\/\/[^\s"'<>\\]+/g) || [])
+      if (STATUS_ANY.test(u) || STATUS_URL.test(u)) finding(f, 'Mastodon link in a feed (the feeds count Mastodon posts, never link them)', u);
+  }
+  for (const [lang, f] of Object.entries(TABLES)) {
+    const T = readJSON(f, `${f} missing (scripts/dehype/plugins/frontend.mjs writes the page tables from i18n/strings.json)`);
+    if (!T) continue;
+    publicRules(f, T);
+    need(T.lang === lang && T.strings && typeof T.strings === 'object' && Object.values(T.strings).every(e => text(e?.en) && (lang === 'en' || text(e?.pt))),
+      `${f} is not the ${lang} page table (lang "${lang}", every entry with its en${lang === 'pt' ? ' and pt' : ''} text)`);
+  }
+  feedNote = `feeds ${Object.keys(FEED).length} of ${FEEDS.length} (${items} items), page tables ${Object.keys(TABLES).join(' and ')}`;
+}
 let removalNote = 'no removals';
 {
   const R = hashList('removals.json', 'entries', 'date', 'removals.json missing (owner-reviewed; {"entries": []} when it holds no request)');
   const G = hashList('checks/dossier-gone.json', 'gone', 'found');
   let pending = 0;
-  for (const f of ['hype.json', 'pulse.json', 'briefing.json']) {
-    const X = f === 'hype.json' ? H : readJSON(f);
+  for (const f of ['hype.json', 'pulse.json', 'briefing.json', ...FEEDS]) {
+    const X = f === 'hype.json' ? H : FEEDS.includes(f) ? FEED[f] : readJSON(f);
     if (!X) continue;
-    const day = f === 'hype.json' ? null : String(X.generated_at || '').slice(0, 10);
+    // a feed is built from briefing.json: the day of its build (JSON Feed _dehype.generated_at) decides a request's next daily rebuild
+    const day = f === 'hype.json' ? null : String((FEEDS.includes(f) ? FEED[f.replace(/\.xml$/, '.json')]?._dehype?.generated_at : X.generated_at) || '').slice(0, 10);
     const why = u => {
       const h = sha(u), d = R.get(h);
       if (d !== undefined && (day === null || d < day)) return 'post named by removals.json is still published';
       if (d !== undefined) pending++;
       return G.has(h) ? 'post whose URL hash checks/dossier-gone.json lists is still published' : null;
     };
-    walk(X, '', (v, at) => { const w = typeof v === 'string' && /^https?:\/\//.test(v) && why(v); if (w) finding(f, w, at); });
+    if (typeof X === 'string') { for (const u of X.match(/https?:\/\/[^\s"'<>]+/g) || []) { const w = why(u); if (w) finding(f, w, u); } }
+    else walk(X, '', (v, at) => { const w = typeof v === 'string' && /^https?:\/\//.test(v) && why(v); if (w) finding(f, w, at); });
   }
-  removalNote = `removals: ${R.size} requests, ${G.size} dossier posts found gone, none published` + (pending ? ` (${pending} places in pulse.json or briefing.json await the next daily rebuild)` : '');
+  removalNote = `removals: ${R.size} requests, ${G.size} dossier posts found gone, none published` + (pending ? ` (${pending} places in pulse.json, briefing.json or the feeds await the next daily rebuild)` : '');
 }
 
 // Two languages (design rows 12 and 14; C17, C31, C33): every entry of i18n/strings.json has a non-empty en and pt with the same
@@ -600,9 +635,11 @@ let pageNote = 'no dehype pages';
   catch (e) { fail.push(e.code === 'ENOENT' ? 'dehype.js missing (the dehype pages share it)' : `dehype.js does not parse: ${e.message}`); }
   try { readFileSync(join(web, 'dehype.css')); } catch { fail.push('dehype.css missing (the dehype pages share it)'); }
   const keys = new Set([...js.matchAll(/'((?:ui|nav|kind|label|stories|output|hype|dossier|state|seen|sample|x_route|n|index|brief|soai|stale|method|audit|gauge|panel|reading)\.[\w.]+)'/g)].map(m => m[1]).filter(k => !/\.(json|html|md|css|js)$/.test(k) && !fieldNames.has(k)));
-  const loads = [...js.matchAll(/\b(?:load|opt)\('([^']+)'[,)]/g)].map(m => m[1]), ok = new Set(['i18n/strings.json', ...Object.values(PAGES).flat()]);
+  const loads = [...js.matchAll(/\b(?:load|opt)\('([^']+)'[,)]/g)].map(m => m[1]), ok = new Set([...Object.values(TABLES), ...Object.values(PAGES).flat()]);
   for (const f of loads) if (!ok.has(f)) finding('dehype.js', 'loads a file no dehype page names in data-src', f);
   if ((js.match(/\bfetch\(/g) || []).length !== 1) finding('dehype.js', 'fetches outside its one loader (load)', 'fetch(');
+  if (!js.includes(`const TABLE = { en: '${TABLES.en}', pt: '${TABLES.pt}' };`) || !/\bload\(TABLE\[/.test(js))
+    finding('dehype.js', `does not load its language's page table (const TABLE = { en: '${TABLES.en}', pt: '${TABLES.pt}' }; load(TABLE[lang]))`, 'TABLE');
   // the one script loaded from elsewhere: transformers.js for the search by meaning, exact-pinned, imported only from its literal URL
   const TF = js.match(/\bconst TF_URL = '(https:\/\/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@\d+\.\d+\.\d+)';/);
   if (!TF || (js.match(/\bimport\s*\(/g) || []).length !== 1 || !/\bimport\(TF_URL\)/.test(js))
@@ -701,4 +738,4 @@ function foldRules(js, S, keys) {
 for (const [rule, at] of Object.entries(found)) fail.push(`${rule} at ${at.length} place${at.length > 1 ? 's' : ''}, e.g. ${at.slice(0, 3).join(', ')}`);
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
-console.log(`page check ok: dehype.js parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${removalNote}; ${i18nNote}; ${pageNote}`);
+console.log(`page check ok: dehype.js parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${feedNote}; ${removalNote}; ${i18nNote}; ${pageNote}`);

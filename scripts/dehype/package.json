@@ -1,0 +1,9 @@
+{
+  "name": "dehype-compose",
+  "private": true,
+  "type": "module",
+  "description": "The one-shot Cordis composition (scripts/dehype/compose.mjs): the feed and frontend adapter plugins write the four feeds and the per-language tables into web/. Not needed to view the site.",
+  "dependencies": {
+    "@deepseek-ai/cordis": "4.0.4"
+  }
+}
