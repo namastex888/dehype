@@ -1,0 +1,1 @@
+{"note":"Bot-written, append-only: the SHA256 of the URL (as stored in web/hype.json) of each dossier post the deleted-post recheck found deleted or removed at its source (pulse.py); internal_posts() and hype_build.py --scrub drop such a post.","gone":[]}

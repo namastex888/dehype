@@ -2,7 +2,8 @@
 """HYPE tab builder: hype/hype_research.json -> web/hype.json (compact) + rank history.
 
 Run standalone:  python3 hype_build.py [--no-history]
-Scrub only:      python3 hype_build.py --scrub web/hype.json   (the public-data rules on the committed file; idempotent)
+Scrub only:      python3 hype_build.py --scrub web/hype.json   (the public-data rules on the committed file; idempotent; also drops every
+                 post that removals.json or checks/dossier-gone.json beside the file names: deletion-only, refresh.yml runs it daily)
 run.py calls build(con=..., run_id=...) automatically when hype/hype_research.json exists.
 
 NEVER INVENTS NUMBERS. Unknown -> null (rendered '—'). All social counts are the research agent's
@@ -22,7 +23,7 @@ from zoneinfo import ZoneInfo
 BASE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, BASE)
 import scoring
-from pulse import COUNT_ONLY, url_net          # the network and URL rules the daily file uses
+from pulse import COUNT_ONLY, url_net, url_hash, removal_lists   # the network, URL and removal rules the daily file uses
 WEB, HIST = (os.path.join(BASE, d) for d in ('web', 'history'))
 CACHE = os.environ.get('TRENDING_CACHE') or os.path.join(BASE, 'cache')
 RESEARCH = os.path.join(BASE, 'hype', 'hype_research.json')
@@ -238,15 +239,28 @@ def relink(o):
         if isinstance(v, (dict, list)): relink(v)
         elif is_url(v) and url_net(v) and not (k == 'x_handle' and X_PROFILE.match(v)): o[k] = cite(url_net(v))
 
-def scrub(H, srcs=None, figs=None):
+def drop_removed(o, drop):
+    """Any other field that still carries a removed post's URL becomes null (the claim beside it stays; the page shows no link)."""
+    for k, v in (o.items() if isinstance(o, dict) else enumerate(o)):
+        if isinstance(v, (dict, list)): drop_removed(v, drop)
+        elif is_url(v) and url_hash(v) in drop: o[k] = None
+
+def scrub(H, srcs=None, figs=None, drop=None):
     """Apply the group-A rules to a built hype.json in place; a second run changes nothing. srcs, figs: the owner-reviewed
-    skeptic[].by disposition list and X-figure list (default: web/i18n/). An unlisted name or hit is left for CI to fail."""
+    skeptic[].by disposition list and X-figure list (default: web/i18n/). An unlisted name or hit is left for CI to fail.
+    drop: SHA256 hashes of post URLs that web/removals.json names or web/checks/dossier-gone.json lists (default: both files in
+    web/); each such post leaves its item's posts, and the same URL anywhere else in an item becomes null (deletion-only, C34)."""
+    if drop is None:
+        removed, gone = removal_lists()
+        drop = removed | {e.get('sha256') for e in gone}
     srcs = srcs if srcs is not None else load(os.path.join(I18N, 'dossier-sources.json'), {})
     figs = figs if figs is not None else load(os.path.join(I18N, 'dossier-x-figures.json'), {})
     keep_by, by_net = set(srcs.get('keep') or []), {e['sha256']: e['by'] for e in srcs.get('network') or []}
     strip = {(e.get('slug'), e['field'], e['sha256']) for e in figs.get('hits') or [] if e['disposition'] == 'strip'}
     place = (figs.get('placeholder') or {}).get('en')
     for it in H['items'].values():
+        it['posts'] = [p for p in it.get('posts') or [] if not (is_url(p.get('url')) and url_hash(p['url']) in drop)]
+        drop_removed(it, drop)
         # counts only: an X, LinkedIn, YouTube, Telegram (or Reddit) post keeps its network and date; other posts lose the author
         it['posts'] = [{'pl': p['pl'], 'd': p.get('d')} if p.get('pl') in COUNT_ONLY else
                        {k: v for k, v in p.items() if k != 'au' and not (k == 'url' and url_net(v))} for p in it.get('posts') or []]
@@ -447,15 +461,22 @@ def build(con=None, run_id=None, repo_trust=None, tagger=None, tags=None, record
     return data
 
 def scrub_file(path):
-    """--scrub: apply the rules to a committed hype.json without a research pass; rewrites only when a byte changes."""
+    """--scrub: apply the rules to a committed hype.json without a research pass; rewrites only when a byte changes. The removal lists
+    are read beside the file (<dir>/removals.json, <dir>/checks/dossier-gone.json)."""
     raw = open(path, 'rb').read()
-    H = scrub(json.loads(raw))
+    removed, gone = removal_lists(os.path.dirname(os.path.abspath(path)))
+    drop = removed | {e.get('sha256') for e in gone}
+    H = json.loads(raw)
+    before = sum(len(it.get('posts') or []) for it in H['items'].values())
+    H = scrub(H, drop=drop)
+    after = sum(len(it.get('posts') or []) for it in H['items'].values())
     changed = json.dumps(H, ensure_ascii=False, separators=(',', ':')).encode() != raw
     if changed: save(path, H)
     nets = {}
     for it in H['items'].values():
         for p in it.get('posts') or []: nets[p.get('pl')] = nets.get(p.get('pl'), 0) + 1
     print(f"scrub {path}: {len(H['items'])} items, posts by network {nets}, {len(x_hits(H))} X-figure hits kept; "
+          f"{before - after} posts removed (removals.json {len(removed)} entries, checks/dossier-gone.json {len(gone)} hashes); "
           + ('rewritten' if changed else 'unchanged'))
 
 if __name__ == '__main__':

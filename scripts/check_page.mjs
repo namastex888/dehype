@@ -3,6 +3,7 @@
 // unless linked by its handle-free mastodon.social/statuses link with a fresh passing render check; no unlisted X figure).
 // briefing.json keeps the same rules plus its own: proposals with no label word, "not fetched" for an unfetched source, previews only.
 // verdicts.json and corrections.json (owner-reviewed) keep them too, and every verdict row resolves and carries its fields.
+// No post that removals.json (owner-reviewed) or checks/dossier-gone.json (bot-written) names by URL hash is still published.
 // Node standard library only. Usage: node scripts/check_page.mjs [webDir]
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -185,8 +186,11 @@ try {
   need(ids.size === P.nodes.length, 'pulse.json has duplicate node ids');
   for (const n of P.nodes) {
     need(P.windows.every(w => n.w?.[w] && Number.isFinite(n.w[w].weight)), `pulse node ${n.id} lacks window metrics`);
-    // a node seen only on count-only networks has its evidence in the counts, never as a shown post
-    need(Array.isArray(n.samples) && (n.samples.length > 0 || Object.keys(n.w?.['30d']?.nets || {}).every(k => COUNT_ONLY.has(k))),
+    // a node seen only on count-only networks, or only through posts the deleted-post recheck did not reach (B3), has its evidence
+    // in the counts, never as a shown post: every post it publishes (its spread) is then a count
+    const counted = r => r && typeof r === 'object' && POST_BODY.every(k => r[k] == null);
+    need(Array.isArray(n.samples) && (n.samples.length > 0 || Object.keys(n.w?.['30d']?.nets || {}).every(k => COUNT_ONLY.has(k))
+      || (Array.isArray(n.spread) && n.spread.length > 0 && n.spread.every(counted))),
       `pulse node ${n.id} has no evidence posts`);
   }
   for (const e of P.edges) need(ids.has(e.a) && ids.has(e.b), `pulse edge ${e.a}-${e.b} points at a missing node`);
@@ -357,7 +361,7 @@ function verdictRules(V, C) {
   for (const [f, lang] of [['POLICY.md', 'en'], ['POLICY.pt.md', 'pt']]) {
     let md = '';
     try { md = readFileSync(join(web, f), 'utf8'); } catch (e) { fail.push(`${f} missing: the ${lang} right-of-reply and corrections policy is published before the first FALSE row`); continue; }
-    for (const a of ['reply', 'corrections']) need(md.includes(`<a id="${a}"></a>`), `${f} lacks its <a id="${a}"></a> section`);
+    for (const a of ['reply', 'corrections', 'removals']) need(md.includes(`<a id="${a}"></a>`), `${f} lacks its <a id="${a}"></a> section`);
   }
   function resolve(id) {                                         // 'alias' | 'live' | 'archive' | null
     const seen = [id];
@@ -415,7 +419,45 @@ let verdictNote = 'no verdicts';
   verdictNote = verdictRules(V, C);
 }
 
+// Removal requests and deleted posts (design row 7, C34): removals.json (owner-reviewed) and checks/dossier-gone.json (bot-written,
+// append-only) name posts by the SHA256 of the post URL as stored (hashes, not the URLs); hype.json holds no URL either list names
+// (the removal pull request scrubs it); pulse.json and briefing.json hold no URL that dossier-gone.json lists, nor one that a
+// removals.json entry dated before their generated_at day (UTC) names: they drop a requested post at the next daily rebuild.
+const HEX64 = /^[0-9a-f]{64}$/;
+function hashList(f, key, dateKey, missing) {                    // {sha256: date} of the well-formed entries
+  const R = readJSON(f, missing), out = new Map();
+  if (R === null) return out;
+  publicRules(f, R);
+  if (!Array.isArray(R[key])) { fail.push(`${f} lacks its ${key} list`); return out; }
+  const shape = `{"sha256": "<64 hex>", "${dateKey}": "YYYY-MM-DD"}`;
+  R[key].forEach((e, i) => {
+    const ok = e && typeof e === 'object' && !Array.isArray(e) && HEX64.test(e.sha256 || '') && DAY.test(e[dateKey] || '')
+      && Object.keys(e).every(k => k === 'sha256' || k === dateKey);
+    if (ok) out.set(e.sha256, e[dateKey]); else finding(f, `entry is not ${shape}`, `${key}[${i}]`);
+  });
+  return out;
+}
+let removalNote = 'no removals';
+{
+  const R = hashList('removals.json', 'entries', 'date', 'removals.json missing (owner-reviewed; {"entries": []} when it holds no request)');
+  const G = hashList('checks/dossier-gone.json', 'gone', 'found');
+  let pending = 0;
+  for (const f of ['hype.json', 'pulse.json', 'briefing.json']) {
+    const X = f === 'hype.json' ? H : readJSON(f);
+    if (!X) continue;
+    const day = f === 'hype.json' ? null : String(X.generated_at || '').slice(0, 10);
+    const why = u => {
+      const h = sha(u), d = R.get(h);
+      if (d !== undefined && (day === null || d < day)) return 'post named by removals.json is still published';
+      if (d !== undefined) pending++;
+      return G.has(h) ? 'post whose URL hash checks/dossier-gone.json lists is still published' : null;
+    };
+    walk(X, '', (v, at) => { const w = typeof v === 'string' && /^https?:\/\//.test(v) && why(v); if (w) finding(f, w, at); });
+  }
+  removalNote = `removals: ${R.size} requests, ${G.size} dossier posts found gone, none published` + (pending ? ` (${pending} places in pulse.json or briefing.json await the next daily rebuild)` : '');
+}
+
 for (const [rule, at] of Object.entries(found)) fail.push(`${rule} at ${at.length} place${at.length > 1 ? 's' : ''}, e.g. ${at.slice(0, 3).join(', ')}`);
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
-console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}`);
+console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${removalNote}`);

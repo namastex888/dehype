@@ -1,0 +1,71 @@
+{
+  "note": "Group B3 (design row 7, C34, SC-13). now: the runs' clock. stored: posts in a scratch history DB [net, pid, url, title, author, created, score, comments, source, extra]. answers: what the stubbed lookups return per network and id (HN deleted, dead or timeout; Mastodon an HTTP status or timeout; Bluesky the URIs missing from getPosts; Reddit [deleted] or [removed]); an id not listed is present. Distinct title words (Zulu, Yankee, ...) mark each post in the outputs.",
+  "now": "2026-10-17T08:25:00Z",
+  "stored": {
+    "posts": [
+      ["HN", "101", "https://news.ycombinator.com/item?id=101", "Claude Code Zulu hooks deleted on HN", "hn_a", "2026-10-17T06:00:00Z", 300, 50, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["HN", "102", "https://news.ycombinator.com/item?id=102", "Claude Code Yankee hooks still on HN", "hn_b", "2026-10-17T05:00:00Z", 200, 40, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["HN", "104", "https://news.ycombinator.com/item?id=104", "Claude Code Xray hooks lookup timed out", "hn_c", "2026-10-17T04:00:00Z", 150, 30, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["Mastodon", "9001", "https://mastodon.social/@m_a/9001", "Claude Code Whiskey toot that was deleted", "m_a", "2026-10-17T03:00:00Z", 5, 1, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["Mastodon", "9002", "https://mastodon.social/@m_b/9002", "Claude Code Victor toot still up", "m_b", "2026-10-17T02:30:00Z", 4, 0, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["Bluesky", "at://did:plc:aaaa/app.bsky.feed.post/p1", "https://bsky.app/profile/b_a.example/post/p1", "Claude Code Uniform skeet that was deleted", "b_a.example", "2026-10-17T02:00:00Z", 9, 2, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["Bluesky", "at://did:plc:bbbb/app.bsky.feed.post/p2", "https://bsky.app/profile/b_b.example/post/p2", "Claude Code Tango skeet still up", "b_b.example", "2026-10-17T01:30:00Z", 7, 1, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["Reddit", "r1", "https://www.reddit.com/r/ClaudeAI/comments/r1/x/", "Claude Code Sierra thread removed by mods", "r_a", "2026-10-17T01:00:00Z", 12, 3, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["Reddit", "r2", "https://www.reddit.com/r/ClaudeAI/comments/r2/y/", "Claude Code Romeo thread still up", "r_b", "2026-10-17T00:30:00Z", 10, 2, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["Lobsters", "lb1", "https://lobste.rs/s/lb1", "Claude Code Quebec hooks explained", "lob_a", "2026-10-17T00:00:00Z", 30, 4, "live", {"link": "https://github.com/example/hookmarket"}]
+    ],
+    "passes": ["9001", "9002"],
+    "answers": {"HN": {"101": "deleted", "104": "timeout"}, "Mastodon": {"9001": 404}, "Bluesky": ["at://did:plc:aaaa/app.bsky.feed.post/p1"],
+                "Reddit": {"r1": "[removed]"}},
+    "gone": {"HN": "101", "Mastodon": "9001", "Bluesky": "at://did:plc:aaaa/app.bsky.feed.post/p1", "Reddit": "r1"},
+    "words": {"gone": ["Zulu", "Whiskey", "Uniform", "Sierra"], "count": ["Xray"], "shown": ["Yankee", "Victor", "Tango", "Quebec"]},
+    "totals_30d": {"HN": 2, "Mastodon": 1, "Bluesky": 1, "Reddit": 1, "Lobsters": 1}
+  },
+  "removal": {
+    "posts": [
+      ["HN", "105", "https://news.ycombinator.com/item?id=105", "Claude Code Papa hooks a person asked to remove", "hn_d", "2026-10-17T06:00:00Z", 300, 50, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["HN", "106", "https://news.ycombinator.com/item?id=106", "Claude Code Oscar hooks still listed", "hn_e", "2026-10-17T05:00:00Z", 200, 40, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["Lobsters", "lb2", "https://lobste.rs/s/lb2", "Claude Code November hooks explained", "lob_b", "2026-10-17T04:00:00Z", 30, 4, "live", {"link": "https://github.com/example/hookmarket"}]
+    ],
+    "removals": ["https://news.ycombinator.com/item?id=105"]
+  },
+  "dossier": {
+    "hype": {"generated_at": "2026-10-16T09:00:00Z", "content_cutoff": "2026-10-16T00:00:00Z", "items": {"claude-code": {
+      "name": "Claude Code", "aliases": ["Claude Code CLI"], "category": "terminal coding agent",
+      "first_seen_url": "https://news.ycombinator.com/item?id=301",
+      "posts": [
+        {"pl": "HN", "d": "2026-10-16", "score": 400, "cm": 90, "url": "https://news.ycombinator.com/item?id=301", "t": "Claude Code Mike dossier post now dead"},
+        {"pl": "HN", "d": "2026-10-16", "score": 300, "cm": 70, "url": "https://news.ycombinator.com/item?id=302", "t": "Claude Code Lima dossier post a person asked to remove"},
+        {"pl": "HN", "d": "2026-10-16", "score": 200, "cm": 50, "url": "https://news.ycombinator.com/item?id=303", "t": "Claude Code Kilo dossier post whose lookup timed out"},
+        {"pl": "HN", "d": "2026-10-16", "score": 150, "cm": 40, "url": "https://news.ycombinator.com/item?id=304", "t": "Claude Code Juliett dossier post still up"},
+        {"pl": "HN", "d": "2026-10-16", "score": 120, "cm": 30, "url": "https://news.ycombinator.com/item?id=305", "t": "Claude Code India dossier post also stored live"},
+        {"pl": "X", "d": "2026-10-15"}]}}},
+    "stored": [
+      ["HN", "305", "https://news.ycombinator.com/item?id=305", "Claude Code India dossier post also stored live", "hn_f", "2026-10-16T10:00:00Z", 120, 30, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["Lobsters", "lb3", "https://lobste.rs/s/lb3", "Claude Code Hotel hooks explained", "lob_c", "2026-10-16T11:00:00Z", 30, 4, "live", {"link": "https://github.com/example/hookmarket"}],
+      ["HN", "306", "https://news.ycombinator.com/item?id=306", "Claude Code Golf hooks still on HN", "hn_g", "2026-10-16T12:00:00Z", 90, 20, "live", {"link": "https://github.com/example/hookmarket"}]
+    ],
+    "removals": ["https://news.ycombinator.com/item?id=302"],
+    "answers": {"HN": {"301": "dead", "303": "timeout", "305": "deleted"}},
+    "words": {"gone": ["Mike", "Lima", "India"], "count": ["Kilo"], "shown": ["Juliett", "Hotel", "Golf"]},
+    "dropped": ["https://news.ycombinator.com/item?id=301", "https://news.ycombinator.com/item?id=302", "https://news.ycombinator.com/item?id=305"],
+    "found_gone": ["https://news.ycombinator.com/item?id=301", "https://news.ycombinator.com/item?id=305"]
+  },
+  "overlays": {
+    "policy_en_missing": {"files": {"POLICY.md": "<a id=\"reply\"></a>\n<a id=\"corrections\"></a>\n"},
+                          "expect": ["POLICY.md lacks its <a id=\"removals\"></a> section"]},
+    "policy_pt_missing": {"files": {"POLICY.pt.md": "<a id=\"reply\"></a>\n<a id=\"corrections\"></a>\n"},
+                          "expect": ["POLICY.pt.md lacks its <a id=\"removals\"></a> section"]},
+    "hype_removal_listed": {"files": {"removals.json": {"entries": [{"sha256": "$HN0", "date": "2026-10-17"}]}},
+                            "expect": ["hype.json: post named by removals.json is still published"]},
+    "hype_gone_listed": {"files": {"checks/dossier-gone.json": {"note": "fixture", "gone": [{"sha256": "$HN0", "found": "2026-10-17"}]}},
+                         "expect": ["hype.json: post whose URL hash checks/dossier-gone.json lists is still published"]},
+    "removals_bad_entry": {"files": {"removals.json": {"entries": [{"sha256": "ABC", "date": "2026-10-17"},
+                                                                   {"sha256": "1111111111111111111111111111111111111111111111111111111111111111", "date": "2026-10-17", "url": "https://example.org/post"}]}},
+                           "expect": ["removals.json: entry is not {\"sha256\": \"<64 hex>\", \"date\": \"YYYY-MM-DD\"} at 2 places"]},
+    "removals_missing": {"files": {"removals.json": null},
+                         "expect": ["removals.json missing (owner-reviewed; {\"entries\": []} when it holds no request)"]},
+    "clean_request": {"files": {"removals.json": {"entries": [{"sha256": "0000000000000000000000000000000000000000000000000000000000000000", "date": "2026-10-17"}]}},
+                      "ok": "removals: 1 requests, 0 dossier posts found gone, none published"}
+  }
+}
