@@ -1,12 +1,12 @@
-// Static page gate: the inline script parses, the data files parse, every field the page reads exists, and the public
+// Static page gate: dehype.js parses, the data files parse, every field the page reads exists, and the public
 // files keep the public-data rules (no person handle; Reddit, X, LinkedIn, YouTube, Telegram counts only; Mastodon counts only
 // unless linked by its handle-free mastodon.social/statuses link with a fresh passing render check; no unlisted X figure).
 // briefing.json keeps the same rules plus its own: proposals with no label word, "not fetched" for an unfetched source, previews only.
 // verdicts.json and corrections.json (owner-reviewed) keep them too, and every verdict row resolves and carries its fields.
 // No post that removals.json (owner-reviewed) or checks/dossier-gone.json (bot-written) names by URL hash is still published.
 // Our own text has en and pt (i18n/strings.json); headlines carry lang and are never translated; the method copies share anchors.
-// The dehype pages (stories, output, hype) load the shared dehype.css and dehype.js, name their data files and keep the same rules;
-// i18n/dossier.pt.json entries keep their form.
+// The dehype pages (the briefing in index.html, stories, output, hype, method, audit) load the shared dehype.css and dehype.js, name their
+// data files and keep the same rules; i18n/dossier.pt.json entries keep their form; every console URL and tab anchor folds to its page.
 // Node standard library only. Usage: node scripts/check_page.mjs [webDir]
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -28,7 +28,7 @@ const POST_BODY = ['title', 'author', 'url', 'link', 'score', 'comments', 'who',
 const NET_URL = [['Reddit', 'reddit\\.com|redd\\.it'], ['X', 'x\\.com|twitter\\.com|t\\.co|nitter\\.net|fxtwitter\\.com|vxtwitter\\.com'], ['LinkedIn', 'linkedin\\.com|lnkd\\.in'],
   ['YouTube', 'youtube\\.com|youtu\\.be|youtube-nocookie\\.com'], ['Telegram', 't\\.me|telegram\\.me']]
   .map(([n, h]) => [n, new RegExp(`^https?://(?:[\\w-]+\\.)*(?:${h})(?=[/:?#]|$)`, 'i')]);
-const ACCOUNT_URL = /^https?:\/\/(?!(?:[\w-]+\.)*npmjs\.(?:org|com)\/)[^\s?#]*\/@|bsky\.app\/profile\/[^/\s]+\/post\/|\/users\/[^/\s]+\/statuses\/|did:(?:plc|web):/i;
+const ACCOUNT_URL = /^https?:\/\/(?!(?:[\w-]+\.)*npmjs\.(?:org|com)\/|cdn\.jsdelivr\.net\/npm\/)[^\s?#]*\/@|bsky\.app\/profile\/[^/\s]+\/post\/|\/users\/[^/\s]+\/statuses\/|did:(?:plc|web):/i;
 const STATUS_URL = /^https:\/\/mastodon\.social\/statuses\/(\d{1,20})$/, LINK_MS = 7 * 864e5;
 let MC = {}, genAt = NaN;                                        // the render-check cache; pulse.json generated_at (ms)
 try { MC = JSON.parse(readFileSync(join(web, 'checks', 'mastodon-links.json'), 'utf8')).statuses || {}; }
@@ -142,13 +142,6 @@ function* prose(H) {                                             // the prose fi
   }
 }
 
-const html = readFileSync(join(web, 'index.html'), 'utf8');
-const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
-need(scripts.length === 1, `expected one inline script, found ${scripts.length}`);
-for (const s of scripts) {
-  try { new Function(s); } catch (e) { fail.push(`inline script does not parse: ${e.message}`); }
-}
-need(!/\/blob\/main\//.test(html), 'page links to /blob/main/ (default branch is dev)');
 
 const D = JSON.parse(readFileSync(join(web, 'data.json'), 'utf8'));
 for (const k of ['generated_at', 'generated_local', 'sources', 'scoring_version', 'windows', 'views', 'tracked', 'papers', 'repos', 'priors'])
@@ -479,7 +472,7 @@ let removalNote = 'no removals';
 // figure in their language, and equal their repository-root sources when those are beside webDir.
 const LANG = /^(?:und|[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-(?:[A-Z]{2}|\d{3}))?)$/;
 const TRANSLATED = /^(?:(?:headline|title)s?[_.-]?(?:en|pt|es|fr|de|tr|translated|translation|i18n|l10n)|translations?|translated)$/i;
-const SLUG = t => t.toLowerCase().replace(/<[^>]+>/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');    // web/index.html slug()
+const SLUG = t => t.toLowerCase().replace(/<[^>]+>/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');    // web/dehype.js SLUG (the console's slug)
 const PH = /\{(\w+)\}/g, places = t => [...String(t).matchAll(PH)].map(m => m[1]).sort().join(',');
 const flat = s => s.replace(/\s+/g, ' ');
 function methodDoc(md, explicit) {                                // headings as [level, id], fenced code blocks, ids and internal links
@@ -582,26 +575,31 @@ let i18nNote = 'no strings file';
   }
 }
 
-// dehype pages (design rows 10, 11, 13; C21, C24; group C2): each page is a static shell that loads dehype.css and dehype.js (no inline
+// dehype pages (design rows 10, 11, 13; C21, C24; groups C2 and C3): each page is a static shell that loads dehype.css and dehype.js (no inline
 // script), names the data files it reads in <body data-src> and renders only from them; dehype.js parses, loads no file by name but the
 // pages' data files and the i18n files, and uses only string keys with an en and pt entry; the page sources keep the public-data rules.
 // The Hype page carries the fixed wordings and the X-route disclosure, reads the removal lists (so the removal checks above cover what it
 // shows) and renders the fixed Portuguese notice for dossier prose with no reviewed entry; i18n/dossier.pt.json entries keep their form
 // (reviewed_in, a 64-hex hash, a pt text, a dossier prose field of hype.json); an entry whose hash no longer matches is a warning, because
 // the page then shows the English under the notice (C24: no S1 check requires a reviewed entry, and an empty file passes).
-const PAGES = { 'stories.html': ['briefing.json', 'pulse.json', 'verdicts.json'], 'output.html': ['briefing.json', 'data.json'],
-  'hype.html': ['hype.json', 'removals.json', 'checks/dossier-gone.json', 'i18n/dossier.pt.json', 'i18n/dossier-x-figures.json'] };
+const SEARCH = ['search-index.json', 'search-vectors.bin'];      // the console's search by meaning, kept by the fold (C21)
+const PAGES = { 'index.html': ['briefing.json', 'pulse.json', 'verdicts.json'], 'stories.html': ['briefing.json', 'pulse.json', 'verdicts.json'],
+  'output.html': ['briefing.json', 'data.json', ...SEARCH],
+  'hype.html': ['hype.json', 'removals.json', 'checks/dossier-gone.json', 'i18n/dossier.pt.json', 'i18n/dossier-x-figures.json', ...SEARCH],
+  'method.html': ['METHODOLOGY.md', 'METHODOLOGY.pt.md', 'POLICY.md', 'POLICY.pt.md'],
+  'audit.html': ['briefing.json', 'verdicts.json', 'corrections.json', 'removals.json', 'ledger/index.json'] };
 const HYPE_WORDS = { 'hype.cut': ['research dossier, content cut', 'not in the daily refresh'], 'hype.gap.note': ['heuristic only, not validation'],
   'hype.skeptic.note': ['sampled criticism, not checked against a primary source'] };
 const PT_NOTICE = 'Texto do dossiê em inglês; a versão em português aguarda revisão', PT_KEYS = new Set(['slug', 'field', 'sha256', 'pt', 'reviewed_in']);
 let pageNote = 'no dehype pages';
 {
-  const S = readJSON('i18n/strings.json')?.strings || {}, F = 'i18n/dossier.pt.json';
+  const SJ = readJSON('i18n/strings.json'), S = SJ?.strings || {}, F = 'i18n/dossier.pt.json';
+  const fieldNames = new Set(Object.values(SJ?.methods || {}).flatMap(Object.keys));   // the data files' method fields (method.top10), not string keys
   let js = '';
   try { js = readFileSync(join(web, 'dehype.js'), 'utf8'); new Function(js); }
   catch (e) { fail.push(e.code === 'ENOENT' ? 'dehype.js missing (the dehype pages share it)' : `dehype.js does not parse: ${e.message}`); }
   try { readFileSync(join(web, 'dehype.css')); } catch { fail.push('dehype.css missing (the dehype pages share it)'); }
-  const keys = new Set([...js.matchAll(/'((?:ui|nav|kind|label|stories|output|hype|dossier|state|seen|sample|x_route|n)\.[\w.]+)'/g)].map(m => m[1]).filter(k => !/\.(json|html|md|css|js)$/.test(k)));
+  const keys = new Set([...js.matchAll(/'((?:ui|nav|kind|label|stories|output|hype|dossier|state|seen|sample|x_route|n|index|brief|soai|stale|method|audit|gauge|panel|reading)\.[\w.]+)'/g)].map(m => m[1]).filter(k => !/\.(json|html|md|css|js)$/.test(k) && !fieldNames.has(k)));
   const loads = [...js.matchAll(/\b(?:load|opt)\('([^']+)'[,)]/g)].map(m => m[1]), ok = new Set(['i18n/strings.json', ...Object.values(PAGES).flat()]);
   for (const f of loads) if (!ok.has(f)) finding('dehype.js', 'loads a file no dehype page names in data-src', f);
   if ((js.match(/\bfetch\(/g) || []).length !== 1) finding('dehype.js', 'fetches outside its one loader (load)', 'fetch(');
@@ -653,9 +651,50 @@ let pageNote = 'no dehype pages';
   }
   if (stale) warn.push(`${F}: ${stale} entries no longer match the current English; the Hype page shows that English under the Portuguese notice`);
   pageNote = `pages ${Object.keys(PAGES).join(', ')} with ${keys.size} string keys; dossier.pt.json ${match} matching entries${stale ? `, ${stale} stale` : ''}`;
+  pageNote += '; ' + foldRules(js, S, keys);
+}
+// The fold (design row 11, C21; group C3): tests/fixtures/console_anchors.json lists every console URL form and tab anchor in use at 2bc0ace
+// with the dehype URL it must reach and the wordings the folded pages keep. dehype.js's fold() (between its fold:start and fold:end lines,
+// a pure function) must map each URL to exactly that target; the target page must be a dehype page here, and a method.html#<section>
+// target must be a heading id of METHODOLOGY.md (METHODOLOGY.pt.md carries the same ids, checked with the method copies). The briefing (between briefing:start and briefing:end) shows today's gauge values only:
+// no trend, no arrow (R2-4) and at most four gauges.
+function foldRules(js, S, keys) {
+  const F = 'tests/fixtures/console_anchors.json';
+  let A, fold;
+  try { A = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', F), 'utf8')); } catch (e) { fail.push(`${F} unreadable: ${e.message}`); return 'no fold list'; }
+  const src = (js.match(/\/\/ fold:start[^\n]*\n(?:\/\/[^\n]*\n)*(function fold\([\s\S]*?\n\})\n\/\/ fold:end/) || [])[1];
+  try { fold = new Function(`${src}; return fold;`)(); } catch (e) { fail.push(`dehype.js fold() missing or broken (between its fold:start and fold:end lines): ${e.message}`); return 'no fold'; }
+  let ids = null;                                                // the English heading ids; the Portuguese file shares them (checked above)
+  try { ids = methodDoc(readFileSync(join(web, 'METHODOLOGY.md'), 'utf8'), false).ids; } catch { }
+  for (const a of A.anchors || []) {
+    const [path, query = ''] = a.url.split('#')[0].split('?'), hash = a.url.includes('#') ? '#' + a.url.split('#').slice(1).join('#') : '';
+    let got; try { got = fold(hash, query ? '?' + query : '') ?? 'index.html'; } catch (e) { got = `throws ${e.message}`; }
+    if (path !== 'index.html') finding(F, 'console URL not on index.html', a.url);
+    if (got !== a.to) { finding('dehype.js', 'console URL does not fold to its dehype page', `${a.url} -> ${got} (want ${a.to})`); continue; }
+    const page = got.split(/[?#]/)[0];
+    if (!(page in PAGES)) finding(F, 'console URL folds to a page that is not a dehype page', `${a.url} -> ${page}`);
+    try { readFileSync(join(web, page)); } catch { finding(F, 'console URL folds to a missing page', `${a.url} -> ${page}`); }
+    const frag = got.includes('#') ? got.split('#')[1] : '';
+    if (page === 'method.html' && frag && ids && !ids.has(frag)) finding(F, 'console method anchor is not a heading id of the method page', `${a.url} -> #${frag}`);
+  }
+  for (const w of A.wordings || []) {
+    if (w.key in HYPE_WORDS) continue;                           // the Hype page's fixed wordings: checked above, with their texts
+    if (!(w.page in PAGES)) finding(F, 'wording on a page that is not a dehype page', w.page);
+    if (!keys.has(w.key)) finding('dehype.js', 'a folded page lacks a kept wording', `${w.page}: ${w.key}`);
+    else if (!(w.en || []).every(x => (S[w.key]?.en || '').toLowerCase().includes(x.toLowerCase()))) finding(F, 'kept wording changed', `${w.key}: "${(w.en || []).join('", "')}"`);
+  }
+  const tabs = new Set((A.anchors || []).map(a => a.tab));
+  for (const t of A.tabs || []) if (!tabs.has(t)) finding(F, 'console tab with no anchor in the list', t);
+  const brief = (js.match(/\/\/ briefing:start([\s\S]*?)\/\/ briefing:end/) || [])[1];
+  if (!brief) fail.push('dehype.js lacks its briefing:start ... briefing:end block (the briefing first screen)');
+  else {
+    if (/\.trend\b|\btrends?\[|[\u2191\u2193\u2197\u2198\u25b2\u25bc\u2b06\u2b07]|&uarr;|&darr;/.test(brief)) finding('dehype.js', 'the briefing shows a trend or arrow (none before 14 ledger days, R2-4)', 'briefing block');
+    if (!/\.gauges \|\| \[\]\)\.slice\(0, 4\)/.test(brief)) finding('dehype.js', 'the briefing does not cap the gauge header at four gauges', 'briefing block');
+  }
+  return `fold ${(A.anchors || []).length} console URLs over ${tabs.size} tabs, ${(A.wordings || []).length} kept wordings`;
 }
 
 for (const [rule, at] of Object.entries(found)) fail.push(`${rule} at ${at.length} place${at.length > 1 ? 's' : ''}, e.g. ${at.slice(0, 3).join(', ')}`);
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
-console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${removalNote}; ${i18nNote}; ${pageNote}`);
+console.log(`page check ok: dehype.js parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${removalNote}; ${i18nNote}; ${pageNote}`);

@@ -36,7 +36,7 @@ class PagesTest(unittest.TestCase):
         self.assertEqual(json.loads(read(os.path.join(WEB, PT)))['entries'], [])
         r = check_page()
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn('pages stories.html, output.html, hype.html', r.stdout)
+        self.assertIn('pages index.html, stories.html, output.html, hype.html, method.html, audit.html', r.stdout)
         self.assertIn('dossier.pt.json 0 matching entries', r.stdout)
 
     def test_dossier_fields_name_every_prose_field_with_its_hash(self):
@@ -115,6 +115,59 @@ class PagesTest(unittest.TestCase):
         self.assert_fails(check_page({'hype.json': H}), "hype.json: links.x_handle is not the project's own account")
         del orgs['openai']
         self.assert_fails(check_page({'i18n/x-org-accounts.json': {'accounts': orgs}}), "hype.json: links.x_handle is not the project's own account")
+
+
+class FoldTest(unittest.TestCase):
+    """Group C3 (design rows 9 display, 10, 11; C21, R2-4): the briefing first screen, the method and audit pages, and the fold of the
+    console's URLs (tests/fixtures/console_anchors.json), each as a Decision 14 overlay."""
+    @classmethod
+    def setUpClass(cls):
+        cls.js = read(os.path.join(WEB, 'dehype.js'))
+        cls.anchors = json.loads(read(os.path.join(ROOT, 'tests', 'fixtures', 'console_anchors.json')))
+
+    def assert_only(self, r, *msgs):
+        self.assertEqual(r.returncode, 1, r.stdout)
+        got = findings(r)
+        for m in msgs: self.assertTrue(any(g.startswith(m) for g in got), (m, got))
+        self.assertEqual(len(got), len(msgs), got)
+
+    def test_committed_site_folds_every_console_url(self):
+        r = check_page()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn(f"fold {len(self.anchors['anchors'])} console URLs over 5 tabs", r.stdout)
+        self.assertEqual({a['tab'] for a in self.anchors['anchors']}, set(self.anchors['tabs']))
+        self.assertEqual(self.anchors['tabs'], ['Pulse', 'Papers', 'Repos', 'Hype', 'Method'])   # the console's TABS at 2bc0ace
+
+    def test_a_console_url_that_folds_elsewhere_fails(self):
+        js = self.js.replace("if (tab === 'methodology') return go('method.html'", "if (tab === 'methodology') return go('index.html'")
+        self.assert_only(check_page({'dehype.js': js}), 'dehype.js: console URL does not fold to its dehype page')
+
+    def test_a_missing_target_page_fails(self):
+        r = check_page({'audit.html': None, 'method.html': None})
+        self.assertEqual(r.returncode, 1)
+        got = findings(r)
+        self.assertTrue(any(g.startswith('method.html missing') for g in got), got)
+        self.assertTrue(any(g.startswith('tests/fixtures/console_anchors.json: console URL folds to a missing page') for g in got), got)
+
+    def test_a_kept_wording_dropped_from_the_pages_fails(self):
+        js = self.js.replace("t('state.proposed')", "t('ui.none')")
+        self.assert_only(check_page({'dehype.js': js}), 'dehype.js: a folded page lacks a kept wording')
+
+    def test_the_briefing_shows_no_trend_or_arrow_and_at_most_four_gauges(self):
+        js = self.js.replace("${esc(tr(g.status))}</span></header>", "${esc(tr(g.status))}</span>${g.trend ? '↑' : ''}</header>")
+        self.assert_only(check_page({'dehype.js': js}), 'dehype.js: the briefing shows a trend or arrow')
+        js = self.js.replace("(B.gauges || []).slice(0, 4)", "(B.gauges || [])")
+        self.assert_only(check_page({'dehype.js': js}), 'dehype.js: the briefing does not cap the gauge header at four gauges')
+
+    def test_new_pages_keep_the_public_data_rules(self):
+        h = read(os.path.join(WEB, 'audit.html')).replace('</main>', '<a href="https://x.com/someone/status/1">x</a></main>')
+        self.assert_only(check_page({'audit.html': h}), 'audit.html: X link')
+
+    def test_method_page_reads_the_web_copies_and_links_no_blob(self):
+        self.assertIn("load('METHODOLOGY.pt.md')", self.js)
+        self.assertIn("load('POLICY.pt.md')", self.js)
+        self.assertNotIn("REPO + 'METHODOLOGY.md'", self.js)                 # the method and policy links go to method.html now
+        self.assertNotIn("'nav.console'", self.js)                          # the console tab is folded
 
 
 if __name__ == '__main__':
