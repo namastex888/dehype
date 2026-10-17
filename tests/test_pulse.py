@@ -1474,6 +1474,11 @@ class RemovalFixtureTest(unittest.TestCase):
                 self.assertEqual(r.returncode, code, r.stderr)
                 if code: self.assertEqual([l for l in r.stderr.splitlines() if l.startswith('- ')], [f"- pulse node {n['id']} has no evidence posts"])
 
+    def test_shown_title_drops_links_to_counts_only_networks(self):
+        t = pulse.unhandle('See https://x.com/someone/status/123 and x.com/abc/status/9 or https://www.reddit.com/r/a/comments/b/ via @bob, docs https://example.com/a')
+        self.assertNotIn('x.com', t); self.assertNotIn('reddit.com', t); self.assertNotIn('@bob', t)
+        self.assertIn('https://example.com/a', t)
+        self.assertEqual(pulse.unhandle('npm @scope/pkg stays'), 'npm @scope/pkg stays')
 
 if __name__ == '__main__':
     unittest.main()

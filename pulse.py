@@ -525,7 +525,13 @@ def pool(stored, internal):
     return stored + [p for p in internal if not p['url'] or (p['net'], p['url']) not in have]
 
 HANDLE = re.compile(r'(?<![\w/.@])@[A-Za-z0-9_][\w.-]*(?![\w/-])', re.A)       # @user in a shown title, not an npm @scope/package
-def unhandle(t): return HANDLE.sub('@…', t) if isinstance(t, str) else t
+URL_IN_TEXT = re.compile(r'https?://[^\s"\'<>]+')
+BARE_NET = re.compile(r'(?<![\w.])(?:www\.)?(?:reddit|x|twitter)\.com/\S*', re.I)   # a counts-only link written without its scheme
+def unhandle(t):
+    """A shown title keeps no @user, no link to a counts-only network, account page or status page (the gate's public rules)."""
+    if not isinstance(t, str): return t
+    t = URL_IN_TEXT.sub(lambda m: '…' if url_net(m.group(0)) else m.group(0), t)
+    return HANDLE.sub('@…', BARE_NET.sub('…', t))
 
 # A live Mastodon post links to https://mastodon.social/statuses/<id> (mastodon.social's own status id, no handle) only while its latest
 # logged-out render check (scripts/check_mastodon_links.mjs, cached in web/checks/mastodon-links.json) passed less than LINK_DAYS
