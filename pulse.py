@@ -70,10 +70,24 @@ def strip_html(s):
     s = html.unescape(re.sub(r'<[^>]+>', '', re.sub(r'</p>|<br\s*/?>', ' ', s)))
     return re.sub(r'\s+', ' ', re.sub(r'https?://\S+', ' ', s)).replace('\u200b', '').strip()
 
-def post(net, pid, url, title, author, created, score=None, comments=None, source='live', extra=None):
+def post(net, pid, url, title, author, created, score=None, comments=None, source='live', extra=None, lang=None):
+    extra = dict(extra or {})
+    if lang_tag(lang): extra['lang'] = lang_tag(lang)              # stored with the post, so an offline rebuild keeps it
     return {'net': net, 'pid': str(pid), 'url': url, 'title': re.sub(r'\s+', ' ', title or '').strip()[:400],
             'author': (author or '').strip()[:80], 'created': created, 'score': score, 'comments': comments, 'source': source,
-            'extra': extra or {}}
+            'extra': extra}
+
+# design row 12 (C17, C33): a headline or post title is shown as posted, never translated, with the language its source declares:
+# Mastodon's status `language`, Bluesky's record `langs` (the first), a feed's RSS <language> or Atom xml:lang; else "und".
+# HN, Lobsters, Reddit, arXiv, GitHub and the research dossier declare none. No language detection (deferred until measured).
+LANG_TAG = re.compile(r'([A-Za-z]{2,3})(?:[-_]([A-Za-z]{4}))?(?:[-_]([A-Za-z]{2}|\d{3}))?(?=$|[-_])')
+def lang_tag(v):
+    """A source's language value as a well-formed BCP 47 tag (language, optional script and region; other subtags dropped), else None."""
+    if isinstance(v, (list, tuple)): v = v[0] if v else None
+    m = isinstance(v, str) and LANG_TAG.match(v.strip())
+    if not m or m[1].lower() in ('und', 'mul', 'zxx', 'mis'): return None
+    return '-'.join(x for x in (m[1].lower(), m[2] and m[2].title(), m[3] and m[3].upper()) if x)
+def lang_of(p): return (p.get('extra') or {}).get('lang') or 'und'
 
 def link_extra(u):
     """The external page a post points at (kept for link_push); own-site links are not targets."""
@@ -119,7 +133,8 @@ def fetch_mastodon(instance='mastodon.social', pages=4):
                 card = (s.get('card') or {}).get('url') or next(iter(re.findall(r'<a\b(?![^>]*(?:hashtag|mention))[^>]*href="([^"]+)"', s.get('content') or '')), None)
                 out.append(post('Mastodon', s['id'], s.get('url') or s.get('uri'), text[:280],
                                 (s.get('account') or {}).get('acct'), s.get('created_at'),
-                                (s.get('favourites_count') or 0) + (s.get('reblogs_count') or 0), s.get('replies_count'), extra=link_extra(card)))
+                                (s.get('favourites_count') or 0) + (s.get('reblogs_count') or 0), s.get('replies_count'), extra=link_extra(card),
+                                lang=s.get('language')))
             max_id = d[-1]['id']
             if parse_dt(d[-1].get('created_at')) and parse_dt(d[-1]['created_at']) < cutoff: break
     return out
@@ -211,7 +226,8 @@ def parse_feed(raw, name, net, cutoff, cite=False, own=()):
     some vendor feeds carry a thousand items). Title + stripped body (capped) are kept for matching; the page shows the title."""
     root = ET.fromstring(raw)
     ns = {'a': 'http://www.w3.org/2005/Atom', 'c': 'http://purl.org/rss/1.0/modules/content/'}
-    out = []
+    out, XL = [], '{http://www.w3.org/XML/1998/namespace}lang'
+    feed_lang = root.findtext('channel/language') or root.get(XL)
     for it in root.findall('.//item') or root.findall('.//a:entry', ns):
         title = (it.findtext('title') or it.findtext('a:title', namespaces=ns) or '').strip()
         link = (it.findtext('link') or '').strip()
@@ -227,7 +243,8 @@ def parse_feed(raw, name, net, cutoff, cite=False, own=()):
             d, x = citations(body, tuple(own) + (host(link),))
             extra = {'domains': d, 'x': x}
         text = (title + ' \u241f ' + strip_html(body))[:1500]          # U+241F separator: body kept for matching only
-        out.append(post(net, link or f"{name}:{title}", link, text, name, date, extra=extra, source='official' if net in OFFICIAL else 'live'))
+        out.append(post(net, link or f"{name}:{title}", link, text, name, date, extra=extra, source='official' if net in OFFICIAL else 'live',
+                        lang=it.get(XL) or feed_lang))
     return out
 
 def own_hosts(f):
@@ -293,7 +310,8 @@ def fetch_bluesky():
             ext = ((p.get('embed') or {}).get('external') or {}).get('uri')
             out.append(post('Bluesky', p.get('uri'), f'https://bsky.app/profile/{a}/post/{rkey}',
                             (p.get('record') or {}).get('text', '')[:280], a, (p.get('record') or {}).get('createdAt'),
-                            (p.get('likeCount') or 0) + (p.get('repostCount') or 0), p.get('replyCount'), extra=link_extra(ext)))
+                            (p.get('likeCount') or 0) + (p.get('repostCount') or 0), p.get('replyCount'), extra=link_extra(ext),
+                            lang=(p.get('record') or {}).get('langs')))
     return out
 
 # ------------------------------------------------------------------ internal sources (already collected by run.py / research)
@@ -314,13 +332,13 @@ def internal_posts(drop=frozenset()):
         out = [p for p in out if not (p['url'] and url_hash(p['url']) in drop)]
         note('Tracker (papers + repos)', 'ok', f"{len(D['papers']['items'])} papers, {len(ranked)} repos ranked in 7d")
     except (OSError, KeyError, ValueError) as e:
-        note('Tracker (papers + repos)', 'failed', str(e)[:120])
+        note('Tracker (papers + repos)', 'failed', f'could not read data.json: {str(e)[:120]}')   # strings.json source.read_failed
     try:
         H = json.load(open(os.path.join(WEB, 'hype.json')))
         ds = [p for p in dossier_posts(H) if not (p['url'] and url_hash(p['url']) in drop)]; out += ds
         note('HYPE research dossier', 'ok', f"{len(ds)} sampled posts, content cutoff {H.get('content_cutoff')} (static, refreshed by hand)")
     except (OSError, KeyError, ValueError) as e:
-        note('HYPE research dossier', 'failed', str(e)[:120])
+        note('HYPE research dossier', 'failed', f'could not read hype.json: {str(e)[:120]}')
     return out
 
 def dossier_posts(H):
@@ -481,7 +499,7 @@ def emerging_phrases(posts, known_labels, covered=None, min_authors=3, limit=30)
 # Reddit, X, LinkedIn, YouTube and Telegram are counts only (their terms); Mastodon too, except a post whose render check passed (below).
 COUNT_ONLY = {'Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mastodon'}
 NAMED = DIGEST | OFFICIAL | {'arXiv', 'GitHub'}       # newsletter, feed, lab or paper and repo names stay; other authors are person handles
-POST_BODY = ('title', 'author', 'url', 'link', 'score', 'comments', 'who')
+POST_BODY = ('title', 'author', 'url', 'link', 'score', 'comments', 'who', 'lang')
 NET_URL = [(n, re.compile(r'^https?://(?:[\w-]+\.)*(?:' + h + r')(?=[/:?#]|$)', re.I)) for n, h in
            (('Reddit', r'reddit\.com|redd\.it'), ('X', r'x\.com|twitter\.com|t\.co|nitter\.net|fxtwitter\.com|vxtwitter\.com'), ('LinkedIn', r'linkedin\.com|lnkd\.in'),
             ('YouTube', r'youtube\.com|youtu\.be|youtube-nocookie\.com'), ('Telegram', r't\.me|telegram\.me'))]
@@ -702,11 +720,11 @@ def build(posts, lex, hype_items, repos=None, links=frozenset()):
         for _, p, dt in n['samples']:
             if p['url'] in seen_u or hidden(p, links): continue                   # a count-only post is in the counts, never a sample
             seen_u.add(p['url'])
-            samples.append(public({'net': p['net'], 'title': shown(p)[:200], 'url': link_url(p, links), 'date': iso(dt)[:10],
+            samples.append(public({'net': p['net'], 'title': shown(p)[:200], 'lang': lang_of(p), 'url': link_url(p, links), 'date': iso(dt)[:10],
                                    'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']}, links, hidden(p, links)))
             if len(samples) >= 8: break
         spread = [public({'net': net, 'at': iso(dt), 'day_only': dt.hour == dt.minute == dt.second == 0, 'author': p['author'], 'url': link_url(p, links),
-                          'title': shown(p)[:160], 'source': p['source']}, links, hidden(p, links))
+                          'title': shown(p)[:160], 'lang': lang_of(p), 'source': p['source']}, links, hidden(p, links))
                   for net, (dt, p) in sorted(n['origin'].items(), key=lambda x: (x[1][0].date(), x[0] in DIGEST, x[1][0]))]
         out_nodes.append({'id': n['id'], 'label': n['label'], 'kind': n['kind'], 'parent': n['parent'], 'w': W, 'rising': rising, 'spread': spread,
                           'first': (n['first'] or '')[:10], 'last': (n['last'] or '')[:10], 'samples': samples,
@@ -943,12 +961,15 @@ def _uf(n):
     def join(a, b): par[find(b)] = find(a)
     return find, join
 
+COUNT_ONLY_HEADLINE = '{net} discussion, title not shown'     # our own text: web/i18n/strings.json headline.count_only
 def headline_of(head, members, topic_label, links=frozenset()):
-    """(headline, url, link) of a story. A count-only title is never shown: the earliest post of a shown network stands in,
-    else the topic label, else a fixed line naming the network."""
+    """(headline, url, link, lang) of a story. A count-only title is never shown: the earliest post of a shown network stands in,
+    else the topic label (lang "und": a name), else a fixed line naming the network (our own text, lang "en", translated by its key)."""
     d = head if not hidden(head[0], links) else next((m for m in members if not hidden(m[0], links)), None)
-    if d: return unhandle(shown(d[0])[:220]), masto_link(d[0], links) or public_url(d[0]['url']), public_url((d[0].get('extra') or {}).get('link'))
-    return topic_label or f"{head[0]['net']} discussion, title not shown", None, None
+    if d: return (unhandle(shown(d[0])[:220]), masto_link(d[0], links) or public_url(d[0]['url']), public_url((d[0].get('extra') or {}).get('link')),
+                  lang_of(d[0]))
+    if topic_label: return topic_label, None, None, 'und'
+    return COUNT_ONLY_HEADLINE.format(net=head[0]['net']), None, None, 'en'
 
 # the substance a story's own posts link to (C8): a GitHub repository or an arXiv paper, read off the url and target link of its shown
 # posts only (a count-only post's link stays a count); tracker samples of its topics are "related in topic", never its substance
@@ -1082,7 +1103,7 @@ def stories(rel, limit=60, links=frozenset()):
         for d in c:
             for tid in d[2]: tags[tid] = tags.get(tid, 0) + 1
         top_t = max(tags, key=tags.get) if tags else None
-        headline, url, link = headline_of(head, c, label or next((x[top_t]['label'] for _, _, x, _ in c if top_t in x), None), links)
+        headline, url, link, hlang = headline_of(head, c, label or next((x[top_t]['label'] for _, _, x, _ in c if top_t in x), None), links)
         hn = max([d[0]['score'] or 0 for d in c if d[0]['net'] == 'HN'] or [0])
         age_h = (NOW - c[-1][1]).total_seconds() / 3600
         spread = (2 * math.log2(1 + len(voices)) + len([n for n in nets if n not in DIGEST | OFFICIAL]) + 1.5 * len(nl)
@@ -1094,12 +1115,12 @@ def stories(rel, limit=60, links=frozenset()):
         pain = sum(1 for d in c if mode(shown(d[0])) == 'pain') / len(c)
         kind = 'news' if covered else 'pain' if pain >= 0.5 else 'chatter'
         out.append({'id': cid, '_alt': alt, '_e0': iso(e0[1]), 'label': label, 'covered': covered, 'kind': kind, 'pain': round(pain, 2),
-                    'headline': headline, 'url': url, 'link': link, 'first': iso(c[0][1]), 'last': iso(c[-1][1]),
+                    'headline': headline, 'lang': hlang, 'url': url, 'link': link, 'first': iso(c[0][1]), 'last': iso(c[-1][1]),
                     'voices': len(voices), 'nets': nets, 'newsletters': sorted(nl), 'official': 'Official' in nets, 'hn_points': hn or None,
                     'key': key, 'path': path[:8], 'tags': [t for t, _ in sorted(tags.items(), key=lambda x: -x[1])[:5]],
                     'heat': round(spread * 0.5 ** (age_h / 48), 3),
                     'refs': own_refs([u for d in c if not hidden(d[0], links) for u in (d[0]['url'], (d[0].get('extra') or {}).get('link'))]),
-                    'posts': [public({'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': link_url(d[0], links), 'author': d[0]['author'], 'at': iso(d[1]),
+                    'posts': [public({'net': d[0]['net'], 'title': shown(d[0])[:200], 'lang': lang_of(d[0]), 'url': link_url(d[0], links), 'author': d[0]['author'], 'at': iso(d[1]),
                                       'score': d[0]['score'], 'comments': d[0]['comments']}, links, hidden(d[0], links))
                               for d in sorted(c, key=lambda d: -(d[0]['score'] or 0)) if not hidden(d[0], links)][:10]})
     # one id per story: when two clusters name the same release, the one whose earliest editorial post is earliest (then the lower
@@ -1497,9 +1518,9 @@ def evidence(s, st, nodes, chash, lo):
         for x in (nodes.get(tid) or {}).get('samples', []):
             if len(related) >= RELATED_MAX: break
             if x.get('source') == 'tracker' and x.get('url') and x['url'] not in taken:
-                taken.add(x['url']); related.append({'topic': tid, 'net': x['net'], 'title': x.get('title'), 'url': x['url']})
+                taken.add(x['url']); related.append({'topic': tid, 'net': x['net'], 'title': x.get('title'), 'lang': x.get('lang') or 'und', 'url': x['url']})
     return {'id': s['id'], 'state': 'proposed', 'method_version': BRIEFING_VERSION, 'config_hash': chash,
-            'headline': s['headline'], 'kind': s['kind'], 'release': s['label'], 'first': s['first'], 'last': s['last'],
+            'headline': s['headline'], 'lang': s.get('lang') or 'und', 'kind': s['kind'], 'release': s['label'], 'first': s['first'], 'last': s['last'],
             'seen': seen_reading(s['first'], lo), 'sources': st,
             'computed': {'covered': s['covered'], 'voices': s['voices'],
                          'networks': {n: reading(s['nets'].get(n), st[n]) for n in SPREAD_NETS},

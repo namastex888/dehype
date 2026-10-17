@@ -5,7 +5,7 @@ name: deploy
 on:
   push:
     branches: [dev]
-    paths: ['web/**', 'METHODOLOGY.md', '.github/workflows/deploy.yml']
+    paths: ['web/**', 'METHODOLOGY.md', 'METHODOLOGY.pt.md', '.github/workflows/deploy.yml']
   workflow_dispatch:
   workflow_call:
 permissions:
@@ -39,6 +39,7 @@ jobs:
       - name: Sync methodology and check the page
         run: |
           cp METHODOLOGY.md web/METHODOLOGY.md
+          cp METHODOLOGY.pt.md web/METHODOLOGY.pt.md
           node scripts/check_page.mjs
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:

@@ -1,6 +1,6 @@
 # Methodology
 
-Current discovery method **3.0**; historical **2.0** remains executable with its frozen configuration. Code: [scoring.py](scoring.py); parameters: [scoring_config.json](scoring_config.json). The page renders `web/METHODOLOGY.md`, an identical copy.
+Current discovery method **3.0**; historical **2.0** remains executable with its frozen configuration. Code: [scoring.py](scoring.py); parameters: [scoring_config.json](scoring_config.json). The page renders `web/METHODOLOGY.md`, an identical copy; the Portuguese text is [METHODOLOGY.pt.md](METHODOLOGY.pt.md), copied to `web/METHODOLOGY.pt.md` the same way, with the same sections and anchors.
 
 ## Overview
 
@@ -38,6 +38,18 @@ HYPE Attention ranks raw scores among the window's sampled-post candidates; HYPE
 | Social research dossier (HYPE only) | sampled posts, unique authors, platforms, sourced usage figures, skeptic signals | a purposive public-source sample, not exhaustive listening. HN is about 2,019 of 2,163 sampled posts. No growth series, so acceleration can't be measured. Not committed to the repo |
 
 Every source failure falls back to the last good cached payload and is reported in `data.json["sources"]`.
+
+## X route and public data
+
+X route: the X counts, and the attention scores built from X posts, come from the 2026-10-07 research pass, whose notes name "x_search" reports and "X syndication" readbacks. Whether those are X's published interfaces, and whether a paid call was made, is not on record. An X count is a number of posts in our sample, never reach; no X text, link or figure is shown.
+
+The public files (`pulse.json`, `briefing.json`, `hype.json`) carry no person handle: conversation-network authors, account-naming post URLs and the dossier's account fields are left out. Reddit, X, LinkedIn, YouTube, Telegram and Discord posts are counts only, with no title, author, link or score; a Mastodon post is a count unless its handle-free mastodon.social link passed a logged-out render check less than 7 days before the build. `scripts/check_page.mjs` fails the build on any of them.
+
+Headlines and post titles are shown as posted, in their own language, and are never translated. Each carries a `lang` tag from the source's own metadata (the Mastodon status `language`, the first Bluesky `langs` entry, the feed's RSS `<language>` or Atom `xml:lang`), else `und` (undetermined); Hacker News, Lobsters, Reddit, arXiv, GitHub and the research dossier publish no language, so their titles read `und`. A headline that is a topic label reads `und`; the fixed line `<network> discussion, title not shown` is our own text. Everything we write ourselves has an English and a Portuguese entry in [web/i18n/strings.json](web/i18n/strings.json).
+
+On the 2026-10-16 data, removing handles and X, LinkedIn, YouTube and Telegram content from the research dossier changed 30-day topic voices by -0.2% (29 of 157 topics; 13 project topics gained one voice when their X posts were placed on them), weight by -3.5% and signal by 1.7 points on average on 133 topics; 7-day voices and weight did not change. The effect ends when the dossier's posts, dated up to 2026-10-07, leave the 30-day window (about 2026-11-06).
+
+Measured once, on the store of refresh run 38948143514 (artifact `history-38948143514`, the 2026-10-16 data), with `python3 pulse.py --offline` run before and after the scrub on the same store.
 
 ## Normalization
 
@@ -243,7 +255,7 @@ spread  = first item per network; a newsletter never takes the earliest slot of 
 edge    = number of posts that match both topics (co-mention); parent links (Opus 5.5 → Claude Opus) are always drawn
 ```
 
-Votes, views and reach do not enter the weight: they are not comparable across networks and one viral account would dominate. A node is only as strong as the posts listed under it; the drawer shows them with network, date, author and score. Matching is lexical, so sarcasm, negation and quotes count as mentions, and a rumour node records that people discussed a name, not that the thing exists.
+Votes, views and reach do not enter the weight: they are not comparable across networks and one viral account would dominate. A node is only as strong as the posts listed under it; the drawer shows them with network, date and score (a conversation-network author is never shown; see [X route and public data](#x-route-and-public-data)). Matching is lexical, so sarcasm, negation and quotes count as mentions, and a rumour node records that people discussed a name, not that the thing exists.
 
 ### Briefing
 

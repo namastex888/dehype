@@ -1115,10 +1115,10 @@ def main():
             'windows': [w for w, _ in WINDOWS], 'views': VIEWS, 'tracked': {'papers': len(papers), 'repos': len(repos)},
             'papers': out['papers'], 'repos': out['repos']}
     save_json(os.path.join(WEB, 'data.json'), data)
-    try:    # the page renders web/METHODOLOGY.md; the repo-root METHODOLOGY.md is the source of truth
-        import shutil; shutil.copyfile(os.path.join(BASE, 'METHODOLOGY.md'), os.path.join(WEB, 'METHODOLOGY.md'))
-    except OSError:
-        pass
+    import shutil    # the page renders web/METHODOLOGY.md and web/METHODOLOGY.pt.md; the repo-root files are the source of truth
+    for name in ('METHODOLOGY.md', 'METHODOLOGY.pt.md'):
+        try: shutil.copyfile(os.path.join(BASE, name), os.path.join(WEB, name))
+        except OSError: pass
     log(f'done run {run_id} ({kind}, scoring v{scoring.SCORING_VERSION}) in {secs}s; papers {len(papers)}, repos {len(repos)}')
     for t in ('papers', 'repos'):
         print(t, {w: len(out[t][w]['all']['rows']) for w, _ in WINDOWS})
