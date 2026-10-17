@@ -1,0 +1,7 @@
+{
+  "rows": [
+    {"id": "s:0a0a0a0a0a0a", "label": "REAL", "claim": "The vendor released the model weights under an open licence",
+     "source": "https://example.org/announcement", "reason": {"en": "The announcement links the weights and the licence.", "pt": "O anúncio traz o link dos pesos e da licença."},
+     "commit": "1a2b3c4", "confirmed": "2026-10-08"}
+  ]
+}

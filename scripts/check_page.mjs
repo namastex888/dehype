@@ -2,8 +2,9 @@
 // files keep the public-data rules (no person handle; Reddit, X, LinkedIn, YouTube, Telegram counts only; Mastodon counts only
 // unless linked by its handle-free mastodon.social/statuses link with a fresh passing render check; no unlisted X figure).
 // briefing.json keeps the same rules plus its own: proposals with no label word, "not fetched" for an unfetched source, previews only.
+// verdicts.json and corrections.json (owner-reviewed) keep them too, and every verdict row resolves and carries its fields.
 // Node standard library only. Usage: node scripts/check_page.mjs [webDir]
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 
@@ -177,7 +178,7 @@ try {
 }
 
 // Pulse topic map (optional): ids unique, edges point at nodes, every node carries its windows and evidence posts.
-let pulseNote = 'no pulse map';
+let pulseNote = 'no pulse map', live = new Set();                 // live: the day's story ids (verdict rows below)
 try {
   const P = JSON.parse(readFileSync(join(web, 'pulse.json'), 'utf8'));
   const ids = new Set(P.nodes.map(n => n.id));
@@ -214,6 +215,7 @@ try {
   // privacy: cited X handles are a ranking of (often pseudonymous) accounts; they stay in history/citations.json, never on the site
   need(!/"x_handles"/.test(readFileSync(join(web, 'pulse.json'), 'utf8')), 'pulse.json publishes x_handles (keep them in history/citations.json)');
   genAt = Date.parse(P.generated_at);
+  live = new Set((P.stories || []).map(s => s.id));
   const links = new Set((readFileSync(join(web, 'pulse.json'), 'utf8').match(/https:\/\/mastodon\.social\/statuses\/\d+/g) || []));
   pulseNote = `pulse ${P.nodes.length} topics${P.projects ? `, ${Object.keys(P.projects).length} projects` : ''}, ${links.size} Mastodon links`;
   publicRules('pulse.json', P);
@@ -313,7 +315,102 @@ try {
   briefNote = briefingRules(B);
 } catch (e) { fail.push(`briefing.json unreadable: ${e.message}`); }
 
+// Verdict file (design row 7; C2, C10, C11, C30, C32): owner-reviewed rows, never in a bot commit (scripts/check_owner_files.py in ci.yml).
+// A row's s: id resolves through story-aliases.json to the story that took its posts (before a live story of the same id: B1 note), else to
+// a story in the day's pulse.json, else to an id a ledger/ids/YYYY-MM-DD.json archive file records as published. An upgraded row (REAL,
+// OVERHYPED, FALSE, PUSHED) carries its named claim (the document, for PUSHED), a primary source URL that is never an X, LinkedIn or YouTube
+// post, a reason in en and pt, the confirming commit and the confirmed date; a FALSE row links the right-of-reply and corrections path.
+const VERDICT_KEYS = new Set(['id', 'label', 'claim', 'document', 'source', 'reason', 'commit', 'confirmed', 'reply']);
+const UPGRADED = new Set(['REAL', 'OVERHYPED', 'FALSE', 'PUSHED']), CLAIMED = new Set(['REAL', 'OVERHYPED', 'FALSE']);
+const NO_SOURCE_NET = new Set(['X', 'LinkedIn', 'YouTube']), REPLY_PATH = 'POLICY.md#reply';
+const SID = /^s:[0-9a-f]{12}$/, DAY = /^\d{4}-\d{2}-\d{2}$/, COMMIT = /^[0-9a-f]{7,40}$/;
+const CORRECTION_KEYS = new Set(['id', 'date', 'kind', 'about', 'text', 'link']);
+const text = v => typeof v === 'string' && v.trim() !== '';
+function readJSON(f) {                                           // null when absent
+  try { return JSON.parse(readFileSync(join(web, f), 'utf8')); }
+  catch (e) { if (e.code !== 'ENOENT') fail.push(`${f} unreadable: ${e.message}`); return null; }
+}
+function archive() {                                             // ledger/ids/YYYY-MM-DD.json (written by group E1): {"date", "ids": [...]}
+  const ids = new Set(); let files = [];
+  try { files = readdirSync(join(web, 'ledger', 'ids')).filter(f => f.endsWith('.json')).sort(); }
+  catch (e) { if (e.code !== 'ENOENT') fail.push(`ledger/ids unreadable: ${e.message}`); }
+  for (const f of files) {
+    const A = readJSON(`ledger/ids/${f}`);
+    if (A && DAY.test(A.date || '') && `${A.date}.json` === f && Array.isArray(A.ids) && A.ids.every(x => SID.test(x))) A.ids.forEach(x => ids.add(x));
+    else if (A) fail.push(`ledger/ids/${f} is not {"date": "<its file name date>", "ids": ["s:<12 hex>", ...]}`);
+  }
+  return { ids, days: files.length };
+}
+function aliasMap() {                                            // story-aliases.json (pulse.py, bot-written): {"aliases": {old: {to, since}}}
+  const A = readJSON('story-aliases.json'), out = {};
+  if (A === null) return out;
+  if (!A.aliases || typeof A.aliases !== 'object' || Array.isArray(A.aliases)) { fail.push('story-aliases.json lacks its aliases map'); return out; }
+  for (const [k, e] of Object.entries(A.aliases)) {
+    if (SID.test(k) && SID.test(e?.to || '') && e.to !== k && DAY.test(e.since || '')) out[k] = e.to;
+    else finding('story-aliases.json', 'alias is not "s:<id>": {"to": "s:<another id>", "since": "YYYY-MM-DD"}', `aliases.${k}`);
+  }
+  return out;
+}
+function verdictRules(V, C) {
+  const F = 'verdicts.json', alias = aliasMap(), ar = archive(), how = { live: 0, alias: 0, archive: 0 };
+  for (const [f, lang] of [['POLICY.md', 'en'], ['POLICY.pt.md', 'pt']]) {
+    let md = '';
+    try { md = readFileSync(join(web, f), 'utf8'); } catch (e) { fail.push(`${f} missing: the ${lang} right-of-reply and corrections policy is published before the first FALSE row`); continue; }
+    for (const a of ['reply', 'corrections']) need(md.includes(`<a id="${a}"></a>`), `${f} lacks its <a id="${a}"></a> section`);
+  }
+  function resolve(id) {                                         // 'alias' | 'live' | 'archive' | null
+    const seen = [id];
+    while (alias[seen.at(-1)] && !seen.includes(alias[seen.at(-1)])) seen.push(alias[seen.at(-1)]);
+    if (alias[seen.at(-1)]) finding('story-aliases.json', 'alias cycle', `aliases.${id}`);
+    if (seen.length > 1 && live.has(seen.at(-1))) return 'alias';
+    if (live.has(id)) return 'live';
+    return seen.some(x => ar.ids.has(x)) ? 'archive' : null;
+  }
+  const rows = Array.isArray(V?.rows) ? V.rows : [];
+  need(Array.isArray(V?.rows), 'verdicts.json lacks its rows list');
+  rows.forEach((r, i) => {
+    const at = `rows[${i}]`;
+    if (!r || typeof r !== 'object' || Array.isArray(r)) return finding(F, 'verdict row is not an object', at);
+    for (const k of Object.keys(r)) if (!VERDICT_KEYS.has(k)) finding(F, `verdict row carries a field outside the verdict shape (${k}); a label is on a claim or story, never on a person or account`, `${at}.${k}`);
+    if (!SID.test(r.id || '')) finding(F, 'verdict row id is not a story id ("s:" and 12 hex)', `${at}.id`);
+    else { const h = resolve(r.id); if (h) how[h]++; else finding(F, 'orphaned s: id: resolves to no story in pulse.json, no id in a ledger/ids/ archive file and no story-aliases.json alias', `${at}.id`); }
+    if (!LABEL_WORDS.has(r.label)) return finding(F, 'verdict row label is not REAL, OVERHYPED, FALSE, PUSHED or UNVERIFIED', `${at}.label`);
+    if (r.source != null && NO_SOURCE_NET.has(urlNet(String(r.source)))) finding(F, 'verdict row primary source is an X, LinkedIn or YouTube post (a claim with only an X source stays UNVERIFIED and names the account and date with no link)', `${at}.source`);
+    if (!UPGRADED.has(r.label)) return;
+    if (CLAIMED.has(r.label) && !text(r.claim)) finding(F, `${r.label} verdict row lacks its named claim`, `${at}.claim`);
+    if (r.label === 'PUSHED' && !text(r.document)) finding(F, 'PUSHED verdict row lacks its document (a public document showing an undisclosed paid or material connection)', `${at}.document`);
+    if (!/^https?:\/\/[^\s]+$/.test(r.source || '')) finding(F, 'upgraded verdict row lacks its primary source URL', `${at}.source`);
+    for (const lang of ['en', 'pt']) if (!text(r.reason?.[lang])) finding(F, `upgraded verdict row lacks its reason in ${lang}`, `${at}.reason.${lang}`);
+    if (!COMMIT.test(r.commit || '')) finding(F, 'upgraded verdict row lacks its confirming commit (7 to 40 hex)', `${at}.commit`);
+    if (!DAY.test(r.confirmed || '')) finding(F, 'upgraded verdict row lacks its confirmed date (YYYY-MM-DD)', `${at}.confirmed`);
+    if (r.label === 'FALSE' && r.reply !== REPLY_PATH) finding(F, `FALSE verdict row does not link the right-of-reply and corrections path (${REPLY_PATH})`, `${at}.reply`);
+  });
+  // corrections.json: entries c:1, c:2, ... in order (appended, never edited over: scripts/check_owner_files.py compares the base commit)
+  const E = Array.isArray(C?.entries) ? C.entries : [];
+  need(Array.isArray(C?.entries), 'corrections.json lacks its entries list');
+  E.forEach((e, i) => {
+    const at = `entries[${i}]`;
+    if (!e || typeof e !== 'object' || Array.isArray(e)) return finding('corrections.json', 'correction entry is not an object', at);
+    for (const k of Object.keys(e)) if (!CORRECTION_KEYS.has(k)) finding('corrections.json', `correction entry carries a field outside the entry shape (${k})`, `${at}.${k}`);
+    if (e.id !== `c:${i + 1}`) finding('corrections.json', 'correction entry id is not its place in the log (c:1, c:2, ...)', `${at}.id`);
+    if (!DAY.test(e.date || '') || !['correction', 'reply'].includes(e.kind)) finding('corrections.json', 'correction entry lacks its date or kind (correction or reply)', at);
+    if (e.about != null && !SID.test(e.about)) finding('corrections.json', 'correction entry about is not a story id', `${at}.about`);
+    // our correction is written in both languages; a reply is the replying party's own words, in the language they sent
+    if (e.kind === 'reply' ? !(text(e.text?.en) || text(e.text?.pt)) : !(text(e.text?.en) && text(e.text?.pt))) finding('corrections.json', 'correction entry lacks its text (a correction in en and pt, a reply in the language sent)', `${at}.text`);
+    if (e.link != null && !/^https?:\/\/[^\s]+$/.test(e.link)) finding('corrections.json', 'correction entry link is not a URL', `${at}.link`);
+  });
+  return `verdicts ${rows.length} rows (${how.live} live, ${how.alias} by alias, ${how.archive} by archive; ${Object.keys(alias).length} aliases, ${ar.days} archive days), ${E.length} corrections`;
+}
+let verdictNote = 'no verdicts';
+{
+  const V = readJSON('verdicts.json'), C = readJSON('corrections.json');
+  if (V) publicRules('verdicts.json', V);
+  if (C) publicRules('corrections.json', C);
+  need(V && C, 'verdicts.json or corrections.json missing (owner-reviewed files: {"rows": []}, {"entries": []})');
+  verdictNote = verdictRules(V, C);
+}
+
 for (const [rule, at] of Object.entries(found)) fail.push(`${rule} at ${at.length} place${at.length > 1 ? 's' : ''}, e.g. ${at.slice(0, 3).join(', ')}`);
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
-console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}`);
+console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}`);

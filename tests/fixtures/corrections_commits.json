@@ -1,0 +1,14 @@
+{"_comment": "SC-12 fixture commits for scripts/check_owner_files.py: tests/test_pulse.py commits base as web/corrections.json in a scratch git repository, then each variant on top, and runs the check against the base commit. edit changes entry c:2, remove drops it, append adds c:3.",
+ "base": {"entries": [
+  {"id": "c:1", "date": "2026-10-20", "kind": "correction", "about": "s:0a0a0a0a0a0a", "text": {"en": "The source date was 2026-10-15.", "pt": "A data da fonte era 2026-10-15."}},
+  {"id": "c:2", "date": "2026-10-21", "kind": "reply", "about": "s:0a0a0a0a0a0a", "text": {"en": "The vendor replies that the weights shipped later."}, "link": "https://example.org/reply"}]},
+ "edit": {"entries": [
+  {"id": "c:1", "date": "2026-10-20", "kind": "correction", "about": "s:0a0a0a0a0a0a", "text": {"en": "The source date was 2026-10-15.", "pt": "A data da fonte era 2026-10-15."}},
+  {"id": "c:2", "date": "2026-10-21", "kind": "reply", "about": "s:0a0a0a0a0a0a", "text": {"en": "The vendor replies that the weights shipped on time."}, "link": "https://example.org/reply"}]},
+ "remove": {"entries": [
+  {"id": "c:1", "date": "2026-10-20", "kind": "correction", "about": "s:0a0a0a0a0a0a", "text": {"en": "The source date was 2026-10-15.", "pt": "A data da fonte era 2026-10-15."}}]},
+ "append": {"entries": [
+  {"id": "c:1", "date": "2026-10-20", "kind": "correction", "about": "s:0a0a0a0a0a0a", "text": {"en": "The source date was 2026-10-15.", "pt": "A data da fonte era 2026-10-15."}},
+  {"id": "c:2", "date": "2026-10-21", "kind": "reply", "about": "s:0a0a0a0a0a0a", "text": {"en": "The vendor replies that the weights shipped later."}, "link": "https://example.org/reply"},
+  {"id": "c:3", "date": "2026-10-22", "kind": "correction", "about": "s:0a0a0a0a0a0a", "text": {"en": "Entry c:2's reply is answered by the vendor's changelog.", "pt": "A resposta da entrada c:2 é respondida pelo changelog do fornecedor."}, "link": "https://example.org/changelog"}]}
+}

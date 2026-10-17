@@ -1343,6 +1343,50 @@ def briefing(stories_, nodes, sources, D, now, method, days=0):
             'panels': [{'id': 'risk', 'name': 'Risk', 'form': 'dated, sourced event log; no dial', 'events': [], 'reading': NO_SOURCE},
                        {'id': 'jobs', 'name': 'Jobs', 'form': 'panel', 'reading': NO_SOURCE}]}
 
+# ------------------------------------------------------------------ story-id aliases (web/story-aliases.json; design row 7, C2, C32)
+ALIAS_METHOD = ('story-id aliases (bot-written each run, apart from the owner-reviewed web/verdicts.json): the day\'s stories are compared with '
+                'the previous pulse.json. A post is its network and shown link (network and date for a post with no shown link); newsletter '
+                'issues are left out because one issue carries many stories. An earlier story maps to the story of the day that holds the most '
+                'of its posts when that is at least half of them and more than the story under its own id still holds (a tie keeps no alias; '
+                'among other stories the lower id wins). The map is cumulative: an old alias follows its target\'s move, an alias back to itself '
+                'is dropped, and since = the BRT date the alias was first written. A verdict row resolves through an alias before a live story '
+                'of the same id, because the alias names the story that took its posts')
+
+def post_keys(s):
+    """A story's posts as the public file shows them: (network, link), or (network, date) for a post with no shown link."""
+    return {(x.get('net'), x.get('url') or '@' + str(x.get('at'))) for x in (s.get('posts') or []) + (s.get('path') or [])
+            if x.get('net') not in DIGEST}
+
+def story_aliases(prev, today, old=None, day=''):
+    """Old story id -> {to, since}. prev / today: story lists of the previous and the day's pulse.json; old: the previous alias map."""
+    cur = [(s['id'], post_keys(s)) for s in today]
+    held = dict(cur)
+    moved = {}
+    for s in prev:
+        k = post_keys(s)
+        if not k: continue
+        own = len(k & held.get(s['id'], set()))
+        hits = sorted(((len(k & kk), sid) for sid, kk in cur if sid != s['id'] and k & kk), key=lambda t: (-t[0], t[1]))
+        if hits and hits[0][0] > own and 2 * hits[0][0] >= len(k): moved[s['id']] = hits[0][1]
+    out = {}
+    for a, e in sorted((old or {}).items()):
+        to = moved.get(e.get('to'), e.get('to')) if isinstance(e, dict) else None
+        if isinstance(to, str) and to != a: out[a] = {'to': to, 'since': e.get('since') or day}
+    for a, to in sorted(moved.items()):
+        if a in out: out[a]['to'] = to
+        else: out[a] = {'to': to, 'since': day}
+    return out
+
+def write_aliases(prev_stories, today, now, path=None):
+    """Write web/story-aliases.json from the previous pulse.json's stories (None: no readable previous file) and the day's."""
+    path = path or os.path.join(WEB, 'story-aliases.json')
+    try: old = json.load(open(path)).get('aliases') or {}
+    except (OSError, ValueError, AttributeError): old = {}
+    A = story_aliases(prev_stories or [], today, old, now.astimezone(BRT).date().isoformat())
+    with open(path, 'w') as f:
+        json.dump({'generated_at': iso(now), 'method': ALIAS_METHOD, 'aliases': A}, f, separators=(',', ':'), ensure_ascii=False, sort_keys=True)
+    return A
+
 def main():
     relink = '--relink' in sys.argv
     offline = '--offline' in sys.argv or relink
@@ -1350,6 +1394,8 @@ def main():
     EMERGING_STOP.update(x.lower() for x in lex.get('emerging_stop', []))
     try: hype_items = json.load(open(os.path.join(WEB, 'hype.json')))['items']
     except (OSError, KeyError, ValueError): hype_items = {}
+    try: prev_pulse = json.load(open(os.path.join(WEB, 'pulse.json')))      # the previous run's file: feed status, story-id aliases
+    except (OSError, ValueError): prev_pulse = None
     con = db()
     if not offline:
         for name, fn in (('Hacker News (Algolia)', fetch_hn), ('Lobsters (ai tag)', fetch_lobsters), ('Mastodon (mastodon.social tags)', fetch_mastodon),
@@ -1366,11 +1412,10 @@ def main():
             print(name, SOURCES[name], flush=True)
     if offline:                                              # keep the last live run's feed status, labelled as such
         try:
-            prev = json.load(open(os.path.join(WEB, 'pulse.json'))).get('sources', {})
-            for k, v in prev.items():
+            for k, v in prev_pulse.get('sources', {}).items():
                 if k not in ('Tracker (papers + repos)', 'HYPE research dossier'):
                     SOURCES[k] = v if relink else {'status': v['status'], 'detail': v['detail'].split(' [as of last live run]')[0] + ' [as of last live run]'}
-        except (OSError, ValueError, KeyError): pass
+        except (AttributeError, KeyError): pass
         for k in ADAPTERS:
             SOURCES.setdefault(k, {'status': 'unknown', 'detail': 'not fetched in this offline rebuild'})
     stored = load_stored(con)
@@ -1400,6 +1445,8 @@ def main():
     for name, data in (('pulse.json', out), ('briefing.json', brief)):        # written together, so the pair always comes from one run
         with open(os.path.join(WEB, name), 'w') as f:
             json.dump(data, f, separators=(',', ':'), ensure_ascii=False)
+    # --relink rebuilds the same day's stories over this run's own pulse.json, so the aliases from the previous day's file stay as written
+    aliases = None if relink else write_aliases(prev_pulse.get('stories') if isinstance(prev_pulse, dict) else None, extras['stories'], NOW)
     # X handles cited by newsletters are a ranking of (often pseudonymous) accounts: kept for the owner's review, never published
     with open(os.path.join(HIST, 'citations.json'), 'w') as f:
         json.dump({'generated_at': iso(NOW), 'note': 'private: X handles cited by newsletter items, a candidate follow list; not published',
@@ -1408,7 +1455,7 @@ def main():
     print(f'pulse: {len(nodes)} topics, {len(edges)} links, 7d posts by network {totals["7d"]}; Mastodon render-check candidates {len(want)}, '
           f'linked {len(shown_ids)} (fresh passes in the cache {len(links)}); briefing: {len(brief["records"])} records, Top 10 '
           f'{sum(1 for t in brief["top10"] if t["seen"] == NEW_TODAY)} new today + {sum(1 for t in brief["top10"] if t["seen"] != NEW_TODAY)} heat fill, '
-          f'window end {brief["window"]["end_brt"]}')
+          f'window end {brief["window"]["end_brt"]}; story-id aliases ' + ('kept (relink)' if aliases is None else str(len(aliases))))
 
 if __name__ == '__main__':
     main()
