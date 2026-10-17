@@ -432,7 +432,9 @@ function staleSince(generatedAt, now) {                          // the briefing
   return now >= Date.parse(next + 'T06:00:00Z') - (spAt(probe).wall - probe) ? d : null;
 }
 // stale:end
-const staleBanner = B => { const d = staleSince(B.generated_at, Date.now()); return d ? `<div class="banner stale" role="status"><p><b>${esc(t('stale.since', { date: d }))}.</b> <span class="sn">${esc(t('stale.note', { date: d, at: B.window?.end_brt || B.generated_at }))}</span></p></div>` : ''; };
+const staleBanner = B => {                                       // "stale since" the briefing's date, and the 06:00 BRT update it missed (the next date)
+  const d = staleSince(B.generated_at, Date.now()), next = d && new Date(Date.parse(d + 'T12:00:00Z') + DAY).toISOString().slice(0, 10);
+  return d ? `<div class="banner stale" role="status"><p><b>${esc(t('stale.since', { date: d, deadline: next }))}.</b> <span class="sn">${esc(t('stale.note', { date: d, at: B.window?.end_brt || B.generated_at }))}</span></p></div>` : ''; };
 // ------------------------------------------------------------------ search by meaning (the console's semantic search, kept by the fold, C21)
 // The model and index of scripts/embed/embed.mjs: search-index.json and search-vectors.bin load on the first query and the query is embedded in
 // the browser by transformers.js (pinned, from jsDelivr; the model from Hugging Face), so it never leaves the browser. Nothing downloads until
@@ -483,7 +485,7 @@ const GAUGE = {
   output_by_area: v => {
     const A = [...v.areas].sort((a, b) => b.papers - a.papers), hi = Math.max(1, ...A.map(a => a.papers)), sum = k => A.reduce((n, a) => n + a[k], 0);
     return `<div class="gb"><div><p class="big"><span class="num">${nf(sum('papers'))}</span><span class="u">${esc(t('brief.out.papers'))}</span></p>
-<p class="sub">${esc(t('brief.out.sub', { r: nf(sum('repos')), date: v.since }))} <a href="${href('output')}">${esc(t('brief.out.go'))}</a></p></div>
+<p class="sub">${esc(t('brief.out.sub', { r: nf(sum('repos')), date: '\u0000' })).replace('\u0000', `<span class="nw">${esc(v.since)}</span>`)} <a href="${href('output')}">${esc(t('brief.out.go'))}</a></p></div>
 <ul class="hb" aria-label="${esc(t('brief.out.mini'))}">${A.map(a => `<li title="${esc(nm(a.area))}: ${nf(a.papers)} · ${nf(a.repos)}"><span>${esc(nm(a.area))}</span><i style="--w:${(a.papers / hi * 100).toFixed(1)}%"></i><b class="mono">${nf(a.papers)}</b></li>`).join('')}</ul></div>`;
   },
   hype_vs_substance: v => {                                      // no story known either way: the count of unknowns leads (never an invented 0)
@@ -513,11 +515,13 @@ async function index() {
   render = () => {
     $('#when').innerHTML = `${esc(t('brief.window', { end: B.window?.end_brt || B.generated_at }))} · <span class="dim">${esc(t('brief.made', { ago: ago(B.generated_at, Date.now()) }))}</span>`;
     $('#stale').innerHTML = staleBanner(B);
-    $('#body').innerHTML = `<section class="soai" aria-labelledby="soai-h"><h2 id="soai-h">${esc(t('soai.title'))}</h2>
+    $('#body').innerHTML = `<section class="soai" aria-labelledby="soai-h"><div class="soai-h"><h2 id="soai-h">${esc(t('soai.title'))}</h2><span class="mono">${esc(t('soai.line', { days: nf(B.ledger_days ?? 0) }))}</span></div>
 <div class="gauges">${G.map(g => gauge(g, GAUGE[g.id] && g.value != null ? GAUGE[g.id](g.value) : '')).join('')}
-<div class="panels">${(B.panels || []).map(p => `<p class="pn"><span class="lbl">${esc(tr(p.name))}</span> <span class="none">${(p.events || []).length ? p.events.map(e => `<span class="mono">${esc(e.date || '')}</span> ${link(e.url, esc(e.text || e.title || ''))}`).join(' · ') : esc(tr(p.reading))}</span>${p.form && p.form !== 'panel' ? ` <span class="dim">· ${esc(tr(p.form))}</span>` : ''}</p>`).join('')}</div></div></section>
+<div class="panels">${(B.panels || []).map(p => `<p class="pn"><span class="lbl">${esc(tr(p.name))}</span> <span class="none">${(p.events || []).length ? p.events.map(e => `<span class="mono">${esc(e.date || '')}</span> ${link(e.url, esc(e.text || e.title || ''))}`).join(' · ') : esc(tr(p.reading))}</span>${p.form && p.form !== 'panel' ? ` <span class="dim">· ${esc(tr(p.form))}</span>` : ''}</p>`).join('')}</div></div><div class="dots" aria-hidden="true">${[...G, 0].map((_, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</div></section>
 <section class="top" aria-labelledby="top-h"><div class="sec-h"><h2 id="top-h">${esc(t('brief.top.title'))}</h2><p>${esc(t('brief.top.rule'))} <a href="${METHOD()}#${esc(anchor)}">${esc(t('ui.method'))}</a></p><a class="go" href="${href('stories')}">${esc(t('brief.top.all', { n: nf(recs.size) }))}</a></div>
 <ol class="stories brief">${(B.top10 || []).map(x => recs.get(x.id)).filter(Boolean).map((r, i) => evidence(r, by.get(r.id), ver.get(r.id), i, now, true)).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ol></section>`;
+    const strip = $('.gauges'), dots = $$('.dots i');                // narrow screens: the gauge strip scrolls; the dots show which card is in view
+    strip.onscroll = () => { const w = strip.firstElementChild.getBoundingClientRect().width + 10, k = Math.round(strip.scrollLeft / w); dots.forEach((d, i) => d.classList.toggle('on', i === k)); };
   };
   render();
 }
