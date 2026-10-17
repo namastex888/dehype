@@ -1,0 +1,9 @@
+{
+  "name": "dehype-checks",
+  "private": true,
+  "type": "module",
+  "description": "Pinned tools for the refresh checks: the logged-out Mastodon render check (scripts/check_mastodon_links.mjs). Not needed to view the site or run the unit tests.",
+  "dependencies": {
+    "playwright-core": "1.59.1"
+  }
+}

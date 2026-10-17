@@ -15,3 +15,6 @@ shots/
 
 # semantic-search builder dependencies
 scripts/embed/node_modules/
+
+# Mastodon render-check dependencies (playwright-core)
+scripts/checks/node_modules/

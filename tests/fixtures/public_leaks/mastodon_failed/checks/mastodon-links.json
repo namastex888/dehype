@@ -1,0 +1,13 @@
+{
+ "note": "fixture",
+ "updated_at": "2026-09-20T05:25:00Z",
+ "statuses": {
+  "111": {
+   "result": "fail",
+   "checked_at": "2026-09-19T05:25:00Z",
+   "passed_at": null,
+   "api_status": 200,
+   "reason": "not-found page"
+  }
+ }
+}

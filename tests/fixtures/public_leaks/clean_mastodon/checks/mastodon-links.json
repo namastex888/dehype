@@ -1,0 +1,12 @@
+{
+ "note": "fixture",
+ "updated_at": "2026-09-20T05:25:00Z",
+ "statuses": {
+  "111": {
+   "result": "pass",
+   "checked_at": "2026-09-14T05:25:00Z",
+   "passed_at": "2026-09-14T05:25:00Z",
+   "api_status": 200
+  }
+ }
+}
