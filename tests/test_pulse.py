@@ -1,5 +1,5 @@
 """Pulse topic extraction and metrics on fixed posts (offline), and the public-data rules (design group A)."""
-import contextlib, copy, hashlib, io, json, os, shutil, subprocess, sys, tempfile, unittest
+import contextlib, copy, hashlib, io, json, os, re, shutil, sqlite3, subprocess, sys, tempfile, unittest, urllib.parse
 from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -556,13 +556,17 @@ class ScrubTest(unittest.TestCase):
         self.assertEqual({z['id']: z for z in nodes}[pulse.PROJECT_TOPIC['claude-code']]['w']['30d']['where']['HN'], {'posts': 4, 'voices': 3})
 
     def test_committed_hype_is_scrubbed_with_counts_kept(self):
-        # the counts of the committed file at 2bc0ace: a group that removes dossier posts (B3) or a research pass must update them
+        # the counts of the committed file at 2bc0ace; from B3 on, the daily refresh's scrub removes the dossier posts that
+        # web/removals.json or web/checks/dossier-gone.json names, so a network may fall by at most that many (a research pass resets them)
         raw = open(os.path.join(ROOT, 'web', 'hype.json'), 'rb').read()
         H = json.loads(raw)
         nets = {}
         for it in H['items'].values():
             for x in it['posts']: nets[x['pl']] = nets.get(x['pl'], 0) + 1
-        self.assertEqual((len(H['items']), nets), (82, {'X': 125, 'HN': 268, 'YouTube': 4, 'LinkedIn': 6, 'Telegram': 1, 'GitHub': 1}))  # as at 2bc0ace
+        base = {'X': 125, 'HN': 268, 'YouTube': 4, 'LinkedIn': 6, 'Telegram': 1, 'GitHub': 1}                         # as at 2bc0ace
+        removed, gone = pulse.removal_lists(os.path.join(ROOT, 'web'))
+        self.assertEqual(len(H['items']), 82); self.assertLessEqual(set(nets), set(base))
+        for net, n in base.items(): self.assertTrue(n - len(removed) - len(gone) <= nets.get(net, 0) <= n, (net, nets.get(net)))
         self.assertEqual(json.dumps(hype_build.scrub(H), ensure_ascii=False, separators=(',', ':')).encode(), raw)   # idempotent
         figs = json.load(open(os.path.join(ROOT, 'web', 'i18n', 'dossier-x-figures.json')))
         keep = {(e['slug'], e['field'], e['sha256']) for e in figs['hits'] if e['disposition'] == 'keep'}
@@ -848,14 +852,18 @@ class OfflineRebuildTest(unittest.TestCase):
         self.assertEqual(B['generated_at'], P['generated_at'])
         self.assertEqual({v['status'] for k, v in B['sources'].items() if k in pulse.ADAPTERS}, {'unknown'})
         self.assertEqual([r['id'] for r in B['records']], [s['id'] for s in P['stories']])
-        hooks = next(r for r in B['records'] if 'hooks' in r['headline'].lower())
+        # B3: --offline makes no recheck call, so HN 501 and 502 are counts (C34, Decision 20): the Lobsters title leads the hooks
+        # story and muse loses the paper only HN 502 linked; both HN posts are counted and never shown
+        hooks = next(r for r in B['records'] if 'hookmarket' in r['headline'].lower())
         muse = next(r for r in B['records'] if 'muse' in r['headline'].lower())
         self.assertEqual(hooks['computed']['official'], 'not fetched'); self.assertIs(muse['computed']['official'], True)
         self.assertEqual(hooks['computed']['newsletters'], 'not fetched')
         self.assertEqual(hooks['computed']['networks']['Bluesky'], 'not fetched')
         self.assertEqual(hooks['computed']['networks']['HN'], 1)
         self.assertEqual(hooks['substance']['repos'], ['https://github.com/example/hooks'])          # not the Reddit post's link
-        self.assertEqual(muse['substance']['papers'], ['https://arxiv.org/abs/2610.01234'])
+        self.assertEqual((hooks['headline'], muse['substance']['papers'], muse['computed']['networks']['HN']),
+                         ('HookMarket plugin marketplace for Claude Code explained', [], 1))
+        self.assertNotIn('item?id=50', json.dumps([P, B])); self.assertNotIn('open weights for a new LLM', json.dumps([P, B]))
         self.assertIn('https://github.com/example/hookkit', [x['url'] for x in hooks['related_in_topic']['items']])
         self.assertEqual(hooks['related_in_topic']['reading'], 'related in topic')
         for r in B['records']: self.assertEqual(r['state'], 'proposed')
@@ -1154,6 +1162,13 @@ class OwnerFilesTest(unittest.TestCase):
             self.assertEqual(r.returncode, 1)
             self.assertIn(f'commit {sha[:7]}', r.stderr)
             self.assertIn('by the refresh bot touches web/verdicts.json (owner-reviewed: enters only by a merged pull request)', r.stderr)
+        with tempfile.TemporaryDirectory() as d:                                         # B3: web/removals.json is owner-reviewed too
+            git = self.repo(d)
+            base = self.commit(git, d, 'web/removals.json', {'entries': []})
+            sha = self.commit(git, d, 'web/removals.json', {'entries': [{'sha256': '0' * 64, 'date': '2026-10-17'}]}, who=bot)
+            r = self.run_check(d, base)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn(f'commit {sha[:7]} by the refresh bot touches web/removals.json (owner-reviewed', r.stderr)
 
     def test_missing_base_falls_back_to_the_parent_and_ci_passes_the_base(self):
         with tempfile.TemporaryDirectory() as d:
@@ -1177,6 +1192,241 @@ class OwnerFilesTest(unittest.TestCase):
         self.assertEqual(dep.count('fetch-depth: 0'), 2)
         for job in dep.split('\n  cloudflare:'):
             self.assertLess(job.index('check_owner_files.py'), job.index('check_page.mjs'))
+
+
+# ------------------------------------------------------------------ removal requests and the deleted-post recheck (design row 7, C34; group B3)
+RM = json.loads(read(os.path.join(FIX, 'removals', 'cases.json')))
+FETCHERS = ('fetch_hn', 'fetch_lobsters', 'fetch_mastodon', 'fetch_reddit_archive', 'fetch_reddit', 'fetch_bluesky', 'fetch_newsletters', 'fetch_official')
+sha = lambda u: hashlib.sha256(u.encode()).hexdigest()
+
+
+class Lookups:
+    """The four recheck endpoints, stubbed at pulse.GET (no network): answers per network and id, as in the fixture; every call is kept."""
+    def __init__(self, answers=None):
+        self.a, self.calls = answers or {}, []
+
+    def __call__(self, url, timeout):
+        self.calls.append(url)
+        a, q = self.a, urllib.parse.urlparse(url)
+        m = re.fullmatch(r'/v0/item/(\d+)\.json', q.path)
+        if m:
+            s = a.get('HN', {}).get(m[1])
+            if s == 'timeout': raise TimeoutError('timed out')
+            return 200, {'id': int(m[1]), **({s: True} if s else {})}, {}
+        m = re.fullmatch(r'/api/v1/statuses/(\d+)', q.path)
+        if m:
+            s = a.get('Mastodon', {}).get(m[1], 200)
+            if s == 'timeout': raise TimeoutError('timed out')
+            return s, None, {'X-RateLimit-Remaining': '299'}
+        if q.path.endswith('app.bsky.feed.getPosts'):
+            return 200, {'posts': [{'uri': u} for u in urllib.parse.parse_qs(q.query)['uris'] if u not in a.get('Bluesky', [])]}, {}
+        if q.path == '/api/posts/ids':
+            ids = urllib.parse.parse_qs(q.query)['ids'][0].split(',')
+            return 200, {'data': [{'id': i, 'author': 'x', 'selftext': a.get('Reddit', {}).get(i, '')} for i in ids]}, {}
+        raise AssertionError(url)
+
+
+def pulse_run(d, argv=(), posts=(), hype=None, removals=(), passes=(), answers=None, now=None):
+    """pulse.py main() on a scratch web/ (the offline-rebuild data.json, the given hype.json and lists) and history DB under d, with
+    every collector returning nothing and the recheck lookups stubbed -> (web dir, run log, the Lookups stub)."""
+    web, hist = os.path.join(d, 'web'), os.path.join(d, 'history')
+    os.makedirs(os.path.join(web, 'checks'), exist_ok=True)
+    shutil.copy(os.path.join(FIX, 'offline_rebuild', 'data.json'), web)
+    if hype is not None:
+        with open(os.path.join(web, 'hype.json'), 'w') as f: json.dump(hype, f)
+    if not os.path.exists(os.path.join(web, 'removals.json')):
+        with open(os.path.join(web, 'removals.json'), 'w') as f: json.dump({'entries': [{'sha256': sha(u), 'date': '2026-10-17'} for u in removals]}, f)
+    if passes:                                       # a pass the day before: fresh, so the post links if the recheck finds it
+        with open(os.path.join(web, 'checks', 'mastodon-links.json'), 'w') as f:
+            json.dump({'statuses': {i: {'result': 'pass', 'checked_at': '2026-10-16T08:00:00Z', 'passed_at': '2026-10-16T08:00:00Z', 'api_status': 200}
+                                    for i in passes}}, f)
+    keep = {k: getattr(pulse, k) for k in ('WEB', 'HIST', 'DB', 'CANDIDATES', 'NOW', 'GET') + FETCHERS}
+    argv0, sources, stub, log = sys.argv, dict(pulse.SOURCES), Lookups(answers), io.StringIO()
+    try:
+        pulse.WEB, pulse.HIST, pulse.DB = web, hist, os.path.join(hist, 'signals.sqlite')
+        pulse.CANDIDATES = os.path.join(hist, 'mastodon-candidates.json')
+        pulse.NOW = datetime.fromisoformat((now or RM['now']).replace('Z', '+00:00'))
+        pulse.GET = stub
+        for n in FETCHERS: setattr(pulse, n, lambda: [])
+        pulse.SOURCES.clear()
+        if posts:
+            con = pulse.db()
+            pulse.store(con, [pulse.post(*r[:8], source=r[8], extra=r[9]) for r in posts])
+            con.close()
+        sys.argv = ['pulse.py', *argv]
+        with contextlib.redirect_stdout(log): pulse.main()
+    finally:
+        for k, v in keep.items(): setattr(pulse, k, v)
+        sys.argv = argv0
+        pulse.SOURCES.clear(); pulse.SOURCES.update(sources)
+    return web, log.getvalue(), stub
+
+
+def outputs(web):
+    return read(os.path.join(web, 'pulse.json')).decode() + read(os.path.join(web, 'briefing.json')).decode()
+
+
+def db_keys(d):
+    con = sqlite3.connect(os.path.join(d, 'history', 'signals.sqlite'))
+    try: return {(n, p) for n, p in con.execute('SELECT net, pid FROM signals')}
+    finally: con.close()
+
+
+class RecheckTest(unittest.TestCase):
+    """SC-13: a stored post its source reports gone, or that web/removals.json names, leaves pulse.json, briefing.json and the history
+    DB; a post the recheck could not reach shows only as a count; --relink reuses the run's result and --offline makes no call."""
+    def test_hn_mastodon_bluesky_reddit_gone_leave_every_output_and_the_db(self):
+        F = RM['stored']
+        with tempfile.TemporaryDirectory() as d:
+            web, log, stub = pulse_run(d, posts=F['posts'], hype={'items': {'claude-code': {'name': 'Claude Code', 'posts': []}}},
+                                       passes=F['passes'], answers=F['answers'])
+            out, P = outputs(web), json.loads(read(os.path.join(web, 'pulse.json')))
+            for w in F['words']['gone'] + F['words']['count']: self.assertNotIn(w, out)
+            for w in F['words']['shown']: self.assertIn(w, out)
+            for net, pid in F['gone'].items():
+                self.assertNotIn((net, pid), db_keys(d))
+                self.assertNotIn(pid, out)
+            self.assertIn(('HN', '104'), db_keys(d))                                      # not reached: kept, and shown as a count
+            self.assertNotIn('item?id=104', out)
+            conv = {k: v for k, v in P['totals']['30d'].items() if k not in ('arXiv', 'GitHub')}   # the tracker's papers and repos aside
+            self.assertEqual(conv, F['totals_30d'])                                       # 104 is counted; the four gone posts are not
+            self.assertIn('https://mastodon.social/statuses/9002', out); self.assertNotIn('statuses/9001', out)
+            B = json.loads(read(os.path.join(web, 'briefing.json')))                      # the deleted 101 (300 points) would lead the story
+            self.assertEqual([r['headline'] for r in B['records']], ['Claude Code Yankee hooks still on HN'])
+            self.assertIn({'net': 'HN', 'at': '2026-10-17T04:00:00Z'}, P['stories'][0]['path'])   # 104 in the story, as a count
+            self.assertIn('recheck: 9 due, 4 reached and present, removed 4 found gone ', log)
+            self.assertIn('1 unreached shown as counts (time cap 180s, ', log)
+            self.assertEqual(len([u for u in stub.calls if '/v0/item/' in u]), 3)       # one lookup per id, no retry
+            first = {k: P[k] for k in ('totals', 'nodes', 'stories')}
+            # --relink in the same refresh run: no call, the same posts shown and counted
+            web, log, stub = pulse_run(d, ['--relink'], now='2026-10-17T08:35:00Z')
+            P2 = json.loads(read(os.path.join(web, 'pulse.json')))
+            self.assertEqual(stub.calls, [])
+            self.assertEqual(P2['totals'], first['totals'])
+            for w in F['words']['shown']: self.assertIn(w, outputs(web))
+            for w in F['words']['gone'] + F['words']['count']: self.assertNotIn(w, outputs(web))
+            self.assertIn("this run's recheck of 2026-10-17T08:25:00Z, time cap 180s", log)
+            # --offline: no call, so every recheckable post is a count (Lobsters is not rechecked)
+            web, log, stub = pulse_run(d, ['--offline'], now='2026-10-17T08:45:00Z')
+            self.assertEqual(stub.calls, [])
+            self.assertEqual(json.loads(read(os.path.join(web, 'pulse.json')))['totals'], first['totals'])
+            for w in ('Yankee', 'Victor', 'Tango'): self.assertNotIn(w, outputs(web))
+            self.assertIn('Quebec', outputs(web))
+            self.assertIn('5 unreached shown as counts (offline: no call)', log)
+
+    def test_removal_listed_post_reaches_no_output_and_leaves_the_db(self):
+        F = RM['removal']
+        with tempfile.TemporaryDirectory() as d:
+            web, log, _ = pulse_run(d, posts=F['posts'], hype={'items': {}}, removals=F['removals'])
+            self.assertNotIn('Papa', outputs(web)); self.assertNotIn('item?id=105', outputs(web))
+            self.assertIn('Oscar', outputs(web)); self.assertIn('November', outputs(web))
+            self.assertNotIn(('HN', '105'), db_keys(d))
+            self.assertIn('removals.json 1 entries (1 stored posts removed)', log)
+        # a Mastodon post is named by its stored address or by its handle-free link
+        m = pulse.post('Mastodon', '9001', 'https://mastodon.social/@m_a/9001', 't', 'm_a', RM['now'])
+        self.assertEqual(pulse.post_hashes(m), {sha('https://mastodon.social/@m_a/9001'), sha('https://mastodon.social/statuses/9001')})
+
+    def test_time_cap_and_failed_lookups_reach_nothing(self):
+        posts = [pulse.post('HN', str(i), f'https://news.ycombinator.com/item?id={i}', 't', 'a', RM['now']) for i in (1, 2)]
+        keep = pulse.GET
+        try:
+            pulse.GET = Lookups()
+            self.assertEqual(pulse.recheck(posts, cap=0)[0], {})                         # the cap is spent before the first call
+            self.assertEqual(pulse.GET.calls, [])
+            pulse.GET = lambda url, timeout: (_ for _ in ()).throw(OSError('network down'))
+            self.assertEqual(pulse.recheck(posts)[0], {})
+        finally:
+            pulse.GET = keep
+
+    def test_dossier_posts_gone_or_listed_leave_outputs_and_hype_json_and_never_return(self):
+        F = RM['dossier']
+        with tempfile.TemporaryDirectory() as d:
+            web, log, _ = pulse_run(d, posts=F['stored'], hype=F['hype'], removals=F['removals'], answers=F['answers'])
+            for w in F['words']['gone'] + F['words']['count']: self.assertNotIn(w, outputs(web))
+            for w in F['words']['shown']: self.assertIn(w, outputs(web))
+            G = json.loads(read(os.path.join(web, 'checks', 'dossier-gone.json')))
+            self.assertEqual(G['gone'], [{'sha256': h, 'found': '2026-10-17'} for h in sorted(sha(u) for u in F['found_gone'])])
+            self.assertNotIn(b'\n', read(os.path.join(web, 'checks', 'dossier-gone.json')))
+            self.assertNotIn(('HN', '305'), db_keys(d))                                   # the stored copy too; its dossier copy by hash
+            # the refresh's scrub: the dropped posts leave web/hype.json, and only they; a second scrub changes nothing
+            hype = os.path.join(web, 'hype.json')
+            r = subprocess.run([sys.executable, os.path.join(ROOT, 'hype_build.py'), '--scrub', hype], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr); self.assertIn('3 posts removed', r.stdout)
+            H = json.loads(read(hype))['items']['claude-code']
+            self.assertEqual([p.get('url') for p in H['posts']], [p.get('url') for p in F['hype']['items']['claude-code']['posts']
+                                                                   if p.get('url') not in F['dropped']])
+            self.assertEqual(H['first_seen_url'], 'a removed post')
+            once = read(hype)
+            subprocess.run([sys.executable, os.path.join(ROOT, 'hype_build.py'), '--scrub', hype], capture_output=True, check=True)
+            self.assertEqual(read(hype), once)
+            # the next run reads the rewritten file: every lookup answers present, yet no dropped post comes back
+            web, log, _ = pulse_run(d, answers={}, now='2026-10-17T09:25:00Z')
+            for w in F['words']['gone']: self.assertNotIn(w, outputs(web))
+            self.assertIn('Kilo', outputs(web))                                           # reached this time: shown again
+            self.assertEqual(json.loads(read(os.path.join(web, 'checks', 'dossier-gone.json')))['gone'], G['gone'])
+
+    def test_hype_scrub_with_no_listed_post_is_byte_identical(self):
+        H = json.loads(read(os.path.join(ROOT, 'web', 'hype.json')))
+        url = next(p['url'] for it in H['items'].values() for p in it['posts'] if p.get('url'))
+        out = hype_build.scrub(copy.deepcopy(H), drop={sha(url)})
+        self.assertFalse(any(p.get('url') == url for it in out['items'].values() for p in it['posts']))
+        self.assertNotIn(url, json.dumps(out))
+        self.assertEqual(json.dumps(hype_build.scrub(copy.deepcopy(H), drop=set())), json.dumps(hype_build.scrub(copy.deepcopy(H))))
+
+    def test_refresh_scrubs_after_the_relink_and_stages_the_bot_lists_only(self):
+        wf = read(os.path.join(ROOT, '.github', 'workflows', 'refresh.yml')).decode()
+        add = next(l for l in wf.splitlines() if l.strip().startswith('git add ')).split()
+        self.assertIn('web/hype.json', add); self.assertIn('web/checks/dossier-gone.json', add); self.assertNotIn('web/removals.json', add)
+        i = lambda s: wf.index(s)
+        self.assertLess(i('run: python pulse.py\n'), i('python pulse.py --relink'))
+        self.assertLess(i('python pulse.py --relink'), i('run: python hype_build.py --scrub web/hype.json'))
+        self.assertLess(i('run: python hype_build.py --scrub web/hype.json'), i('node scripts/embed/embed.mjs'))
+        self.assertLess(i('run: python hype_build.py --scrub web/hype.json'), i('node scripts/check_page.mjs'))
+        self.assertIn('web/removals.json', __import__('scripts.check_owner_files', fromlist=['OWNER_FILES']).OWNER_FILES)
+
+    def test_committed_lists(self):
+        self.assertEqual(json.loads(read(os.path.join(ROOT, 'web', 'removals.json'))), {'entries': []})
+        G = json.loads(read(os.path.join(ROOT, 'web', 'checks', 'dossier-gone.json')))
+        for e in G['gone']: self.assertRegex(e['sha256'], r'^[0-9a-f]{64}$'); self.assertRegex(e['found'], r'^\d{4}-\d{2}-\d{2}$')
+
+
+@unittest.skipUnless(shutil.which('node'), 'node not installed')
+class RemovalFixtureTest(unittest.TestCase):
+    """Decision 14 for removals: each case overlays a copy of the committed web/ with its files; check_page.mjs exits 1 with exactly that
+    case's findings, or 0 with its summary. $HN0 is the hash of the first HN post in the committed hype.json (read at test time, so a
+    later scrub of that post does not break the case)."""
+    def test_each_case_fails_on_its_own_rule_or_passes(self):
+        H = json.loads(read(os.path.join(ROOT, 'web', 'hype.json')))
+        hn0 = sha(next(p['url'] for it in H['items'].values() for p in it['posts'] if p.get('pl') == 'HN' and p.get('url')))
+        for name, c in RM['overlays'].items():
+            with self.subTest(name), tempfile.TemporaryDirectory() as d:
+                web = os.path.join(d, 'web')
+                shutil.copytree(os.path.join(ROOT, 'web'), web)
+                for rel, body in c['files'].items():
+                    if body is None: os.remove(os.path.join(web, rel)); continue
+                    with open(os.path.join(web, rel), 'w') as f: f.write((body if isinstance(body, str) else json.dumps(body)).replace('$HN0', hn0))
+                r = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+                if 'ok' in c:
+                    self.assertEqual(r.returncode, 0, r.stderr); self.assertIn(c['ok'], r.stdout); continue
+                self.assertEqual(r.returncode, 1, r.stdout)
+                got = [l[2:] for l in r.stderr.splitlines() if l.startswith('- ')]
+                self.assertEqual(len(got), len(c['expect']), r.stderr)
+                for m in c['expect']: self.assertTrue(any(g.startswith(m) for g in got), (m, got))
+
+    def test_node_whose_posts_are_all_counts_passes_and_one_hiding_a_shown_post_fails(self):
+        # a node seen only through posts the recheck did not reach has no samples and a spread of counts; a shown title there fails
+        P = json.loads(read(os.path.join(ROOT, 'web', 'pulse.json')))
+        n = P['nodes'][0]
+        n['samples'], n['w']['30d']['nets'], n['spread'] = [], {'HN': 1}, [{'net': 'HN', 'at': '2026-10-17T04:00:00Z', 'day_only': False, 'source': 'live'}]
+        for spread, code in ((n['spread'], 0), ([{**n['spread'][0], 'title': 'a shown HN title', 'url': 'https://news.ycombinator.com/item?id=1'}], 1)):
+            with tempfile.TemporaryDirectory() as d:
+                web = os.path.join(d, 'web')
+                shutil.copytree(os.path.join(ROOT, 'web'), web)
+                with open(os.path.join(web, 'pulse.json'), 'w') as f: json.dump({**P, 'nodes': [{**n, 'spread': spread}] + P['nodes'][1:]}, f)
+                r = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+                self.assertEqual(r.returncode, code, r.stderr)
+                if code: self.assertEqual([l for l in r.stderr.splitlines() if l.startswith('- ')], [f"- pulse node {n['id']} has no evidence posts"])
+
 
 if __name__ == '__main__':
     unittest.main()

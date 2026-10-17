@@ -1,4 +1,4 @@
-# Política do dehype: vereditos, direito de resposta e correções
+# Política do dehype: vereditos, direito de resposta, correções e remoções
 
 English: [POLICY.md](POLICY.md). Esta página é publicada antes do primeiro veredito FALSE e é verificada em cada build.
 
@@ -43,7 +43,38 @@ Cada entrada tem um id (`c:1`, `c:2`, ... em ordem), uma data, um tipo (`correct
 
 Quando um veredito muda, a linha em `web/verdicts.json` é alterada por um pull request e uma entrada de correção diz o que mudou e por quê. O estado anterior fica no histórico público do git. Para apontar um erro, use o mesmo e-mail ou issue de uma resposta.
 
+<a id="removals"></a>
+## Pedidos de remoção e posts apagados
+
+Como pedir a remoção: envie o endereço (URL) do post por e-mail para felipe@namastex.ai. Uma issue em https://github.com/namastex888/dehype/issues também serve, mas as issues são públicas, então a própria issue apontaria para o post. Qualquer pessoa pode pedir sobre um post que escreveu ou que lhe diz respeito.
+
+O que acontece: o responsável registra um pedido aceito em `web/removals.json` por um pull request. Esse arquivo é revisado pelo responsável: a atualização diária nunca o escreve, e a verificação dos arquivos do responsável (`scripts/check_owner_files.py`) recusa um commit da atualização que o altere. Uma entrada guarda só o SHA256 do endereço do post e a data em que o pedido foi aceito, de modo que o arquivo não publica endereço, id nem texto do post.
+
+O que a reconstrução diária retira: na reconstrução diária seguinte, um post que `web/removals.json` nomeia, ou que a sua fonte informa como apagado ou removido, sai das páginas, de `pulse.json`, de `briefing.json`, dos feeds e da base histórica que o pipeline mantém. Um post do dossiê de pesquisa também sai de `web/hype.json` e da página Hype, e nenhuma execução posterior o traz de volta.
+
+A reverificação de posts apagados: os coletores são buscas e linhas do tempo que nunca informam uma exclusão, então cada atualização diária consulta pelo id cada post guardado que as saídas do dia podem mostrar: o Hacker News pelo endpoint de item do Firebase (`deleted` ou `dead`), o Mastodon por `/api/v1/statuses/<id>` do mastodon.social (um 404, também quando a verificação de renderização do Mastodon o registra), o Bluesky por `app.bsky.feed.getPosts` (um post ausente da resposta) e os registros do Reddit pelo arquivo arctic-shift, por id (`[deleted]` ou `[removed]`; o Reddit aparece só como contagem, então um registro assim sai das contagens). Ela consulta também cada post do dossiê de pesquisa que guarda um id de origem (hoje os seus posts do Hacker News). Um post do dossiê encontrado apagado é registrado em `web/checks/dossier-gone.json`, escrito pela atualização, que só recebe acréscimos e nunca é editado e guarda só o SHA256 do endereço de cada post assim; a atualização então retira o post de `web/hype.json` (só remoção). A reverificação roda com um limite de tempo de 180 segundos e falha fechada: um post que ela não conseguiu consultar naquele dia aparece só como contagem, nunca com o seu texto ou link, até que uma execução posterior o consulte.
+
+O hash: o SHA256, em hexadecimal minúsculo, do endereço do post exatamente como a fonte o dá: `https://news.ycombinator.com/item?id=<id>` para o Hacker News; para o Mastodon o endereço próprio do post ou `https://mastodon.social/statuses/<id>`; `https://bsky.app/profile/<conta>/post/<id>` para o Bluesky; o permalink `https://www.reddit.com/r/...` para o Reddit. Ele pode ser calculado com `printf '%s' '<endereço>' | shasum -a 256`.
+
+Os posts do X, LinkedIn, YouTube e Telegram no dossiê de pesquisa não guardam endereço, texto nem autor: nada de um post assim é mostrado, então não há nada a reverificar nem a nomear.
+
+Limites: o histórico do git já publicado e os manifestos ancorados não podem ser editados. Um post publicado antes da sua remoção fica nos commits anteriores deste repositório público e em qualquer manifesto já ancorado, como acontece com o hash dos registros do Reddit; a remoção vale a partir da reconstrução diária seguinte.
+
 <a id="file-shapes"></a>
 ## Formato dos arquivos
 
 O formato de `web/verdicts.json` e de `web/corrections.json`, com exemplos, está na versão em inglês: [POLICY.md](POLICY.md#file-shapes).
+
+`web/removals.json` (revisado pelo responsável; uma entrada por pedido aceito):
+
+```json
+{"entries": [
+  {"sha256": "<SHA256 do endereço do post, 64 hexadecimais minúsculos>", "date": "2026-10-20"}
+]}
+```
+
+`web/checks/dossier-gone.json` (escrito pela atualização, só recebe acréscimos; uma entrada por post do dossiê encontrado apagado):
+
+```json
+{"note": "...", "gone": [{"sha256": "<SHA256 do endereço do post como guardado em web/hype.json>", "found": "2026-10-20"}]}
+```

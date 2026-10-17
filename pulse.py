@@ -2,10 +2,11 @@
 """Pulse: sampled AI conversation across networks -> topic graph (web/pulse.json) and the daily briefing (web/briefing.json:
 one evidence record per story, the Top 10 cut and the gauge header values).
 
-Run:   python3 pulse.py              fetch live feeds, merge with web/data.json + web/hype.json, write web/pulse.json and web/briefing.json
-       python3 pulse.py --offline    rebuild from stored signals only (no network)
-       python3 pulse.py --relink     the same rebuild after the Mastodon render check, keeping this run's source status as written
-                                     (refresh.yml only, inside the same run as the live pulse.py: it republishes that run's sources)
+Run:   python3 pulse.py              fetch live feeds, merge with web/data.json + web/hype.json, recheck by id that the posts the outputs could
+                                     show still exist (removals.json and checks/dossier-gone.json applied), write web/pulse.json and web/briefing.json
+       python3 pulse.py --offline    rebuild from stored signals only (no network: the recheck makes no call, so every recheckable post is a count)
+       python3 pulse.py --relink     the same rebuild after the Mastodon render check, keeping this run's source status and recheck result as
+                                     written (refresh.yml only, inside the same run as the live pulse.py: it republishes that run's sources)
 Env:   REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT   enable the Reddit adapter (official OAuth API)
        BSKY_HANDLE, BSKY_APP_PASSWORD                               enable the Bluesky adapter (app password)
 State: history/signals.sqlite keeps 45 days of normalised posts; it rides in the same Actions cache as run.py's history.
@@ -17,6 +18,7 @@ posts that matched it, so a node is never more than the evidence behind it. Stan
 """
 import os, sys, re, json, math, time, bisect, sqlite3, base64, hashlib, html, urllib.request, urllib.parse, urllib.error
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone, timedelta
 
@@ -295,7 +297,9 @@ def fetch_bluesky():
     return out
 
 # ------------------------------------------------------------------ internal sources (already collected by run.py / research)
-def internal_posts():
+def internal_posts(drop=frozenset()):
+    """Tracker and dossier posts. drop: URL hashes web/removals.json names or web/checks/dossier-gone.json lists (removal_lists());
+    such a post is left out here, before build(), so no run reloads it from web/hype.json."""
     out = []
     try:
         D = json.load(open(os.path.join(WEB, 'data.json')))
@@ -307,12 +311,13 @@ def internal_posts():
             r = D['repos']['items'].get(rid) or {}
             out.append(post('GitHub', rid, r.get('url'), f"{rid.split('/')[-1]}: {r.get('desc') or ''}", rid.split('/')[0],
                             D.get('generated_at'), r.get('stars'), r.get('contributors'), source='tracker'))
+        out = [p for p in out if not (p['url'] and url_hash(p['url']) in drop)]
         note('Tracker (papers + repos)', 'ok', f"{len(D['papers']['items'])} papers, {len(ranked)} repos ranked in 7d")
     except (OSError, KeyError, ValueError) as e:
         note('Tracker (papers + repos)', 'failed', str(e)[:120])
     try:
         H = json.load(open(os.path.join(WEB, 'hype.json')))
-        ds = dossier_posts(H); out += ds
+        ds = [p for p in dossier_posts(H) if not (p['url'] and url_hash(p['url']) in drop)]; out += ds
         note('HYPE research dossier', 'ok', f"{len(ds)} sampled posts, content cutoff {H.get('content_cutoff')} (static, refreshed by hand)")
     except (OSError, KeyError, ValueError) as e:
         note('HYPE research dossier', 'failed', str(e)[:120])
@@ -523,26 +528,35 @@ def load_links(path=CHECKS):
         if at and at == parse_dt(e.get('checked_at')) and timedelta(0) <= NOW - at < timedelta(days=LINK_DAYS): ok.add(sid)
     return ok
 
+def mastodon_cache(path=CHECKS):
+    """The render-check cache's entries by status id ({} when missing or unreadable)."""
+    try: C = json.load(open(path))['statuses']
+    except (OSError, ValueError, KeyError, TypeError): return {}
+    return C if isinstance(C, dict) else {}
+
 def masto_link(p, links):
     """The handle-free link of a live Mastodon post with a fresh passing check, else None. Only a post made on mastodon.social can pass:
     logged out, mastodon.social sends a post from another server off-site, so such a post stays a count and is never checked."""
-    if p['net'] != 'Mastodon' or p.get('source') != 'live' or not re.fullmatch(r'\d{1,20}', str(p.get('pid') or '')): return None
+    if p['net'] != 'Mastodon' or p.get('source') != 'live' or p.get('unreached') or not re.fullmatch(r'\d{1,20}', str(p.get('pid') or '')): return None
     if not (p.get('url') or '').startswith('https://mastodon.social/'): return None   # a post from another server: mastodon.social redirects it
     return f"https://mastodon.social/statuses/{p['pid']}" if p['pid'] in links else None
 
-def hidden(p, links): return p['net'] in COUNT_ONLY and not masto_link(p, links)
+def hidden(p, links):
+    """A post shown only as a count: a count-only network without its checked link, or a post the deleted-post recheck did not reach."""
+    return bool(p.get('unreached')) or (p['net'] in COUNT_ONLY and not masto_link(p, links))
 def link_url(p, links): return masto_link(p, links) or p['url']
 
 def linked_url(net, u, links):
     m = net == 'Mastodon' and STATUS_URL.fullmatch(u or '')
     return bool(m) and m[1] in links
 
-def public(rec, links=frozenset()):
+def public(rec, links=frozenset(), count=None):
     """A post record as published: a count-only network keeps its network, date and source (a Mastodon post with a passing check
     keeps its text, score and handle-free link too); elsewhere a person's author leaves, and so does a link that names an account.
-    links: the ids whose check passed (load_links)."""
+    links: the ids whose check passed (load_links). count: hidden(post) of the post the record is made from, so a post the
+    deleted-post recheck did not reach is a count too (default: the network rule alone)."""
     own = linked_url(rec['net'], rec.get('url'), links)
-    if rec['net'] in COUNT_ONLY and not own: return {k: v for k, v in rec.items() if k not in POST_BODY}
+    if (rec['net'] in COUNT_ONLY if count is None else count) and not own: return {k: v for k, v in rec.items() if k not in POST_BODY}
     named = rec['net'] in NAMED and rec.get('source') != 'dossier'      # a dossier post's author is its poster
     return {k: (v if k == 'url' and own else public_url(v)) if k in ('url', 'link') else unhandle(v) if k == 'title' else v
             for k, v in rec.items() if k != 'author' or named}
@@ -689,10 +703,10 @@ def build(posts, lex, hype_items, repos=None, links=frozenset()):
             if p['url'] in seen_u or hidden(p, links): continue                   # a count-only post is in the counts, never a sample
             seen_u.add(p['url'])
             samples.append(public({'net': p['net'], 'title': shown(p)[:200], 'url': link_url(p, links), 'date': iso(dt)[:10],
-                                   'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']}, links))
+                                   'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']}, links, False))
             if len(samples) >= 8: break
         spread = [public({'net': net, 'at': iso(dt), 'day_only': dt.hour == dt.minute == dt.second == 0, 'author': p['author'], 'url': link_url(p, links),
-                          'title': shown(p)[:160], 'source': p['source']}, links)
+                          'title': shown(p)[:160], 'source': p['source']}, links, hidden(p, links))
                   for net, (dt, p) in sorted(n['origin'].items(), key=lambda x: (x[1][0].date(), x[0] in DIGEST, x[1][0]))]
         out_nodes.append({'id': n['id'], 'label': n['label'], 'kind': n['kind'], 'parent': n['parent'], 'w': W, 'rising': rising, 'spread': spread,
                           'first': (n['first'] or '')[:10], 'last': (n['last'] or '')[:10], 'samples': samples,
@@ -1063,7 +1077,7 @@ def stories(rel, limit=60, links=frozenset()):
         for d in c:
             k = d[0]['author'] if d[0]['net'] in DIGEST else d[0]['net']
             if k in got: continue
-            got.add(k); path.append(public({'net': d[0]['net'], 'who': d[0]['author'] if d[0]['net'] in DIGEST | OFFICIAL else None, 'at': iso(d[1]), 'url': link_url(d[0], links)}, links))
+            got.add(k); path.append(public({'net': d[0]['net'], 'who': d[0]['author'] if d[0]['net'] in DIGEST | OFFICIAL else None, 'at': iso(d[1]), 'url': link_url(d[0], links)}, links, hidden(d[0], links)))
         tags = {}
         for d in c:
             for tid in d[2]: tags[tid] = tags.get(tid, 0) + 1
@@ -1086,7 +1100,7 @@ def stories(rel, limit=60, links=frozenset()):
                     'heat': round(spread * 0.5 ** (age_h / 48), 3),
                     'refs': own_refs([u for d in c if not hidden(d[0], links) for u in (d[0]['url'], (d[0].get('extra') or {}).get('link'))]),
                     'posts': [public({'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': link_url(d[0], links), 'author': d[0]['author'], 'at': iso(d[1]),
-                                      'score': d[0]['score'], 'comments': d[0]['comments']}, links)
+                                      'score': d[0]['score'], 'comments': d[0]['comments']}, links, False)
                               for d in sorted(c, key=lambda d: -(d[0]['score'] or 0)) if not hidden(d[0], links)][:10]})
     # one id per story: when two clusters name the same release, the one whose earliest editorial post is earliest (then the lower
     # fallback key) keeps "release:<topic>": later posts do not move it, so the two ids do not swap as a story grows. Every
@@ -1186,6 +1200,209 @@ def mastodon_candidates(posts, lex, hype_items, repos):
     such post linked, then read off the output (the check runs on these; history/, so never published)."""
     nodes, _, _, _, extras = build(posts, lex, hype_items, repos, links=EVERY)
     return sorted(set(STATUS_URL.findall(json.dumps([nodes, extras['stories']]))), key=int, reverse=True)
+
+# ------------------------------------------------------------------ removal requests and the deleted-post recheck (design row 7, C34)
+# The fetchers are search and timeline queries that never report a deletion, so each live run looks up by id, under one time cap,
+# every recheckable post the outputs could show (stored posts of the last RECHECK_DAYS) and every dossier post that keeps a source id
+# (its HN posts): HN through the Firebase item endpoint (deleted or dead), Mastodon through mastodon.social /api/v1/statuses/<id> (a 404
+# is removed; a 404 the render check recorded in web/checks/mastodon-links.json counts too, Decision 12), Bluesky through
+# app.bsky.feed.getPosts (a URI missing from the answer is removed) and Reddit through arctic-shift by id ([deleted] or [removed]; Reddit
+# is counts only, so such a record leaves the counts). A post found gone is deleted from the history DB and, when a dossier post has its
+# URL, the URL's SHA256 is appended to web/checks/dossier-gone.json (hashes only), which internal_posts() and hype_build.py --scrub apply.
+# Fail-closed: a recheckable post the lookup did not reach (time cap, rate budget, network error) shows as a count. --offline makes no
+# call, so every recheckable post is a count; --relink reuses the result its own refresh run recorded (history/recheck.json, private).
+# web/removals.json (owner-reviewed) names posts by the SHA256 of their URL as stored; a named post leaves the outputs and the DB.
+RECHECK_CAP = 180              # seconds, inside C12's 15-minute margin beside the Mastodon check (install 3 + check 4 minutes)
+RECHECK_DAYS = 30              # the widest window an output shows
+RELINK_HOURS = 2               # --relink reuses a recheck at most this old: the live pulse.py of the same refresh run
+MASTO_RESERVE = 120            # own Mastodon lookups stop while this many of the IP's API calls are left (the render check spends them)
+REQ_SECONDS = 10               # one lookup's timeout, never past the cap
+HN_ITEM = re.compile(r'^https://news\.ycombinator\.com/item\?id=(\d{1,12})$')
+SHA_HEX = re.compile(r'[0-9a-f]{64}')
+
+def url_hash(u): return hashlib.sha256(u.encode('utf-8')).hexdigest()
+
+def post_hashes(p):
+    """The hashes a removal entry may name a post by: its URL as stored, and for a live Mastodon post its handle-free link too."""
+    out = {url_hash(p['url'])} if p.get('url') else set()
+    if p['net'] == 'Mastodon' and p.get('source') == 'live' and re.fullmatch(r'\d{1,20}', str(p.get('pid') or '')):
+        out.add(url_hash(f"https://mastodon.social/statuses/{p['pid']}"))
+    return out
+
+def removal_lists(web=None):
+    """(hashes web/removals.json names, [entries] of web/checks/dossier-gone.json). A missing file names nothing; an unreadable one
+    raises, so a run never publishes what a list it cannot read may name."""
+    web = web or WEB
+    try: R = json.load(open(os.path.join(web, 'removals.json')))['entries']
+    except FileNotFoundError: R = []
+    try: G = json.load(open(os.path.join(web, 'checks', 'dossier-gone.json')))['gone']
+    except FileNotFoundError: G = []
+    return {e['sha256'] for e in R if SHA_HEX.fullmatch(str(e.get('sha256')))}, G
+
+def write_gone(entries, web=None):
+    path = os.path.join(web or WEB, 'checks', 'dossier-gone.json')
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w') as f:
+        json.dump({'note': 'Bot-written, append-only: the SHA256 of the URL (as stored in web/hype.json) of each dossier post the deleted-post '
+                           'recheck found deleted or removed at its source (pulse.py); internal_posts() and hype_build.py --scrub drop such a post.',
+                   'gone': entries}, f, separators=(',', ':'), ensure_ascii=False)
+
+def recheck_key(p):
+    """'<network>:<source id>' the recheck looks a post up by, or None. A stored HN post and its dossier copy share one key."""
+    pid = str(p.get('pid') or '')
+    if p['net'] == 'HN' and HN_ITEM.match(p.get('url') or ''): return 'HN:' + HN_ITEM.match(p['url'])[1]
+    if p.get('source') != 'live': return None
+    if p['net'] == 'Mastodon' and re.fullmatch(r'\d{1,20}', pid): return 'Mastodon:' + pid
+    if p['net'] == 'Bluesky' and pid.startswith('at://'): return 'Bluesky:' + pid
+    if p['net'] == 'Reddit' and re.fullmatch(r'(?:t3_)?[0-9a-z]{1,13}', pid): return 'Reddit:' + pid.removeprefix('t3_')
+    return None
+
+def due_for_recheck(p):
+    if not recheck_key(p): return False
+    if p.get('source') == 'dossier': return True                     # the Hype page shows every dossier post, whatever its date
+    dt = parse_dt(p.get('created'))
+    return bool(dt) and dt >= NOW - timedelta(days=RECHECK_DAYS)
+
+def get_json(url, timeout):
+    """One GET, no retry (the cap bounds the recheck): (HTTP status, parsed body or None, headers). A network error raises."""
+    req = urllib.request.Request(url, headers={'User-Agent': UA, 'Accept': 'application/json'})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r: return r.status, json.loads(r.read().decode('utf-8')), r.headers
+    except urllib.error.HTTPError as e: return e.code, None, e.headers
+GET = get_json
+
+def _left(deadline): return deadline - time.monotonic()
+def _wait(deadline): return min(REQ_SECONDS, max(0.5, _left(deadline)))
+
+def _each(ids, one, workers):
+    """{id: state} of one(id) over ids, in order, with workers threads; a lookup that raises or returns None did not reach."""
+    def safe(i):
+        try: return one(i)
+        except Exception: return None
+    with ThreadPoolExecutor(workers) as ex: return {i: r for i, r in zip(ids, ex.map(safe, ids)) if r}
+
+def hn_lookup(ids, deadline):
+    def one(i):
+        if _left(deadline) <= 0: return None
+        st, d, _ = GET(f'https://hacker-news.firebaseio.com/v0/item/{i}.json', _wait(deadline))
+        if st != 200 or not isinstance(d, dict): return None
+        return 'gone' if d.get('deleted') or d.get('dead') else 'alive'
+    return _each(ids, one, 16)
+
+def masto_lookup(ids, deadline):
+    left = [None]                                      # the IP's API calls left, from the last answer
+    def one(i):
+        if _left(deadline) <= 0 or (left[0] is not None and left[0] < MASTO_RESERVE): return None
+        st, _, h = GET(f'https://mastodon.social/api/v1/statuses/{i}', _wait(deadline))
+        rem = (h or {}).get('X-RateLimit-Remaining')
+        if st == 429: left[0] = 0
+        elif str(rem or '').isdigit(): left[0] = int(rem)
+        return 'alive' if st == 200 else 'gone' if st == 404 else None
+    return _each(ids, one, 2)
+
+def _batches(ids, n, deadline, url, read):
+    out = {}
+    for k in range(0, len(ids), n):
+        if _left(deadline) <= 0: break
+        batch = ids[k:k + n]
+        try: st, d, _ = GET(url(batch), _wait(deadline))
+        except Exception: continue
+        if st == 200 and isinstance(d, dict): out.update(read(batch, d))
+    return out
+
+def bsky_lookup(uris, deadline):
+    def read(batch, d):
+        if not isinstance(d.get('posts'), list): return {}
+        got = {p.get('uri') for p in d['posts'] if isinstance(p, dict)}
+        return {u: 'alive' if u in got else 'gone' for u in batch}
+    return _batches(uris, 25, deadline, lambda b: 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?'
+                    + urllib.parse.urlencode([('uris', u) for u in b]), read)
+
+def reddit_lookup(ids, deadline):
+    def read(batch, d):
+        gone = lambda x: x.get('author') == '[deleted]' or x.get('selftext') in ('[deleted]', '[removed]')
+        return {x['id']: 'gone' if gone(x) else 'alive' for x in d.get('data') or [] if isinstance(x, dict) and x.get('id') in batch}
+    return _batches(ids, 250, deadline, lambda b: 'https://arctic-shift.photon-reddit.com/api/posts/ids?'
+                    + urllib.parse.urlencode({'ids': ','.join(b), 'fields': 'id,author,selftext'}), read)
+
+LOOKUPS = {'HN': hn_lookup, 'Mastodon': masto_lookup, 'Bluesky': bsky_lookup, 'Reddit': reddit_lookup}
+
+def recheck(posts, first=(), last=None, cap=None):
+    """Look up every due post by id, the four networks side by side under one time cap -> ({key: 'alive' | 'gone'}, {network: ids asked}).
+    first: Mastodon ids asked before the rest (those the day's outputs link); last: {key: time} of earlier Mastodon lookups, so the
+    rest rotate (never asked first, then the oldest answer); the rate budget rarely reaches every Mastodon count in one run."""
+    ids = {}
+    for p in posts:
+        if due_for_recheck(p): n, i = recheck_key(p).split(':', 1); ids.setdefault(n, set()).add(i)
+    order = {n: sorted(v) for n, v in ids.items()}
+    if 'HN' in order: order['HN'].sort(key=int, reverse=True)
+    if 'Mastodon' in order:
+        order['Mastodon'].sort(key=lambda i: (i not in first, (last or {}).get('Mastodon:' + i, ''), -int(i)))
+    deadline = time.monotonic() + (RECHECK_CAP if cap is None else cap)
+    res = {}
+    with ThreadPoolExecutor(max(1, len(order))) as ex:
+        futs = {n: ex.submit(LOOKUPS[n], order[n], deadline) for n in order}
+        for n, f in futs.items():
+            try: res.update({f'{n}:{i}': s for i, s in f.result().items()})
+            except Exception: pass                                         # a failed lookup reaches nothing: its posts stay counts
+    return res, {n: len(v) for n, v in order.items()}
+
+def load_recheck(path=None):
+    try: S = json.load(open(path or os.path.join(HIST, 'recheck.json')))
+    except (OSError, ValueError): S = {}
+    return {'gone': S.get('gone') or {}, 'last': S.get('last') or {}, 'run': S.get('run')}
+
+def apply_removals(con, stored, internal, posts, want, links, cache, state, mode, gone_list):
+    """The recheck and both lists over the pooled posts (mutates state and the DB) -> (posts to build from, run-log line, the run record).
+    mode: 'live' (looks up), 'relink' (this run's recorded result) or 'offline' (no call)."""
+    t0, res, run = time.monotonic(), {}, None
+    due = [p for p in posts if due_for_recheck(p)]
+    if mode == 'live':
+        res, asked = recheck(due, first=set(want) & set(links), last=state['last'])
+        run = {'at': iso(NOW), 'cap_seconds': RECHECK_CAP, 'asked': asked, 'results': res}
+        state['run'] = run
+        for k in res:
+            if k.startswith('Mastodon:'): state['last'][k] = iso(NOW)
+    elif mode == 'relink' and state['run'] and timedelta(0) <= NOW - (parse_dt(state['run'].get('at')) or NOW + timedelta(1)) <= timedelta(hours=RELINK_HOURS):
+        run, res = state['run'], dict(state['run'].get('results') or {})
+    for sid, e in cache.items():                                         # the render check's lookups of the same endpoint (Decision 12)
+        if not isinstance(e, dict) or e.get('api_status') not in (200, 404): continue
+        k, seen = 'Mastodon:' + sid, 'alive' if e['api_status'] == 200 else 'gone'
+        if run and mode == 'relink' and str(e.get('checked_at') or '') >= run['at']: res[k] = seen     # looked up in this run, after the recheck
+        elif seen == 'gone': res.setdefault(k, 'gone')                                                 # a recorded 404 removes, never revives
+    gone = {k for k, s in res.items() if s == 'gone'} | set(state['gone'])
+    in_db = {id(p) for p in stored}
+    dead = [p for p in posts if recheck_key(p) in gone]
+    forget(con, [p for p in dead if id(p) in in_db])
+    dossier = {p['url'] for p in internal if p.get('source') == 'dossier' and p.get('url')}
+    have = {e.get('sha256') for e in gone_list}
+    new = sorted({url_hash(p['url']) for p in dead if p.get('url') in dossier} - have)
+    if new: write_gone(gone_list + [{'sha256': h, 'found': iso(NOW)[:10]} for h in new])
+    for k in gone: state['gone'].setdefault(k, iso(NOW)[:10])
+    keep = [p for p in posts if recheck_key(p) not in gone]
+    unreached = 0
+    for p in keep:
+        if due_for_recheck(p) and res.get(recheck_key(p)) != 'alive': p['unreached'] = True; unreached += 1
+    by = {}
+    for p in dead: by[p['net']] = by.get(p['net'], 0) + 1
+    how = {'live': f'time cap {RECHECK_CAP}s, {round(time.monotonic() - t0)}s', 'relink': f"this run's recheck of {run['at']}, time cap {run['cap_seconds']}s" if run else
+           'no recheck of this run found: no call', 'offline': 'offline: no call'}[mode]
+    line = (f'recheck: {len(due)} due, {sum(1 for p in due if res.get(recheck_key(p)) == "alive")} reached and present, removed {len(dead)} '
+            f'found gone {dict(sorted(by.items()))} ({len(new)} dossier hashes appended), {unreached} unreached shown as counts ({how})')
+    return keep, line, run
+
+def forget(con, posts):
+    for p in posts: con.execute('DELETE FROM signals WHERE net = ? AND pid = ?', (p['net'], p['pid']))
+    con.commit()
+
+def save_recheck(state, posts, path=None):
+    keys = {recheck_key(p) for p in posts}
+    lo = iso(NOW - timedelta(days=RETAIN_DAYS))[:10]
+    out = {'note': 'private (history/, never published): the deleted-post recheck by id; gone keys stay out of every later run',
+           'gone': {k: d for k, d in sorted(state['gone'].items()) if d >= lo},
+           'last': {k: t for k, t in sorted(state['last'].items()) if k in keys}, 'run': state['run']}
+    os.makedirs(HIST, exist_ok=True)
+    with open(path or os.path.join(HIST, 'recheck.json'), 'w') as f: json.dump(out, f, separators=(',', ':'))
 
 # ------------------------------------------------------------------ briefing: evidence records, Top 10 and gauge values (web/briefing.json)
 BRIEFING_VERSION = 'briefing/1'
@@ -1419,11 +1636,25 @@ def main():
         for k in ADAPTERS:
             SOURCES.setdefault(k, {'status': 'unknown', 'detail': 'not fetched in this offline rebuild'})
     stored = load_stored(con)
-    posts, repos = pool(stored, internal_posts()), tracker_repos()
+    removed, gone_list = removal_lists()                 # web/removals.json (owner-reviewed) and web/checks/dossier-gone.json (bot-written)
+    named = [p for p in stored if post_hashes(p) & removed]
+    forget(con, named)                                   # a removal-listed post leaves the history DB too
+    stored = [p for p in stored if not post_hashes(p) & removed]
+    internal = internal_posts(removed | {e.get('sha256') for e in gone_list})
+    posts, repos = pool(stored, internal), tracker_repos()
+    checks = os.path.join(WEB, 'checks', 'mastodon-links.json')
+    links = load_links(checks)
     want = mastodon_candidates(posts, lex, hype_items, repos)
+    state = load_recheck()
+    posts, recheck_line, _ = apply_removals(con, stored, internal, posts, want, links, mastodon_cache(checks), state,
+                                            'relink' if relink else 'offline' if offline else 'live', gone_list)
+    save_recheck(state, posts)
+    print(f'{recheck_line}; removals.json {len(removed)} entries ({len(named)} stored posts removed), dossier-gone.json '
+          f'{len({e.get("sha256") for e in gone_list})} hashes before this run', flush=True)
+    alive = {p['pid'] for p in posts if p['net'] == 'Mastodon'}
+    want = [i for i in want if i in alive]
     os.makedirs(HIST, exist_ok=True)
     with open(CANDIDATES, 'w') as f: json.dump({'generated_at': iso(NOW), 'ids': want}, f)
-    links = load_links()
     nodes, edges, totals, projects, extras = build(posts, lex, hype_items, repos, links=links)
     out = {'generated_at': iso(NOW), 'windows': list(WINDOWS), 'sources': SOURCES, 'totals': totals,
            'method': 'weight = distinct authors x (1 + 0.5 x (networks - 1)); rising = conversation posts in the last day / daily average over 7 days; ' + SIGNAL_METHOD

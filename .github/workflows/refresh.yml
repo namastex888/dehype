@@ -3,7 +3,10 @@ name: refresh
 # Pipeline state (history/trending.db snapshots and cache/) persists in the Actions cache; if it is
 # ever evicted the next run starts a new history and the page says so (first run: everything new).
 # The semantic index (web/search-*.{json,bin}) is rebuilt from the new data with a pinned local model.
-# HYPE is rebuilt only where the private research dossier exists, so web/hype.json is not touched here.
+# HYPE is rebuilt only where the private research dossier exists; here web/hype.json is only scrubbed (deletion-only): every post that
+# web/removals.json (owner-reviewed) or web/checks/dossier-gone.json (written by pulse.py's deleted-post recheck) names leaves it.
+# pulse.py rechecks by id, under a 180s time cap and fail-closed, every stored post its outputs could show (HN, Mastodon, Bluesky,
+# Reddit) and every dossier HN post; a post found gone leaves the history DB, a post not reached shows as a count.
 # Mastodon posts link to mastodon.social/statuses/<id> only after a logged-out render check passed (cached in
 # web/checks/mastodon-links.json); the check is time-capped and fail-closed, so a failure leaves every unchecked post a count.
 on:
@@ -50,6 +53,8 @@ jobs:
           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
           REDDIT_USER_AGENT: ${{ secrets.REDDIT_USER_AGENT }}
         continue-on-error: true   # a Pulse failure must not block the data commit
+        # after its lists and before any output write, pulse.py runs the deleted-post recheck and prints its checked, removed and
+        # unreached counts and its time cap (180s); --relink below reuses that result (history/recheck.json) and makes no call
         run: python pulse.py
       - name: Save pipeline state
         if: success()
@@ -93,6 +98,9 @@ jobs:
         # the first pulse.json was built from the checked-out cache, so it is committed with that cache, not the new one
         if: steps.relink.outcome == 'failure'
         run: git restore --source=HEAD -- web/checks/mastodon-links.json && echo "::warning::relink failed; Mastodon check cache restored from HEAD"
+      - name: Drop removed and deleted dossier posts from hype.json (removals.json, checks/dossier-gone.json; deletion-only)
+        # runs whatever Pulse did: an owner-accepted removal applies even on a day the recheck failed; idempotent, a no-op without a listed post
+        run: python hype_build.py --scrub web/hype.json
       - name: Build semantic search index
         run: npm ci --prefix scripts/embed --ignore-scripts --no-audit --no-fund && node scripts/embed/embed.mjs web
       - name: Gate
@@ -103,7 +111,7 @@ jobs:
         run: |
           git config user.name "trend-observatory-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json web/briefing.json web/checks/mastodon-links.json web/story-aliases.json
+          git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json web/briefing.json web/checks/mastodon-links.json web/story-aliases.json web/hype.json web/checks/dossier-gone.json
           if git diff --cached --quiet; then echo "no data change"; exit 0; fi
           git commit -m "data: daily refresh $(date -u +%Y-%m-%d)"
           # this push uses github.token, so it triggers no ci.yml run: the bot checks its own commit before pushing (no push on a failure)
