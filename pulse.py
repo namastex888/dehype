@@ -309,16 +309,23 @@ def internal_posts():
         note('Tracker (papers + repos)', 'failed', str(e)[:120])
     try:
         H = json.load(open(os.path.join(WEB, 'hype.json')))
-        n = 0
-        for it in H['items'].values():
-            for p in it.get('posts', []):
-                if not p.get('url'): continue
-                out.append(post(p.get('pl') or 'other', p['url'], p['url'], p.get('t'), p.get('au'), p.get('d'),
-                                p.get('likes') if p.get('likes') is not None else p.get('score'), p.get('cm') or p.get('rp'), source='dossier'))
-                n += 1
-        note('HYPE research dossier', 'ok', f"{n} sampled posts, content cutoff {H.get('content_cutoff')} (static, refreshed by hand)")
+        ds = dossier_posts(H); out += ds
+        note('HYPE research dossier', 'ok', f"{len(ds)} sampled posts, content cutoff {H.get('content_cutoff')} (static, refreshed by hand)")
     except (OSError, KeyError, ValueError) as e:
         note('HYPE research dossier', 'failed', str(e)[:120])
+    return out
+
+def dossier_posts(H):
+    """The research dossier's sampled posts. An X, LinkedIn, YouTube or Telegram post is a count-only record: network, date and
+    project (the hype item id, so PROJECT_TOPIC places it), with no text, author, link, figures or URL-built id."""
+    out = []
+    for hid, it in H['items'].items():
+        for i, p in enumerate(it.get('posts', [])):
+            if (p.get('pl') or 'other') in COUNT_ONLY:
+                out.append(post(p['pl'], f'{hid}#{i}', None, '', '', p.get('d'), source='dossier', extra={'hype': hid}))
+            elif p.get('url'):
+                out.append(post(p.get('pl') or 'other', p['url'], p['url'], p.get('t'), p.get('au'), p.get('d'),
+                                p.get('likes') if p.get('likes') is not None else p.get('score'), p.get('cm') or p.get('rp'), source='dossier'))
     return out
 
 def official_meta():
@@ -462,6 +469,30 @@ def emerging_phrases(posts, known_labels, covered=None, min_authors=3, limit=30)
     keep.sort(key=lambda x: -len(x[1]))
     return [ph for ph, _ in keep[:limit]]
 
+# ------------------------------------------------------------------ public-data rules: what of a post a public file may carry
+# Reddit, X, LinkedIn, YouTube and Telegram are counts only (their terms); Mastodon too until its render check lands (group A2).
+COUNT_ONLY = {'Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mastodon'}
+NAMED = DIGEST | OFFICIAL | {'arXiv', 'GitHub'}       # newsletter, feed, lab or paper and repo names stay; other authors are person handles
+POST_BODY = ('title', 'author', 'url', 'link', 'score', 'comments', 'who')
+NET_URL = [(n, re.compile(r'^https?://(?:[\w-]+\.)*(?:' + h + r')(?=[/:?#]|$)', re.I)) for n, h in
+           (('Reddit', r'reddit\.com|redd\.it'), ('X', r'x\.com|twitter\.com'), ('LinkedIn', r'linkedin\.com|lnkd\.in'),
+            ('YouTube', r'youtube\.com|youtu\.be'), ('Telegram', r't\.me|telegram\.me'))]
+# a URL that names an account: an /@user path segment (npm scoped packages are not people), a Bluesky profile post, a DID
+ACCOUNT_URL = re.compile(r'^https?://(?!(?:[\w-]+\.)*npmjs\.(?:org|com)/)[^\s?#]*/@|bsky\.app/profile/[^/\s]+/post/|did:(?:plc|web):', re.I)
+
+def url_net(u):
+    """The count-only network a URL points into, 'account' for a URL that names an account, else None (publishable)."""
+    return next((n for n, rx in NET_URL if rx.match(u or '')), None) or ('account' if ACCOUNT_URL.search(u or '') else None)
+
+def public_url(u): return None if url_net(u) else u
+
+def public(rec):
+    """A post record as published: a count-only network keeps its network, date and source; elsewhere a person's author leaves,
+    and so does a link that names an account."""
+    if rec['net'] in COUNT_ONLY: return {k: v for k, v in rec.items() if k not in POST_BODY}
+    named = rec['net'] in NAMED and rec.get('source') != 'dossier'      # a dossier post's author is its poster
+    return {k: public_url(v) if k in ('url', 'link') else v for k, v in rec.items() if k != 'author' or named}
+
 # ------------------------------------------------------------------ graph
 def shown(p):
     """Display text: newsletters keep their body only for matching; the page shows the issue title."""
@@ -478,8 +509,9 @@ def build(posts, lex, hype_items, repos=None):
         if not dt or dt > NOW + timedelta(hours=1) or dt < NOW - timedelta(days=30): continue
         if p['net'] in OFFICIAL and p['source'] == 'live': p = {**p, 'source': 'official'}     # rows stored before the official source existed
         if crowd(p): author_total[(p['net'], p['author'])] = author_total.get((p['net'], p['author']), 0) + 1   # before the HN AI filter
-        text = p['title'] or ''
-        found = match_topics(text, topics, fams, vrx)
+        text, hid = p['title'] or '', (p.get('extra') or {}).get('hype')
+        # a count-only dossier record has no text left to match: its project's node counts it
+        found = {PROJECT_TOPIC[hid]: by_id[PROJECT_TOPIC[hid]]} if hid in PROJECT_TOPIC else match_topics(text, topics, fams, vrx)
         # HN is general-interest: keep a story only if it names an AI model/product/version or uses an AI keyword
         if p['net'] == 'HN' and p['source'] == 'live' and not kw.search(text) and not any(t['kind'] in ('model', 'version', 'product') or t.get('hn_ai') for t in found.values()): continue
         rel.append((p, dt, found))
@@ -599,13 +631,13 @@ def build(posts, lex, hype_items, repos=None):
         n['samples'].sort(key=lambda x: -x[0])
         seen_u, samples = set(), []
         for _, p, dt in n['samples']:
-            if p['url'] in seen_u: continue
+            if p['url'] in seen_u or p['net'] in COUNT_ONLY: continue      # a count-only post is in the counts, never a sample
             seen_u.add(p['url'])
-            samples.append({'net': p['net'], 'title': shown(p)[:200], 'url': p['url'], 'date': iso(dt)[:10],
-                            'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']})
+            samples.append(public({'net': p['net'], 'title': shown(p)[:200], 'url': p['url'], 'date': iso(dt)[:10],
+                                   'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']}))
             if len(samples) >= 8: break
-        spread = [{'net': net, 'at': iso(dt), 'day_only': dt.hour == dt.minute == dt.second == 0, 'author': p['author'], 'url': p['url'],
-                   'title': shown(p)[:160], 'source': p['source']}
+        spread = [public({'net': net, 'at': iso(dt), 'day_only': dt.hour == dt.minute == dt.second == 0, 'author': p['author'], 'url': p['url'],
+                          'title': shown(p)[:160], 'source': p['source']})
                   for net, (dt, p) in sorted(n['origin'].items(), key=lambda x: (x[1][0].date(), x[0] in DIGEST, x[1][0]))]
         out_nodes.append({'id': n['id'], 'label': n['label'], 'kind': n['kind'], 'parent': n['parent'], 'w': W, 'rising': rising, 'spread': spread,
                           'first': (n['first'] or '')[:10], 'last': (n['last'] or '')[:10], 'samples': samples,
@@ -734,7 +766,7 @@ def organic(n, dupes, author_total, repos, base, dossier):
     links = [norm_link(p['extra'].get('link')) for p, _ in ps if (p.get('extra') or {}).get('link')]
     if len(links) >= ORG_MIN_POSTS:
         top = max(set(links), key=links.count); lp = links.count(top) / len(links)
-        out['link_push'], out['link_push_n'], out['link_top'] = round(lp, 3), len(links), top
+        out['link_push'], out['link_push_n'], out['link_top'] = round(lp, 3), len(links), public_url(top)
         if lp >= 0.3 and links.count(top) >= 5: flags.append('link_push')
         if lp >= 0.5 and links.count(top) >= 5: strong.append('link_push')
         rd['link_push'] = (f"{round(100 * lp)}% of {len(links)} posts with a known target link point at the same URL. "
@@ -841,6 +873,13 @@ def _uf(n):
         return i
     def join(a, b): par[find(b)] = find(a)
     return find, join
+
+def headline_of(head, members, topic_label):
+    """(headline, url, link) of a story. A count-only title is never shown: the earliest post of a shown network stands in,
+    else the topic label, else a fixed line naming the network."""
+    d = head if head[0]['net'] not in COUNT_ONLY else next((m for m in members if m[0]['net'] not in COUNT_ONLY), None)
+    if d: return shown(d[0])[:220], public_url(d[0]['url']), public_url((d[0].get('extra') or {}).get('link'))
+    return topic_label or f"{head[0]['net']} discussion, title not shown", None, None
 
 def stories(rel, limit=60):
     """Cluster the last 7 days into events. Seeds: HN, Lobsters, newsletter and official items, joined when they share
@@ -949,10 +988,12 @@ def stories(rel, limit=60):
         for d in c:
             k = d[0]['author'] if d[0]['net'] in DIGEST else d[0]['net']
             if k in got: continue
-            got.add(k); path.append({'net': d[0]['net'], 'who': d[0]['author'] if d[0]['net'] in DIGEST | OFFICIAL else None, 'at': iso(d[1]), 'url': d[0]['url']})
+            got.add(k); path.append(public({'net': d[0]['net'], 'who': d[0]['author'] if d[0]['net'] in DIGEST | OFFICIAL else None, 'at': iso(d[1]), 'url': d[0]['url']}))
         tags = {}
         for d in c:
             for tid in d[2]: tags[tid] = tags.get(tid, 0) + 1
+        top_t = max(tags, key=tags.get) if tags else None
+        headline, url, link = headline_of(head, c, label or next((x[top_t]['label'] for _, _, x, _ in c if top_t in x), None))
         hn = max([d[0]['score'] or 0 for d in c if d[0]['net'] == 'HN'] or [0])
         age_h = (NOW - c[-1][1]).total_seconds() / 3600
         spread = (2 * math.log2(1 + len(voices)) + len([n for n in nets if n not in DIGEST | OFFICIAL]) + 1.5 * len(nl)
@@ -963,13 +1004,13 @@ def stories(rel, limit=60):
         pain = sum(1 for d in c if mode(shown(d[0])) == 'pain') / len(c)
         kind = 'news' if covered else 'pain' if pain >= 0.5 else 'chatter'
         out.append({'id': 's:' + hashlib.sha1(cid.encode()).hexdigest()[:12], 'label': label, 'covered': covered, 'kind': kind, 'pain': round(pain, 2),
-                    'headline': shown(head[0])[:220], 'url': head[0]['url'],
-                    'link': (head[0].get('extra') or {}).get('link'), 'first': iso(c[0][1]), 'last': iso(c[-1][1]),
+                    'headline': headline, 'url': url, 'link': link, 'first': iso(c[0][1]), 'last': iso(c[-1][1]),
                     'voices': len(voices), 'nets': nets, 'newsletters': sorted(nl), 'official': 'Official' in nets, 'hn_points': hn or None,
                     'key': key, 'path': path[:8], 'tags': [t for t, _ in sorted(tags.items(), key=lambda x: -x[1])[:5]],
                     'heat': round(spread * 0.5 ** (age_h / 48), 3),
-                    'posts': [{'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': d[0]['url'], 'author': d[0]['author'], 'at': iso(d[1]),
-                               'score': d[0]['score'], 'comments': d[0]['comments']} for d in sorted(c, key=lambda d: -(d[0]['score'] or 0))[:10]]})
+                    'posts': [public({'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': d[0]['url'], 'author': d[0]['author'], 'at': iso(d[1]),
+                                      'score': d[0]['score'], 'comments': d[0]['comments']})
+                              for d in sorted(c, key=lambda d: -(d[0]['score'] or 0)) if d[0]['net'] not in COUNT_ONLY][:10]})
     out.sort(key=lambda x: -x['heat'])
     return ([x for x in out if x['kind'] == 'news'][:limit] + [x for x in out if x['kind'] == 'chatter'][:limit // 2]
             + [x for x in out if x['kind'] == 'pain'][:limit // 3])
@@ -983,7 +1024,10 @@ STORY_METHOD = ('stories (last 7 days): an event is a cluster of posts. HN, Lobs
                 'A newsletter carries a story when its item names all of the story\'s key words (up to three uncommon words shared by its editorial posts). '
                 'heat = (2 x log2(1 + voices) + networks outside newsletters/official + 1.5 x newsletters carrying it + 1 if a lab or vendor posted it + log10(1 + HN points)) '
                 'x 0.5^(hours since the newest post / 48). id = "s:" + first 12 hex of sha1("release:" + topic id when the story is about one named release, '
-                'else the canonical target link of its earliest editorial post, else that post\'s URL)')
+                'else the canonical target link of its earliest editorial post, else that post\'s URL). '
+                'Reddit, X, LinkedIn, YouTube and Telegram posts (and Mastodon posts until their link check) count but are never shown: no title, '
+                'author, link or score; a headline that would be one reads the earliest shown post\'s title, else the topic label, '
+                'else "<network> discussion, title not shown". Conversation-network authors are never published')
 
 NOW_DAYS, BASE_DAYS = 7, 30
 NOVELTY_METHOD = ('new (the default ranking): two legs, each a percentile among topics that qualify for it, and a topic ranks by the higher one. '

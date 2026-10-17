@@ -1,9 +1,11 @@
-"""Pulse topic extraction and metrics on fixed posts (offline)."""
-import json, os, sys, unittest
-from datetime import timedelta
+"""Pulse topic extraction and metrics on fixed posts (offline), and the public-data rules (design group A)."""
+import copy, hashlib, json, os, shutil, subprocess, sys, tempfile, unittest
+from datetime import datetime, timedelta, timezone
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import pulse
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+import pulse, hype_build
+FIX = os.path.join(ROOT, 'tests', 'fixtures')
 
 LEX = json.load(open(os.path.join(os.path.dirname(pulse.__file__), 'topics_lexicon.json')))
 HYPE = {'claude-code': {'name': 'Claude Code', 'aliases': ['Claude Code CLI'], 'category': 'terminal coding agent'},
@@ -343,6 +345,178 @@ class PulseTest(unittest.TestCase):
         self.assertEqual(pulse.mode('Which model is best right now for video?'), 'ask')
         self.assertEqual(pulse.mode('Google slows down Gemini rollout in the EU'), 'say')
         self.assertEqual(pulse.mode('Flux 3 Klein is out'), 'say')
+
+
+def legacy_copy(H):
+    """The dossier copy as it was at 2bc0ace (pulse.py:311-318): text, handle and figures of every post with a URL. The 'before' side."""
+    return [pulse.post(p.get('pl') or 'other', p['url'], p['url'], p.get('t'), p.get('au'), p.get('d'),
+                       p.get('likes') if p.get('likes') is not None else p.get('score'), p.get('cm') or p.get('rp'), source='dossier')
+            for it in H['items'].values() for p in it.get('posts', []) if p.get('url')]
+
+
+class PublicRulesTest(unittest.TestCase):
+    def test_url_rules(self):
+        for u, net in [('https://www.reddit.com/r/ClaudeAI/comments/abc/x/', 'Reddit'), ('https://i.redd.it/x.png', 'Reddit'),
+                       ('https://x.com/user/status/1', 'X'), ('https://mobile.twitter.com/u', 'X'), ('https://www.linkedin.com/posts/a', 'LinkedIn'),
+                       ('https://youtu.be/abc', 'YouTube'), ('https://t.me/chan/7', 'Telegram'), ('https://mastodon.social/@user/1', 'account'),
+                       ('https://bsky.app/profile/did:plc:abc/post/1', 'account'), ('https://fosstodon.org/@a/2', 'account'),
+                       ('https://api.npmjs.org/downloads/point/last-month/@anthropic-ai/claude-code', None),
+                       ('https://news.ycombinator.com/item?id=1', None), ('https://box.com/x', None), ('https://art.me/x', None)]:
+            self.assertEqual(pulse.url_net(u), net, u)
+
+    def test_public_record_drops_handles_and_count_only_bodies(self):
+        rec = lambda net, **k: {'net': net, 'title': 't', 'url': 'https://example.test/1', 'author': 'someone', 'score': 3, 'comments': 1,
+                                'source': 'live', **k}
+        self.assertEqual(pulse.public(rec('Reddit')), {'net': 'Reddit', 'source': 'live'})
+        self.assertEqual(pulse.public(rec('Mastodon', at='2026-10-16')), {'net': 'Mastodon', 'source': 'live', 'at': '2026-10-16'})  # until A2
+        self.assertNotIn('author', pulse.public(rec('HN')))
+        self.assertEqual(pulse.public(rec('Newsletter'))['author'], 'someone')                         # newsletter names stay
+        self.assertNotIn('author', pulse.public(rec('GitHub', source='dossier')))                       # a dossier post's poster
+        self.assertIsNone(pulse.public(rec('Bluesky', url='https://bsky.app/profile/a.b/post/1'))['url'])
+        self.assertIsNone(pulse.public(rec('HN', link='https://x.com/u/status/1'))['link'])
+
+    def test_reddit_headline_fallback_order(self):
+        at = lambda h: pulse.NOW - timedelta(hours=h)
+        d = lambda net, title, h: (p(net, title[:6], title, 'u', h), at(h), {}, set())
+        reddit, hn = d('Reddit', 'GPT 6 leaked benchmark', 9), d('HN', 'GPT 6 benchmark notes', 5)
+        self.assertEqual(pulse.headline_of(reddit, [reddit, d('Mastodon', 'GPT 6 toot', 7), hn], 'GPT 6')[0], 'GPT 6 benchmark notes')
+        self.assertEqual(pulse.headline_of(reddit, [reddit], 'GPT 6'), ('GPT 6', None, None))
+        self.assertEqual(pulse.headline_of(reddit, [reddit], None), ('Reddit discussion, title not shown', None, None))
+
+    def test_built_stories_and_nodes_hold_no_count_only_text(self):
+        posts = [p('Reddit', i, f'Claude Opus 5.5 routing is broken {i}', f'r{i}', 2 + i) for i in range(6)]
+        posts += [p('HN', 9, 'Claude Opus 5.5 spotted in the API', 'h', 30, score=300)]
+        nodes, _, _, _, extras = pulse.build(posts, LEX, HYPE)
+        for x in nodes:
+            for r in x['samples'] + x['spread']: self.assertTrue(r['net'] not in pulse.COUNT_ONLY or not set(r) & set(pulse.POST_BODY), r)
+        self.assertTrue(extras['stories'])
+        for st in extras['stories']:
+            self.assertFalse(any(r['net'] in pulse.COUNT_ONLY or 'author' in r for r in st['posts']))
+            self.assertTrue(all(not set(r) & set(pulse.POST_BODY) for r in st['path'] if r['net'] in pulse.COUNT_ONLY))
+            self.assertNotIn('broken', st['headline'])
+
+
+class ScrubTest(unittest.TestCase):
+    """hype_build --scrub and the count-only dossier copy (design rows 1, 2, 4, 5; Decision 13, C35)."""
+    def setUp(self):
+        self.fx = json.load(open(os.path.join(FIX, 'dossier_scrub.json')))
+        self.before = self.fx['hype']
+        self.after = hype_build.scrub(copy.deepcopy(self.before), self.fx['dossier_sources'], self.fx['dossier_x_figures'])
+        self.now = pulse.NOW
+        pulse.NOW = datetime(2026, 10, 8, tzinfo=timezone.utc)
+
+    def tearDown(self): pulse.NOW = self.now
+
+    def nets(self, H): return [{k: sum(1 for p in it['posts'] if p['pl'] == k) for k in {p['pl'] for p in it['posts']}} for it in H['items'].values()]
+
+    def test_scrub_keeps_counts_and_removes_handles_links_and_figures(self):
+        a, cc = self.after, self.after['items']['claude-code']
+        self.assertEqual(list(a['items']), list(self.before['items']))
+        self.assertEqual(self.nets(a), self.nets(self.before))                              # items and per-network post counts kept
+        self.assertTrue(all(set(x) == {'pl', 'd'} for x in cc['posts'] if x['pl'] in pulse.COUNT_ONLY))
+        self.assertTrue(all('au' not in x and x['url'] and x['t'] for x in cc['posts'] if x['pl'] == 'HN'))
+        self.assertFalse({'account', 'followers', 'cand_account'} & set(cc['viral']))
+        self.assertEqual((cc['viral']['cand_post'], cc['first_seen_url'], cc['status_urls']), ('an X post', 'an X post', ['a Telegram post']))
+        self.assertEqual(cc['summary_urls'], ['https://example.test/a', 'an X post', 'a Reddit post'])
+        self.assertEqual(cc['links']['x_handle'], 'https://x.com/claudeai')                 # the project's own account stays
+        self.assertEqual(cc['traction'][0]['value'], 'figure from an X post, not shown')
+        self.assertEqual(cc['traction'][1]['value'], 1000)
+        self.assertIsNone(cc['evidence_in']['usage'][0]['value'])
+        self.assertEqual([s['by'] for s in cc['skeptic']], ['X user, sampled X post', 'Example Outlet'])
+        self.assertEqual(cc['coord']['evidence'][0]['url'], 'an X post')
+        place = self.fx['dossier_x_figures']['placeholder']['en']
+        self.assertEqual(cc['notes']['momentum'], place + ' Release dated October 1.')
+        self.assertEqual(a['items']['zephyr']['summary'], self.before['items']['zephyr']['summary'])   # listed keep
+        self.assertEqual([h for h in hype_build.x_hits(a)], [('zephyr', 'summary', a['items']['zephyr']['summary'])])
+        again = hype_build.scrub(copy.deepcopy(a), self.fx['dossier_sources'], self.fx['dossier_x_figures'])
+        self.assertEqual(json.dumps(again, ensure_ascii=False), json.dumps(a, ensure_ascii=False))     # a second run changes nothing
+
+    def test_count_only_records_are_placed_by_project_topic(self):
+        recs = pulse.dossier_posts(self.after)
+        x = [r for r in recs if r['net'] in pulse.COUNT_ONLY]
+        self.assertEqual(len(x), 7)
+        self.assertTrue(all(r['url'] is None and r['title'] == '' and r['author'] == '' and r['score'] is None and r['comments'] is None
+                            and '/' not in r['pid'] and r['extra']['hype'] in self.after['items'] for r in x))
+        nodes, *_ = pulse.build(recs, LEX, self.after['items'])
+        n = {z['id']: z for z in nodes}
+        tid = pulse.PROJECT_TOPIC['claude-code']
+        self.assertEqual(n[tid]['w']['30d']['nets'], {'X': 3, 'HN': 2, 'LinkedIn': 1, 'YouTube': 1, 'Telegram': 1})   # all 3 X posts, text or not
+        self.assertFalse(any(s['net'] in pulse.COUNT_ONLY for s in n[tid]['samples']))
+
+    def test_scrub_changes_voices_weight_and_signal_in_the_expected_direction(self):
+        def run(posts):
+            nodes, *_ = pulse.build(posts, LEX, self.before['items'])
+            return {z['id']: z['w']['30d'] for z in nodes}
+        old, new = run(legacy_copy(self.before)), run(pulse.dossier_posts(self.after))
+        tid = pulse.PROJECT_TOPIC['claude-code']
+        self.assertEqual((old[tid]['authors'], new[tid]['authors']), (6, 5))    # X 2 (by text) + HN 2 + LinkedIn + YouTube -> one per network
+        self.assertEqual((old[tid]['where']['HN']['voices'], new[tid]['where']['HN']['voices']), (2, 1))   # HN dossier voices merge
+        self.assertEqual((old[tid]['nets']['X'], new[tid]['nets']['X']), (2, 3))     # the X post whose text missed the name is placed too
+        for z in set(old) & set(new):                                                 # node voices, weight and engagement never rise
+            for k in ('authors', 'weight', 'eng'): self.assertLessEqual(new[z][k], old[z][k], (z, k))
+        # 'claude' held the dossier's X, LinkedIn and YouTube posts only by text match: it loses them, and its signal falls;
+        # signal is a percentile among nodes, so the project node can rank higher while its own counts do not rise
+        self.assertLess(new['claude']['authors'], old['claude']['authors'])
+        self.assertLess(new['claude']['signal'], old['claude']['signal'])
+
+    def test_committed_hype_is_scrubbed_with_counts_kept(self):
+        raw = open(os.path.join(ROOT, 'web', 'hype.json'), 'rb').read()
+        H = json.loads(raw)
+        nets = {}
+        for it in H['items'].values():
+            for x in it['posts']: nets[x['pl']] = nets.get(x['pl'], 0) + 1
+        self.assertEqual((len(H['items']), nets), (82, {'X': 125, 'HN': 268, 'YouTube': 4, 'LinkedIn': 6, 'Telegram': 1, 'GitHub': 1}))  # as at 2bc0ace
+        self.assertEqual(json.dumps(hype_build.scrub(H), ensure_ascii=False, separators=(',', ':')).encode(), raw)   # idempotent
+        figs = json.load(open(os.path.join(ROOT, 'web', 'i18n', 'dossier-x-figures.json')))
+        keep = {(e['slug'], e['field'], e['sha256']) for e in figs['hits'] if e['disposition'] == 'keep'}
+        strip = {e['sha256'] for e in figs['hits'] if e['disposition'] == 'strip'}
+        self.assertTrue(all((s, f, hype_build.sha(t)) in keep for s, f, t in hype_build.x_hits(H)))
+        shown = {hype_build.sha(t) for _, f, c, k in hype_build.prose_fields(H)
+                 for t in hype_build.sentences(c[k] if isinstance(c, list) else c.get(k) if isinstance(c.get(k), str) else '')}
+        self.assertFalse(strip & shown)
+        self.assertNotIn(b'1,692 API-observed likes', raw)                             # the round-9 example sentence
+        pulse.NOW = datetime(2026, 10, 8, tzinfo=timezone.utc)                         # the dossier's 30-day window, pinned
+        recs = pulse.dossier_posts(H)
+        nodes, *_ = pulse.build(recs, LEX, H['items'])
+        n = {z['id']: z for z in nodes}
+        want = {}
+        for r in recs:
+            if r['net'] in pulse.COUNT_ONLY and pulse.parse_dt(r['created']) >= pulse.NOW - timedelta(days=30):
+                k = (pulse.PROJECT_TOPIC[r['extra']['hype']], r['net']); want[k] = want.get(k, 0) + 1
+        placed = {k: v for k, v in want.items() if k[0] in n}
+        self.assertGreaterEqual(len(placed), 10)                                       # nodes under the 2-post floor are not on the map
+        for (tid, net), c in placed.items(): self.assertEqual(n[tid]['w']['30d']['nets'].get(net), c, (tid, net))
+
+
+@unittest.skipUnless(shutil.which('node'), 'node not installed')
+class LeakFixtureTest(unittest.TestCase):
+    """Decision 14: each fixture overlays a copy of the committed web/; check_page.mjs must fail with that rule's own finding."""
+    RULES = {'handle': 'person handle: HN author', 'skeptic_handle': 'person handle (@name)', 'account_url': 'account-naming URL (a person handle)',
+             'reddit': 'Reddit link (Reddit is counts only)', 'x': 'X link (X is counts only', 'linkedin': 'LinkedIn link (LinkedIn is counts only)',
+             'youtube': 'YouTube link (YouTube is counts only)', 'telegram': 'Telegram link (Telegram is counts only)',
+             'x_figure': 'unlisted X-figure sentence'}
+
+    def check(self, name):
+        with tempfile.TemporaryDirectory() as d:
+            web = os.path.join(d, 'web')
+            shutil.copytree(os.path.join(ROOT, 'web'), web)
+            src = os.path.join(FIX, 'public_leaks', name)
+            for f in os.listdir(src): shutil.copy(os.path.join(src, f), web)
+            return subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+
+    def test_each_leak_fails_on_its_own_rule(self):
+        self.assertEqual(sorted(os.listdir(os.path.join(FIX, 'public_leaks'))), sorted(list(self.RULES) + ['clean_hype', 'clean_pulse']))
+        for name, msg in self.RULES.items():
+            with self.subTest(name):
+                r = self.check(name)
+                self.assertEqual(r.returncode, 1, r.stdout)
+                self.assertIn(msg, r.stderr)
+
+    def test_clean_overlays_pass(self):
+        for name in ('clean_pulse', 'clean_hype'):
+            with self.subTest(name):
+                r = self.check(name)
+                self.assertEqual(r.returncode, 0, r.stderr)
 
 if __name__ == '__main__':
     unittest.main()

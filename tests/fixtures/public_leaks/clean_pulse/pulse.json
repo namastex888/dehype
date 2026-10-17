@@ -1,0 +1,17 @@
+{
+ "generated_at": "2026-10-17T05:25:00Z",
+ "windows": [
+  "1d",
+  "7d",
+  "30d"
+ ],
+ "method": "fixture",
+ "sources": {
+  "Hacker News (Algolia)": {"status": "ok", "detail": "fixture"}
+ },
+ "nodes": [
+  {"id": "p:claude-code", "label": "Claude Code", "kind": "product", "w": {"1d": {"posts": 2, "authors": 2, "weight": 3.0, "nets": {"HN": 1, "Newsletter": 1}}, "7d": {"posts": 2, "authors": 2, "weight": 3.0, "nets": {"HN": 1, "Newsletter": 1}}, "30d": {"posts": 2, "authors": 2, "weight": 3.0, "nets": {"HN": 1, "Newsletter": 1}}}, "samples": [{"net": "HN", "title": "Claude Code ships hooks", "url": "https://news.ycombinator.com/item?id=9001", "date": "2026-10-16", "score": 120, "comments": 40, "source": "live"}, {"net": "Newsletter", "title": "Weekly digest", "url": "https://example.test/issue/1", "date": "2026-10-16", "score": null, "comments": null, "author": "Example Weekly", "source": "live"}], "spread": [{"net": "Reddit", "at": "2026-10-15T10:00:00Z", "day_only": false, "source": "live"}]}
+ ],
+ "edges": [],
+ "stories": []
+}
