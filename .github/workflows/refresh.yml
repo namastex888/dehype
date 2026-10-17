@@ -85,9 +85,14 @@ jobs:
         timeout-minutes: 4
         run: node scripts/check_mastodon_links.mjs --candidates history/mastodon-candidates.json --cache web/checks/mastodon-links.json --cap-seconds 180
       - name: Rebuild Pulse with the checked Mastodon links
+        id: relink
         if: steps.pulse.outcome == 'success'
-        continue-on-error: true   # the first pulse.json (links from earlier passes only) stays if this fails
+        continue-on-error: true   # a relink failure must not block the data commit: the next step keeps the committed pair consistent
         run: python pulse.py --relink
+      - name: Keep pulse.json and the check cache consistent after a failed relink
+        # the first pulse.json was built from the checked-out cache, so it is committed with that cache, not the new one
+        if: steps.relink.outcome == 'failure'
+        run: git restore --source=HEAD -- web/checks/mastodon-links.json && echo "::warning::relink failed; Mastodon check cache restored from HEAD"
       - name: Build semantic search index
         run: npm ci --prefix scripts/embed --ignore-scripts --no-audit --no-fund && node scripts/embed/embed.mjs web
       - name: Gate

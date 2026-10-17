@@ -27,12 +27,17 @@ let MC = {}, genAt = NaN;                                        // the render-c
 try { MC = JSON.parse(readFileSync(join(web, 'checks', 'mastodon-links.json'), 'utf8')).statuses || {}; }
 catch (e) { if (e.code !== 'ENOENT') fail.push(`checks/mastodon-links.json unreadable: ${e.message}`); }
 const MASTO_RULE = 'Mastodon link without a render check passed less than 7 days before pulse.json generated_at';
+// the same rule pulse.py load_links applies at its NOW: the latest check passed, 0 to 7 days before generated_at
 function mastoLink(id) {                                         // null when the link may stand, else why not
   const e = MC[id];
   if (!e) return 'no check in checks/mastodon-links.json';
   if (!e.passed_at) return 'its check never passed';
-  return genAt - Date.parse(e.passed_at) < LINK_MS ? null : 'its last pass is 7 days or more before generated_at';
+  if (e.result !== 'pass' || e.passed_at !== e.checked_at) return 'its latest check failed';
+  const age = genAt - Date.parse(e.passed_at);
+  if (age < 0) return 'its pass is later than generated_at';
+  return age < LINK_MS ? null : 'its last pass is 7 days or more before generated_at';
 }
+const STATUS_ANY = /mastodon\.social\/(?:redirect\/)?statuses\//i;           // any other spelling of a status link is never published
 const X_PROFILE = /^https?:\/\/(?:www\.)?(?:x|twitter)\.com\/\w+\/?$/i;
 const HANDLE = /(?<![A-Za-z0-9_/.@])@[A-Za-z0-9_][A-Za-z0-9_.-]*(?![A-Za-z0-9_/-])/;
 const X_WORD = /(?<![A-Za-z0-9_-])X(?![A-Za-z0-9_-])/;
@@ -59,6 +64,7 @@ function publicRules(file, D) {
         const n = urlNet(u), m = STATUS_URL.exec(u), why = m && mastoLink(m[1]);
         if (n) finding(file, RULE[n], at);
         if (why) finding(file, `${MASTO_RULE} (${why})`, at);
+        if (!m && STATUS_ANY.test(u)) finding(file, 'Mastodon status link not in the form https://mastodon.social/statuses/<id>', at);
       }
       const bare = v.replace(/https?:\/\/\S+/g, ' ');                // a link written without its scheme
       if (/(^|[^\w.])reddit\.com\//i.test(bare)) finding(file, RULE.Reddit, at);

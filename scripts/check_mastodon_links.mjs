@@ -14,7 +14,7 @@
 // shell that version installs (node scripts/checks/node_modules/playwright-core/cli.js install --only-shell chromium).
 // Cache (compact JSON): {"note", "updated_at", "statuses": {"<id>": {"result": "pass"|"fail", "checked_at", "passed_at"
 // (the latest passing check, kept through later fails, null if none), "api_status" (HTTP status or null), "reason" (fail only)}}}
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
@@ -139,10 +139,11 @@ async function main(argv) {
   prune(statuses, ids, clock());
   const sorted = Object.fromEntries(Object.entries(statuses).sort(([a], [b]) => (BigInt(a) < BigInt(b) ? -1 : 1)));
   mkdirSync(dirname(cacheFile), { recursive: true });
-  writeFileSync(cacheFile, JSON.stringify({
+  writeFileSync(`${cacheFile}.tmp`, JSON.stringify({
     note: 'Bot-written: logged-out render check of https://mastodon.social/statuses/<id> per Mastodon post (scripts/check_mastodon_links.mjs). '
       + 'A post links there only while its latest check passed less than 7 days before pulse.json generated_at; api_status is the HTTP status of /api/v1/statuses/<id>.',
     updated_at: iso(clock()), statuses: sorted }));
+  renameSync(`${cacheFile}.tmp`, cacheFile);                    // all or nothing: a killed run leaves the cache pulse.py read
   const fresh = ids.filter(id => statuses[id]?.result === 'pass' && clock() - Date.parse(statuses[id].passed_at) < 7 * DAY).length;
   console.log(`mastodon render check: ${n.candidates} candidates, ${n.due} due, ${n.pass} pass, ${n.fail} fail, ${n.unreached} not reached`
     + ` (time cap ${capMs / 1000}s${n.stop ? `; stopped: ${n.stop}` : ''}); ${fresh} candidates hold a fresh pass; ${Math.round((clock() - t0) / 1000)}s`);

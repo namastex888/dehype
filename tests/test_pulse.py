@@ -360,7 +360,7 @@ class PublicRulesTest(unittest.TestCase):
                        ('https://x.com/user/status/1', 'X'), ('https://mobile.twitter.com/u', 'X'), ('https://www.linkedin.com/posts/a', 'LinkedIn'),
                        ('https://youtu.be/abc', 'YouTube'), ('https://t.me/chan/7', 'Telegram'), ('https://mastodon.social/@user/1', 'account'),
                        ('https://bsky.app/profile/did:plc:abc/post/1', 'account'), ('https://fosstodon.org/@a/2', 'account'),
-                       ('https://fosstodon.org/users/a/statuses/2', 'account'), ('https://mastodon.social/statuses/2', None),
+                       ('https://fosstodon.org/users/a/statuses/2', 'account'), ('https://mastodon.social/statuses/2', 'Mastodon'),
                        ('https://api.npmjs.org/downloads/point/last-month/@anthropic-ai/claude-code', None),
                        ('https://news.ycombinator.com/item?id=1', None), ('https://box.com/x', None), ('https://art.me/x', None)]:
             self.assertEqual(pulse.url_net(u), net, u)
@@ -400,9 +400,6 @@ class PublicRulesTest(unittest.TestCase):
 
 class MastodonLinkTest(unittest.TestCase):
     """Design row 3 (C25): a live mastodon.social post links to /statuses/<id> only while its latest check passed < 7 days ago."""
-    def setUp(self): pulse.LINKS.update(all=False, ids=set())
-    tearDown = setUp
-
     def cache(self, statuses):
         d = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, d)
         f = os.path.join(d, 'mastodon-links.json')
@@ -418,30 +415,35 @@ class MastodonLinkTest(unittest.TestCase):
         self.assertEqual(pulse.load_links(f + '.missing'), set())  # no cache, no link (fail-closed)
 
     def test_link_is_handle_free_and_only_for_live_mastodon_social_posts(self):
-        pulse.LINKS['ids'] = {'7', '8'}
+        links = {'7', '8'}
         here = pulse.post('Mastodon', '7', 'https://mastodon.social/@someone/7', 'Opus 5.5 is out', 'someone', pulse.iso(pulse.NOW), 3, 1)
         away = pulse.post('Mastodon', '8', 'https://fosstodon.org/@a/99', 'Opus 5.5 is out', 'a', pulse.iso(pulse.NOW))
-        self.assertEqual(pulse.masto_link(here), 'https://mastodon.social/statuses/7')
-        self.assertIsNone(pulse.masto_link(away))                                         # another server: mastodon.social redirects it
-        self.assertIsNone(pulse.masto_link({**here, 'source': 'dossier'}))
-        self.assertIsNone(pulse.masto_link({**here, 'pid': '9'}))                          # no passing check
-        rec = {'net': 'Mastodon', 'title': 'hi @someone', 'url': pulse.link_url(here), 'author': 'someone', 'score': 3, 'comments': 1}
-        self.assertEqual(pulse.public(rec), {'net': 'Mastodon', 'title': 'hi @…', 'url': 'https://mastodon.social/statuses/7', 'score': 3, 'comments': 1})
-        self.assertNotIn('title', pulse.public({**rec, 'url': 'https://mastodon.social/statuses/9'}))
-        self.assertNotIn('title', pulse.public({**rec, 'url': here['url']}))
+        self.assertEqual(pulse.masto_link(here, links), 'https://mastodon.social/statuses/7')
+        self.assertIsNone(pulse.masto_link(away, links))                                  # another server: mastodon.social redirects it
+        self.assertIsNone(pulse.masto_link({**here, 'source': 'dossier'}, links))
+        self.assertIsNone(pulse.masto_link({**here, 'pid': '9'}, links))                   # no passing check
+        rec = {'net': 'Mastodon', 'title': 'hi @someone', 'url': pulse.link_url(here, links), 'author': 'someone', 'score': 3, 'comments': 1}
+        self.assertEqual(pulse.public(rec, links), {'net': 'Mastodon', 'title': 'hi @…', 'url': 'https://mastodon.social/statuses/7', 'score': 3, 'comments': 1})
+        self.assertNotIn('title', pulse.public(rec))                                       # no links given: a count
+        self.assertNotIn('title', pulse.public({**rec, 'url': 'https://mastodon.social/statuses/9'}, links))
+        self.assertNotIn('title', pulse.public({**rec, 'url': here['url']}, links))
+        # an orphan status link (an HN target, a story link) never publishes, checked or not: only a Mastodon record's own url does
+        for u in ('https://mastodon.social/statuses/7', 'http://mastodon.social/statuses/7?x=1', 'https://mastodon.social/redirect/statuses/7'):
+            self.assertIsNone(pulse.public({'net': 'HN', 'title': 't', 'url': 'https://news.ycombinator.com/item?id=1', 'link': u}, links)['link'], u)
+        self.assertIsNone(pulse.public({'net': 'HN', 'title': 't', 'url': 'https://mastodon.social/statuses/7'}, links)['url'])
 
     def test_built_outputs_link_passed_posts_and_list_candidates(self):
         at = lambda h: pulse.iso(pulse.NOW - timedelta(hours=h))
         posts = [pulse.post('Mastodon', str(100 + i), f'https://mastodon.social/@m{i}/{100 + i}', f'Claude Opus 5.5 routing take {i}', f'm{i}',
                             at(2 + i), 5 + i, 1) for i in range(3)]
         posts += [pulse.post('Mastodon', '200', 'https://fosstodon.org/@far/200', 'Claude Opus 5.5 routing from afar', 'far', at(3), 50, 1),
-                  pulse.post('HN', '9', 'https://news.ycombinator.com/item?id=9', 'Claude Opus 5.5 spotted in the API', 'h', at(30), 300, 1)]
+                  pulse.post('HN', '9', 'https://news.ycombinator.com/item?id=9', 'Claude Opus 5.5 spotted in the API', 'h', at(30), 300, 1,
+                             extra={'link': 'https://mastodon.social/statuses/555'})]
         want = pulse.mastodon_candidates(posts, LEX, HYPE, None)
         self.assertEqual(want, ['102', '101', '100'])                                     # newest first; the remote post never
-        pulse.LINKS['ids'] = {'101'}
-        nodes, _, _, _, extras = pulse.build(posts, LEX, HYPE)
+        nodes, _, _, _, extras = pulse.build(posts, LEX, HYPE, links={'101', '555'})
         out = json.dumps([nodes, extras['stories']])
-        self.assertEqual(set(pulse.STATUS_URL.findall(out)), {'101'})
+        self.assertEqual(set(pulse.STATUS_URL.findall(out)), {'101'})                    # the HN post's status target link is dropped
         self.assertNotIn('/@', out); self.assertNotIn('"author": "m1"', out)
         for x in nodes:
             for r in x['samples'] + x['spread']:
@@ -595,10 +597,13 @@ class LeakFixtureTest(unittest.TestCase):
              'title_handle': 'pulse.json: person handle (@name)',
              # design row 3: a Mastodon link needs a passing check younger than 7 days before generated_at, a handle-free URL and no author
              'mastodon_unchecked': f'pulse.json: {MASTO} (no check in checks/mastodon-links.json)',
-             'mastodon_stale': f'pulse.json: {MASTO} (its last pass is 7 days or more before generated_at)',
-             'mastodon_failed': f'pulse.json: {MASTO} (its check never passed)',
              'mastodon_origin_url': ('pulse.json: count-only Mastodon record carries url', 'pulse.json: account-naming URL (a person handle)'),
-             'mastodon_author': 'pulse.json: person handle: Mastodon author'}
+             'mastodon_author': 'pulse.json: person handle: Mastodon author',
+             'mastodon_failed_after_pass': (f'pulse.json: {MASTO} (its latest check failed) at 1 place',    # 111: a 404 after a pass
+                                            f'pulse.json: {MASTO} (its check never passed) at 1 place'),   # 112: never passed
+             'mastodon_stale_or_future': (f'pulse.json: {MASTO} (its last pass is 7 days or more before generated_at) at 1 place',  # 111
+                                          f'pulse.json: {MASTO} (its pass is later than generated_at) at 1 place'),               # 112
+             'mastodon_noncanonical': 'pulse.json: Mastodon status link not in the form https://mastodon.social/statuses/<id>'}
     CLEAN = ['clean_hype', 'clean_pulse', 'clean_mastodon']    # clean_mastodon: a pass 6 days before generated_at, weeks before the clock
 
     def check(self, name):
