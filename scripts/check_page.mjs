@@ -1,6 +1,7 @@
 // Static page gate: the inline script parses, the data files parse, every field the page reads exists, and the public
 // files keep the public-data rules (no person handle; Reddit, X, LinkedIn, YouTube, Telegram counts only; Mastodon counts only
 // unless linked by its handle-free mastodon.social/statuses link with a fresh passing render check; no unlisted X figure).
+// briefing.json keeps the same rules plus its own: proposals with no label word, "not fetched" for an unfetched source, previews only.
 // Node standard library only. Usage: node scripts/check_page.mjs [webDir]
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -220,7 +221,99 @@ try {
 publicRules('hype.json', H);
 hypeRules(H);
 
+// Daily briefing (design rows 6, 8, 9; C7, C9, C13, C36): the public-data rules above, every pipeline record a proposal with no
+// label word, a count from a source not fully fetched reads "not fetched" (never 0 or false), at most ten Top 10 rows, at most four
+// gauges with the council names, every one a preview (none shipped), no trend or arrow before 14 ledger days, Risk and Jobs placeholders.
+// Self-contained on purpose: the Top 10 recompute against pulse.json runs in tests/test_pulse.py.
+const PREVIEW = 'preview, not yet reproducible', NOT_FETCHED = 'not fetched', NO_SOURCE = 'no qualified source', TREND_DAYS = 14;
+const LABEL_WORDS = new Set(['REAL', 'OVERHYPED', 'FALSE', 'PUSHED', 'UNVERIFIED']);
+const GAUGE_NAMES = new Set(['Releases / research output by area', 'Hype vs substance', 'Daily movers']);
+const NET_ADAPTERS = { HN: ['Hacker News (Algolia)'], Lobsters: ['Lobsters (ai tag)'], Mastodon: ['Mastodon (mastodon.social tags)'],
+  Reddit: ['Reddit (arctic-shift archive)', 'Reddit (official API)'], Bluesky: ['Bluesky (app password)'], Newsletter: ['Newsletters (RSS)'],
+  Official: ['Official feeds (RSS)'] };
+const TREND_KEY = /^(trend|trends|arrow|arrows|delta|day_over_day)$/;
+function ledgerCount() {                                         // web/ledger/index.json from group E1 on; 0 without it
+  try { const L = JSON.parse(readFileSync(join(web, 'ledger', 'index.json'), 'utf8')); const e = Array.isArray(L) ? L : L?.entries; return Array.isArray(e) ? e.length : 0; }
+  catch (e) { if (e.code !== 'ENOENT') fail.push(`ledger/index.json unreadable: ${e.message}`); return 0; }
+}
+function briefingRules(B) {
+  const F = 'briefing.json', st = {};
+  for (const [net, ads] of Object.entries(NET_ADAPTERS)) {
+    const s = ads.map(a => B.sources?.[a]?.status);
+    st[net] = s.includes('ok') ? 'ok' : s.includes('partial') ? 'partial' : NOT_FETCHED;
+  }
+  // a reading from one source: a positive count or true, 0 or false only when that source was fully fetched, else "not fetched"
+  const fetched = (v, net, at, bool = false) => {
+    if (v === NOT_FETCHED || (bool ? v === true : Number.isInteger(v) && v > 0)) return;
+    if ((bool ? v === false : v === 0) && st[net] === 'ok') return;
+    finding(F, (v === 0 || v === false) ? `${net} not fully fetched but a count reads ${v} (must read "not fetched")` : `${net} reading is not a count, ${bool ? 'true, false' : '0'} or "not fetched"`, at);
+  };
+  need(Number.isFinite(Date.parse(B.generated_at)), 'briefing.json generated_at missing');
+  need(/ BRT$/.test(B.window?.end_brt || '') && B.window?.end === B.generated_at, 'briefing.json window end is not generated_at printed in BRT');
+  need(B.method?.version && /^[0-9a-f]{16}$/.test(B.method?.config_hash || ''), 'briefing.json method lacks its version or config hash');
+  const recs = Array.isArray(B.records) ? B.records : [], ids = new Set(recs.map(r => r.id));
+  need(Array.isArray(B.records) && ids.size === recs.length, 'briefing.json records missing or ids not unique');
+  recs.forEach((r, i) => {
+    const at = `records[${i}]`;
+    if (r.state !== 'proposed') finding(F, 'pipeline record state is not "proposed"', `${at}.state`);
+    for (const k of ['label', 'verdict']) if (k in r) finding(F, `pipeline record carries a ${k} field`, `${at}.${k}`);
+    // a label word anywhere in a value, as an upper-case word ("REAL", "REAL (proposed)"); headlines and titles are what was posted
+    walk(r, at, (v, p) => {
+      if (typeof v !== 'string' || /\.(headline|title)$/.test(p)) return;
+      for (const w of v.split(/[^A-Z]+/)) if (LABEL_WORDS.has(w)) finding(F, `pipeline record carries a label word (${w})`, p);
+    });
+    need(/^s:[0-9a-f]{12}$/.test(r.id || '') && r.method_version === B.method?.version && r.config_hash === B.method?.config_hash,
+      `briefing record ${r.id} lacks its stable id, method version or config hash`);
+    need(r.seen === 'new today' || /^first seen \d{4}-\d{2}-\d{2}$/.test(r.seen || ''), `briefing record ${r.id} lacks "new today" or its first-seen date`);
+    const c = r.computed || {}, sub = r.substance || {};
+    for (const [net, v] of Object.entries(c.networks || {})) fetched(v, net, `${at}.computed.networks.${net}`);
+    fetched(c.newsletters, 'Newsletter', `${at}.computed.newsletters`);
+    fetched(c.hn_points, 'HN', `${at}.computed.hn_points`);
+    fetched(c.official, 'Official', `${at}.computed.official`, true);
+    fetched(sub.official, 'Official', `${at}.substance.official`, true);
+    need(Array.isArray(sub.repos) && Array.isArray(sub.papers) && r.related_in_topic?.reading === 'related in topic',
+      `briefing record ${r.id} lacks its own-link substance or the "related in topic" reading`);
+  });
+  const top = Array.isArray(B.top10) ? B.top10 : [];
+  need(Array.isArray(B.top10) && top.length <= 10, 'briefing.json top10 missing or longer than 10');
+  top.forEach((t, i) => need(t.rank === i + 1 && ids.has(t.id) && (t.seen === 'new today' || /^first seen \d{4}-\d{2}-\d{2}$/.test(t.seen || '')),
+    `briefing top10 row ${i + 1} lacks its rank, record or "new today" / first-seen date`));
+  const ledger = ledgerCount(), days = Number.isInteger(B.ledger_days) ? B.ledger_days : NaN;
+  need(days >= 0, 'briefing.json ledger_days missing');
+  if (days > ledger) finding(F, `ledger_days ${days} exceeds the ${ledger} days in ledger/index.json`, 'ledger_days');
+  const gauges = Array.isArray(B.gauges) ? B.gauges : [];
+  need(Array.isArray(B.gauges) && gauges.length <= 4, 'briefing.json gauges missing or more than four');
+  for (const k of Object.keys(B)) if (/score/i.test(k)) finding(F, 'combined score', k);
+  gauges.forEach((g, i) => {
+    const at = `gauges[${i}]`;
+    if (!GAUGE_NAMES.has(g.name)) finding(F, 'gauge not named by the council (no combined score)', `${at}.name`);
+    if (g.shipped || /shipped/i.test(g.status || '')) finding(F, 'gauge marked shipped (no gauge ships in S1)', `${at}.status`);
+    else if (g.status !== PREVIEW) finding(F, `gauge status is not "${PREVIEW}"`, `${at}.status`);
+    if (!g.coverage || typeof g.coverage !== 'object') finding(F, 'gauge without coverage', `${at}.coverage`);
+    if (g.value === null && !/^insufficient data: /.test(g.reason || '')) finding(F, 'null gauge without an "insufficient data" reason', `${at}.reason`);
+    if (Math.min(days, ledger) < TREND_DAYS)
+      walk(g, at, (v, p) => { if (v && typeof v === 'object') for (const [k, x] of Object.entries(v)) if (TREND_KEY.test(k) && x != null) finding(F, `trend or arrow before ${TREND_DAYS} ledger days`, `${p}.${k}`); });
+    if (g.id === 'hype_vs_substance') (g.value?.stories || []).forEach((row, j) => {
+      const h = row.hype || {}, s = row.substance || {}, rp = `${at}.value.stories[${j}]`;
+      for (const [net, v] of Object.entries(h.networks || {})) fetched(v, net, `${rp}.hype.networks.${net}`);
+      fetched(h.newsletters, 'Newsletter', `${rp}.hype.newsletters`); fetched(h.hn_points, 'HN', `${rp}.hype.hn_points`);
+      fetched(s.official, 'Official', `${rp}.substance.official`, true);
+    });
+  });
+  const panel = id => (B.panels || []).find(p => p.id === id);
+  need(panel('jobs')?.reading === NO_SOURCE, 'briefing.json Jobs panel does not read "no qualified source"');
+  need(panel('risk') && Array.isArray(panel('risk').events) && (panel('risk').events.length > 0 || panel('risk').reading === NO_SOURCE) && !('dial' in panel('risk')),
+    'briefing.json Risk panel is not a dated event log reading "no qualified source" (no dial)');
+  return `briefing ${recs.length} records, Top 10 of ${top.length}, ${gauges.length} gauges, ${days} ledger days`;
+}
+let briefNote = 'no briefing';
+try {
+  const B = JSON.parse(readFileSync(join(web, 'briefing.json'), 'utf8'));
+  publicRules('briefing.json', B);
+  briefNote = briefingRules(B);
+} catch (e) { fail.push(`briefing.json unreadable: ${e.message}`); }
+
 for (const [rule, at] of Object.entries(found)) fail.push(`${rule} at ${at.length} place${at.length > 1 ? 's' : ''}, e.g. ${at.slice(0, 3).join(', ')}`);
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
-console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}`);
+console.log(`page check ok: script parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}`);

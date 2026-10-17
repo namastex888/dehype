@@ -1,0 +1,10 @@
+{"generated_at": "2026-10-17T07:25:00Z", "scoring_version": "3.0", "config_sha": "fixture000", "views": ["all", "agents", "other"],
+ "tracked": {"papers": 3, "repos": 2},
+ "papers": {"items": {
+   "2610.01234": {"title": "Muse Spark: open weights at scale", "lab": "Meta AI", "authors": ["A. Author"], "published": "2026-10-14", "upvotes": 40, "mentions": 3, "tag": "agents"},
+   "2610.00002": {"title": "A survey of agent harnesses", "lab": null, "authors": ["B. Author"], "published": "2026-10-11", "upvotes": 2, "mentions": 0, "tag": "other"},
+   "2609.00003": {"title": "An older paper", "lab": null, "authors": ["C. Author"], "published": "2026-10-10", "upvotes": 1, "mentions": 0, "tag": "agents"}}},
+ "repos": {"items": {
+   "example/hookkit": {"url": "https://github.com/example/hookkit", "desc": "hooks toolkit for Claude Code", "stars": 900, "contributors": 4, "tag": "agents", "created": "2026-10-15"},
+   "example/oldwrap": {"url": "https://github.com/example/oldwrap", "desc": "an old Claude Code wrapper", "stars": 50, "contributors": 1, "tag": "agents", "created": "2026-08-01"}},
+   "7d": {"all": {"rows": [{"id": "example/hookkit", "gained": 300, "flags": []}, {"id": "example/oldwrap", "gained": 5, "flags": []}]}}}}

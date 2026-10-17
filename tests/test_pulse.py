@@ -1,5 +1,5 @@
 """Pulse topic extraction and metrics on fixed posts (offline), and the public-data rules (design group A)."""
-import copy, hashlib, json, os, shutil, subprocess, sys, tempfile, unittest
+import contextlib, copy, hashlib, io, json, os, shutil, subprocess, sys, tempfile, unittest
 from datetime import datetime, timedelta, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -627,6 +627,331 @@ class LeakFixtureTest(unittest.TestCase):
             with self.subTest(name):
                 r = self.check(name)
                 self.assertEqual(r.returncode, 0, r.stderr)
+
+# ------------------------------------------------------------------ briefing (design rows 6, 8, 9; group B1)
+BRT = timezone(timedelta(hours=-3))
+LABEL_WORDS = {'REAL', 'OVERHYPED', 'FALSE', 'PUSHED', 'UNVERIFIED'}
+
+
+def read(path):
+    with open(path, 'rb') as f: return f.read()
+
+
+def recompute_top10(P):
+    """SC-14, written apart from pulse.top10: the published rule applied to a pulse.json's stories at its generated_at."""
+    now = datetime.fromisoformat(P['generated_at'].replace('Z', '+00:00'))
+    lo, t = now - timedelta(hours=24), lambda s: datetime.fromisoformat(s.replace('Z', '+00:00'))
+    live = [s for s in P['stories'] if s['kind'] == 'news' and s['covered'] and t(s['last']) >= lo]
+    by_heat = lambda ss: sorted(ss, key=lambda s: (-s['heat'], -t(s['last']).timestamp(), s['id']))
+    new, rest = by_heat([s for s in live if t(s['first']) >= lo]), by_heat([s for s in live if t(s['first']) < lo])
+    return [(s['id'], 'new today' if s in new else 'first seen ' + t(s['first']).astimezone(BRT).date().isoformat()) for s in (new + rest)[:10]]
+
+
+def top10_problems(P, B):
+    """Empty when the briefing's ten ids, their order and their "new today" / first-seen readings equal the recompute."""
+    want, got = recompute_top10(P), [(r['id'], r['seen']) for r in B['top10']]
+    out = [] if B.get('generated_at') == P['generated_at'] else ['briefing and pulse.json come from different runs']
+    if [i for i, _ in got] != [i for i, _ in want]: out.append(f'ids or order differ: {[i for i, _ in got]} != {[i for i, _ in want]}')
+    elif got != want: out.append(f'seen readings differ: {got} != {want}')
+    if [r['rank'] for r in B['top10']] != list(range(1, len(B['top10']) + 1)): out.append('ranks are not 1..n')
+    return out
+
+
+def offline_rebuild(d, now='2026-10-17T08:25:00Z'):
+    """Decision 20 in miniature: store the fixture posts in a fresh history DB under d, then run pulse.py --offline against a web/
+    holding only the fixture data.json and hype.json (no earlier pulse.json, so every adapter reads unknown). Returns d/web."""
+    src = os.path.join(FIX, 'offline_rebuild')
+    web, hist = os.path.join(d, 'web'), os.path.join(d, 'history')
+    os.makedirs(web, exist_ok=True)
+    for f in ('data.json', 'hype.json'): shutil.copy(os.path.join(src, f), web)
+    keep = {k: getattr(pulse, k) for k in ('WEB', 'HIST', 'DB', 'CANDIDATES', 'NOW')}
+    argv, sources = sys.argv, dict(pulse.SOURCES)
+    try:
+        pulse.WEB, pulse.HIST, pulse.DB = web, hist, os.path.join(hist, 'signals.sqlite')
+        pulse.CANDIDATES = os.path.join(hist, 'mastodon-candidates.json')
+        pulse.NOW = datetime.fromisoformat(now.replace('Z', '+00:00'))
+        pulse.SOURCES.clear()
+        con = pulse.db()
+        pulse.store(con, [pulse.post(*r[:8], source=r[8], extra=r[9]) for r in json.loads(read(os.path.join(src, 'posts.json')))['posts']])
+        con.close()
+        sys.argv = ['pulse.py', '--offline']
+        with contextlib.redirect_stdout(io.StringIO()): pulse.main()
+    finally:
+        for k, v in keep.items(): setattr(pulse, k, v)
+        sys.argv = argv
+        pulse.SOURCES.clear(); pulse.SOURCES.update(sources)
+    return web
+
+
+class BriefingRulesTest(unittest.TestCase):
+    """Top 10 rule (R6-1), evidence records (C7-C9) and gauge values (C36) on fixed inputs."""
+    def setUp(self):
+        self.P = json.loads(read(os.path.join(FIX, 'top10', 'pulse.json')))
+        self.now = datetime.fromisoformat(self.P['generated_at'].replace('Z', '+00:00'))
+
+    def test_top10_new_today_first_then_heat_with_ties(self):
+        rows = pulse.top10(self.P['stories'], self.now)
+        self.assertEqual([r['id'] for r in rows], ['s:bbbbbbbbbbbb', 's:aaaaaaaaaaaa', 's:0fffffffffff', 's:eeeeeeeeeeee', 's:666666666666',
+                                                   's:cccccccccccc', 's:111111111111', 's:dddddddddddd', 's:222222222222', 's:333333333333'])
+        self.assertEqual([(r['id'], r['seen']) for r in rows], recompute_top10(self.P))
+        self.assertEqual(rows[4]['seen'], 'new today')                    # first seen exactly at the window start is in the window
+        self.assertEqual(rows[7]['seen'], 'first seen 2026-10-11')        # 2026-10-12T02:00Z is the 11th in BRT
+        self.assertNotIn('s:999999999999', [r['id'] for r in rows])       # chatter, however hot
+        self.assertNotIn('s:888888888888', [r['id'] for r in rows])       # no post in the last 24h
+
+    def test_recompute_passes_the_fixture_and_fails_the_reordered_one(self):
+        self.assertEqual(top10_problems(self.P, json.loads(read(os.path.join(FIX, 'top10', 'briefing.json')))), [])
+        bad = top10_problems(self.P, json.loads(read(os.path.join(FIX, 'top10', 'briefing_reordered.json'))))
+        self.assertEqual(len(bad), 1); self.assertIn('ids or order differ', bad[0])
+
+    def story(self, **over):
+        s = {'id': 's:aaaaaaaaaaaa', 'label': None, 'covered': True, 'kind': 'news', 'pain': 0.0, 'headline': 'A FALSE start, for REAL',
+             'first': '2026-10-17T01:00:00Z', 'last': '2026-10-17T07:00:00Z', 'voices': 4, 'nets': {'HN': 1, 'Mastodon': 2, 'Reddit': 1},
+             'newsletters': [], 'official': False, 'hn_points': 120, 'key': ['start'], 'tags': [], 'heat': 3.0, 'refs': {'repos': [], 'papers': []}}
+        s.update(over)
+        return s
+
+    def sources(self, **status):
+        out = {a: {'status': 'ok', 'detail': 'fixture'} for a in pulse.ADAPTERS}
+        for a, v in status.items(): out[a]['status'] = v
+        return out
+
+    def test_unfetched_source_reads_not_fetched_never_false_or_zero(self):
+        src = self.sources(**{'Official feeds (RSS)': 'unknown', 'Newsletters (RSS)': 'partial', 'Bluesky (app password)': 'not connected',
+                              'Reddit (official API)': 'not connected', 'Lobsters (ai tag)': 'failed'})
+        B = pulse.briefing([self.story(), self.story(id='s:bbbbbbbbbbbb', official=True, newsletters=['Example Weekly'])], [], src, None, self.now, 'm')
+        a, b = B['records']
+        self.assertEqual(a['computed']['official'], 'not fetched'); self.assertEqual(a['substance']['official'], 'not fetched')
+        self.assertIs(b['computed']['official'], True)                      # true where it is true
+        self.assertEqual(a['computed']['newsletters'], 'not fetched')       # partial: no newsletter seen is not 0
+        self.assertEqual(b['computed']['newsletters'], 1)
+        self.assertEqual(a['computed']['networks'], {'HN': 1, 'Lobsters': 'not fetched', 'Mastodon': 2, 'Reddit': 1, 'Bluesky': 'not fetched'})
+        self.assertEqual(a['sources']['Reddit'], 'ok')                      # one Reddit adapter read ok
+        rows = B['gauges'][1]['value']['stories']
+        self.assertEqual(rows[0]['substance']['official'], 'not fetched'); self.assertEqual(rows[0]['hype']['newsletters'], 'not fetched')
+        self.assertEqual(rows[0]['hype']['networks']['Bluesky'], 'not fetched')
+        ok = pulse.briefing([self.story(nets={'HN': 1})], [], self.sources(), None, self.now, 'm')['records'][0]['computed']
+        self.assertEqual((ok['official'], ok['newsletters'], ok['networks']['Bluesky']), (False, 0, 0))   # fully fetched: a real 0
+
+    def test_records_are_proposals_with_stable_id_method_and_no_label_word(self):
+        B = pulse.briefing([self.story()], [], self.sources(), None, self.now, 'm')
+        r = B['records'][0]
+        self.assertEqual(r['state'], 'proposed')
+        self.assertFalse({'label', 'verdict'} & set(r))
+        self.assertEqual((r['id'], r['method_version'], r['config_hash']), ('s:aaaaaaaaaaaa', pulse.BRIEFING_VERSION, B['method']['config_hash']))
+        self.assertRegex(r['config_hash'], r'^[0-9a-f]{16}$')
+        def values(o):
+            if isinstance(o, dict): return [v for k, x in o.items() if k != 'headline' for v in values(x)]
+            return [v for x in o for v in values(x)] if isinstance(o, list) else [o]
+        self.assertFalse(LABEL_WORDS & {v for v in values(r) if isinstance(v, str)})
+        self.assertNotEqual(pulse.briefing([self.story()], [], self.sources(), None, self.now, 'other method')['method']['config_hash'],
+                            B['method']['config_hash'])                   # the hash follows the method text
+
+    def test_substance_is_the_storys_own_links_and_topic_samples_are_related(self):
+        node = {'id': 'p:claude-code', 'samples': [{'net': 'GitHub', 'title': 'hookkit: hooks', 'url': 'https://github.com/example/hookkit', 'source': 'tracker'},
+                                                   {'net': 'GitHub', 'title': 'hooks', 'url': 'https://github.com/example/hooks', 'source': 'tracker'},
+                                                   {'net': 'HN', 'title': 'a post', 'url': 'https://news.ycombinator.com/item?id=1', 'source': 'live'}]}
+        s = self.story(tags=['p:claude-code'], refs={'repos': ['https://github.com/example/hooks'], 'papers': []})
+        r = pulse.briefing([s], [node], self.sources(), None, self.now, 'm')['records'][0]
+        self.assertEqual(r['substance']['repos'], ['https://github.com/example/hooks'])
+        self.assertEqual(r['related_in_topic'], {'reading': 'related in topic', 'items': [
+            {'topic': 'p:claude-code', 'net': 'GitHub', 'title': 'hookkit: hooks', 'url': 'https://github.com/example/hookkit'}]})
+        self.assertEqual(pulse.own_refs(['https://github.com/example/hooks/tree/main', 'https://github.com/Example/Hooks.git', 'https://github.com/features/copilot',
+                                         'https://github.com/example', 'https://arxiv.org/pdf/2610.01234v2', 'https://huggingface.co/papers/2610.01234',
+                                         'https://www.reddit.com/r/x/comments/abc/github.com/a/b', None]),
+                         {'repos': ['https://github.com/example/hooks'], 'papers': ['https://arxiv.org/abs/2610.01234']})
+
+    def test_gauges_previews_with_coverage_floors_and_placeholders(self):
+        D = {'generated_at': '2026-10-17T07:00:00Z', 'views': ['all', 'agents', 'other'], 'tracked': {'papers': 3, 'repos': 1},
+             'papers': {'items': {'1': {'tag': 'agents', 'published': '2026-10-11'}, '2': {'tag': 'agents', 'published': '2026-10-10'},
+                                  '3': {'tag': 'other', 'published': '2026-10-17'}}},
+             'repos': {'items': {'a/b': {'tag': 'agents', 'created': '2026-10-16'}}}}
+        src = self.sources(); src['Tracker (papers + repos)'] = {'status': 'ok', 'detail': 'fixture'}
+        nodes = [{'id': 't1', 'label': 'Up', 'rising': 3.0, 'w': {'1d': {'posts': 6}, '7d': {'posts': 14}}},
+                 {'id': 't2', 'label': 'Down', 'rising': 0.5, 'w': {'1d': {'posts': 2}, '7d': {'posts': 28}}},
+                 {'id': 't3', 'label': 'Quiet', 'rising': None, 'w': {'1d': {'posts': 0}, '7d': {'posts': 1}}}]
+        B = pulse.briefing([self.story()], nodes, src, D, self.now, 'm')
+        names = [g['name'] for g in B['gauges']]
+        self.assertEqual(names, ['Releases / research output by area', 'Hype vs substance', 'Daily movers'])
+        self.assertLessEqual(len(B['gauges']), 4)
+        for g in B['gauges']:
+            self.assertEqual((g['status'], g['trend']), ('preview, not yet reproducible', None)); self.assertTrue(g['coverage'])
+        self.assertEqual(B['gauges'][0]['value']['areas'], [{'area': 'agents', 'papers': 1, 'repos': 1}, {'area': 'other', 'papers': 1, 'repos': 0}])
+        self.assertEqual(B['gauges'][2]['value']['up'][0]['topic'], 't1'); self.assertEqual(B['gauges'][2]['value']['down'][0]['topic'], 't2')
+        self.assertEqual(B['gauges'][2]['coverage']['topics_with_reading'], 2)
+        self.assertEqual([(p['name'], p['reading']) for p in B['panels']], [('Risk', 'no qualified source'), ('Jobs', 'no qualified source')])
+        self.assertEqual(B['panels'][0]['events'], [])
+        self.assertFalse([k for k in B if 'score' in k])
+        # below the floor: null with the reason, never a value carried over
+        stale = dict(D, generated_at='2026-10-15T07:00:00Z')
+        down = dict(src, **{'Tracker (papers + repos)': {'status': 'failed', 'detail': 'x'}})
+        old = pulse.briefing([self.story(last='2026-10-15T00:00:00Z')], [nodes[2]], src, stale, self.now, 'm')
+        for g, why in zip(old['gauges'], ('the tracker data is older', 'no covered news story', 'no topic had 4+')):
+            self.assertIsNone(g['value']); self.assertTrue(g['reason'].startswith('insufficient data: ' + why), g['reason'])
+        self.assertIn('was not read', pulse.briefing([], [], down, D, self.now, 'm')['gauges'][0]['reason'])
+        self.assertIn('no conversation network', pulse.briefing([], nodes, {}, None, self.now, 'm')['gauges'][2]['reason'])
+
+    def test_window_end_is_now_printed_in_brt_and_ledger_days(self):
+        B = pulse.briefing([], [], {}, None, self.now, 'm', days=3)
+        self.assertEqual(B['window'], {'start': '2026-10-16T08:25:00Z', 'end': '2026-10-17T08:25:00Z', 'end_brt': '2026-10-17 05:25 BRT', 'hours': 24})
+        self.assertEqual(B['generated_at'], B['window']['end']); self.assertEqual(B['ledger_days'], 3)
+        with tempfile.TemporaryDirectory() as d:
+            f = os.path.join(d, 'index.json')
+            self.assertEqual(pulse.ledger_days(f), 0)
+            for body, n in (([{'date': '2026-10-16'}, {'date': '2026-10-17'}], 2), ({'entries': [{}]}, 1), ({'x': 1}, 0)):
+                with open(f, 'w') as fh: json.dump(body, fh)
+                self.assertEqual(pulse.ledger_days(f), n)
+
+    def test_story_ids_are_unique_when_two_clusters_name_one_release(self):
+        # an HN seed naming no release carries a Reddit post that names Qwen 3.8 (attached by its words); five Mastodon posts naming
+        # Qwen 3.8 form their own story: both name the release, so before B1 both took the id of "release:v:qwen-3.8"
+        posts = [p('HN', 1, 'Llama.cpp on a jailbroken PS5 console runs any GGUF model', 'h1', 10, score=300),
+                 p('Reddit', 2, 'Qwen 3.8 on my jailbroken PS5 console through llama.cpp GGUF', 'r1', 8)]
+        posts += [p('Mastodon', 10 + i, f'Qwen 3.8 is great at coding, take {i}', f'm{i}', 2 + i) for i in range(5)]
+        posts += [p('Mastodon', 100 + i, f'zq{i}word xv{i}thing kp{i}stuff', f'f{i}', 30) for i in range(150)]   # uncommon-word floor
+        st = {s['kind']: s for s in pulse.build(posts, LEX, HYPE)[4]['stories']}
+        sha = lambda k: 's:' + hashlib.sha1(k.encode()).hexdigest()[:12]
+        self.assertEqual((st['news']['label'], st['chatter']['label']), ('Qwen 3.8', 'Qwen 3.8'))
+        self.assertEqual(st['news']['id'], sha('release:v:qwen-3.8'))                        # earliest editorial post (10h ago): release key
+        self.assertEqual(st['chatter']['id'], sha('https://example.test/Mastodon/14'))       # the other: its earliest post (6h ago)
+        # more posts naming the release on the later story do not swap the two ids
+        more = posts + [p('Mastodon', 40 + i, f'Qwen 3.8 is great at coding, again {i}', f'n{i}', 1) for i in range(8)]
+        st2 = {s['kind']: s['id'] for s in pulse.build(more, LEX, HYPE)[4]['stories']}
+        self.assertEqual(st2, {'news': st['news']['id'], 'chatter': st['chatter']['id']})
+
+    def test_node_samples_with_equal_scores_keep_one_order(self):
+        posts = [p('HN', 1, 'Claude Opus 5.5 lands in the API', 'a', 3, score=50), p('HN', 2, 'Claude Opus 5.5 pricing explained', 'b', 3, score=50),
+                 p('HN', 3, 'Claude Opus 5.5 benchmarks for agents', 'c', 3, score=50)]
+        urls = lambda ps: {n['id']: [x['url'] for x in n['samples']] for n in pulse.build(ps, LEX, HYPE)[0]}
+        fwd, rev = urls(posts), urls(posts[::-1])
+        self.assertEqual(fwd, rev)
+        self.assertTrue(any(len(u) == 3 for u in fwd.values()), fwd)
+        for u in fwd.values(): self.assertEqual(u, sorted(u))            # equal score and age: by url
+
+
+class OfflineRebuildTest(unittest.TestCase):
+    """The offline-rebuild fixture: pulse.py --offline with every adapter unknown writes briefing.json beside pulse.json, the
+    records and the Hype vs substance values read "not fetched", the output is byte-identical across runs and hash seeds,
+    and check_page.mjs accepts it on a copy of the committed web/."""
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.web = offline_rebuild(cls.tmp.name)
+        cls.raw = read(os.path.join(cls.web, 'briefing.json'))
+        cls.B, cls.P = json.loads(cls.raw), json.loads(read(os.path.join(cls.web, 'pulse.json')))
+
+    @classmethod
+    def tearDownClass(cls): cls.tmp.cleanup()
+
+    def test_records_and_gauge_values_read_not_fetched(self):
+        B, P = self.B, self.P
+        self.assertEqual(B['generated_at'], P['generated_at'])
+        self.assertEqual({v['status'] for k, v in B['sources'].items() if k in pulse.ADAPTERS}, {'unknown'})
+        self.assertEqual([r['id'] for r in B['records']], [s['id'] for s in P['stories']])
+        hooks = next(r for r in B['records'] if 'hooks' in r['headline'].lower())
+        muse = next(r for r in B['records'] if 'muse' in r['headline'].lower())
+        self.assertEqual(hooks['computed']['official'], 'not fetched'); self.assertIs(muse['computed']['official'], True)
+        self.assertEqual(hooks['computed']['newsletters'], 'not fetched')
+        self.assertEqual(hooks['computed']['networks']['Bluesky'], 'not fetched')
+        self.assertEqual(hooks['computed']['networks']['HN'], 1)
+        self.assertEqual(hooks['substance']['repos'], ['https://github.com/example/hooks'])          # not the Reddit post's link
+        self.assertEqual(muse['substance']['papers'], ['https://arxiv.org/abs/2610.01234'])
+        self.assertIn('https://github.com/example/hookkit', [x['url'] for x in hooks['related_in_topic']['items']])
+        self.assertEqual(hooks['related_in_topic']['reading'], 'related in topic')
+        for r in B['records']: self.assertEqual(r['state'], 'proposed')
+        self.assertEqual([(t['id'], t['seen']) for t in B['top10']], [(hooks['id'], 'new today'), (muse['id'], 'first seen 2026-10-14')])
+        self.assertEqual(top10_problems(P, B), [])
+        g = {x['id']: x for x in B['gauges']}
+        for row in g['hype_vs_substance']['value']['stories']:
+            self.assertEqual(row['hype']['newsletters'], 'not fetched'); self.assertEqual(row['hype']['networks']['Bluesky'], 'not fetched')
+        self.assertEqual(g['hype_vs_substance']['value']['stories'][0]['substance']['official'], 'not fetched')
+        self.assertIsNone(g['daily_movers']['value']); self.assertIn('no conversation network was fetched', g['daily_movers']['reason'])
+        self.assertEqual(g['output_by_area']['value'], {'since': '2026-10-11', 'areas': [{'area': 'agents', 'papers': 1, 'repos': 1},
+                                                                                          {'area': 'other', 'papers': 1, 'repos': 0}]})
+        self.assertNotIn(b'\n', self.raw)                                                          # Decision 19: compact, one line
+
+    def test_same_inputs_give_byte_identical_briefing(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(read(os.path.join(offline_rebuild(d), 'briefing.json')), self.raw)
+        code = 'import sys; sys.path[:0] = [sys.argv[1], sys.argv[2]]; import test_pulse; test_pulse.offline_rebuild(sys.argv[3])'
+        for seed in ('1', '2'):
+            with tempfile.TemporaryDirectory() as d:
+                r = subprocess.run([sys.executable, '-c', code, os.path.join(ROOT, 'tests'), ROOT, d], capture_output=True, text=True,
+                                   env=dict(os.environ, PYTHONHASHSEED=seed), cwd=ROOT)
+                self.assertEqual(r.returncode, 0, r.stderr)
+                self.assertEqual(read(os.path.join(d, 'web', 'briefing.json')), self.raw, f'PYTHONHASHSEED={seed}')
+
+    @unittest.skipUnless(shutil.which('node'), 'node not installed')
+    def test_page_check_accepts_the_rebuilt_briefing(self):
+        with tempfile.TemporaryDirectory() as d:
+            web = os.path.join(d, 'web')
+            shutil.copytree(os.path.join(ROOT, 'web'), web)
+            shutil.copy(os.path.join(self.web, 'briefing.json'), web)
+            r = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+
+
+class DayFilesTest(unittest.TestCase):
+    """SC-14 on the committed day's files: the briefing's ten ids and order equal a recompute from web/pulse.json, and every story
+    has its record with the story's own computed fields and links (C8, C9, C13, C19)."""
+    def setUp(self):
+        self.P = json.loads(read(os.path.join(ROOT, 'web', 'pulse.json')))
+        self.B = json.loads(read(os.path.join(ROOT, 'web', 'briefing.json')))
+
+    def test_top10_equals_the_recompute(self):
+        self.assertEqual(top10_problems(self.P, self.B), [])
+        self.assertLessEqual(len(self.B['top10']), 10)
+
+    def test_one_record_per_story_built_from_its_fields(self):
+        st = {s['id']: s for s in self.P['stories']}
+        self.assertEqual([r['id'] for r in self.B['records']], list(st))
+        for r in self.B['records']:
+            s = st[r['id']]
+            self.assertEqual((r['state'], r['headline'], r['first'], r['last'], r['computed']['voices'], r['computed']['heat']),
+                             ('proposed', s['headline'], s['first'], s['last'], s['voices'], s['heat']))
+            self.assertEqual((r['substance']['repos'], r['substance']['papers']), (s['refs']['repos'], s['refs']['papers']))
+            self.assertFalse({x['url'] for x in r['related_in_topic']['items']} & set(s['refs']['repos'] + s['refs']['papers']))
+            if r['sources']['Official'] != 'ok' and not s['official']: self.assertEqual(r['computed']['official'], 'not fetched')
+
+    def test_refresh_commits_the_briefing(self):
+        wf = read(os.path.join(ROOT, '.github', 'workflows', 'refresh.yml')).decode()
+        self.assertRegex(wf, r'git add [^\n]*web/pulse\.json[^\n]*web/briefing\.json|git add [^\n]*web/briefing\.json[^\n]*web/pulse\.json')
+
+
+@unittest.skipUnless(shutil.which('node'), 'node not installed')
+class BriefingFixtureTest(unittest.TestCase):
+    """Decision 14 for the briefing: each fixture overlays a copy of the committed web/ with its briefing.json; check_page.mjs must fail
+    with that rule's own finding (SC-10 REAL-carrying record and not-fetched, SC-15 trend at 13 ledger days, SC-25 shipped gauge)."""
+    RULES = {'real_record': 'briefing.json: pipeline record carries a label word (REAL)',          # state "REAL (proposed)"
+             'trend_13_days': 'briefing.json: trend or arrow before 14 ledger days at 1 place',     # with a 13-entry ledger/index.json
+             'shipped_gauge': 'briefing.json: gauge marked shipped (no gauge ships in S1)',
+             'unfetched_false': 'briefing.json: Official not fully fetched but a count reads false (must read "not fetched")',
+             'combined_score': 'briefing.json: gauge not named by the council (no combined score)',
+             'reddit_leak': 'briefing.json: Reddit link (Reddit is counts only)'}
+    CLEAN = ['clean_briefing']
+    def check(self, name):
+        with tempfile.TemporaryDirectory() as d:
+            web = os.path.join(d, 'web')
+            shutil.copytree(os.path.join(ROOT, 'web'), web)
+            shutil.copytree(os.path.join(FIX, 'briefing', name), web, dirs_exist_ok=True)
+            return subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+
+    def test_each_fixture_fails_on_its_own_rule(self):
+        self.assertEqual(sorted(os.listdir(os.path.join(FIX, 'briefing'))), sorted(list(self.RULES) + self.CLEAN))
+        for name, msg in self.RULES.items():
+            with self.subTest(name):
+                r = self.check(name)
+                self.assertEqual(r.returncode, 1, r.stdout)
+                self.assertIn(msg, r.stderr)
+        r = self.check('trend_13_days')                                    # the 13-day path alone: ledger_days agrees with the ledger
+        self.assertEqual([l for l in r.stderr.splitlines() if l.startswith('- ')], ['- ' + self.RULES['trend_13_days'] + ', e.g. gauges[0].trend'])
+
+    def test_clean_overlay_passes(self):
+        for name in self.CLEAN:
+            with self.subTest(name):
+                r = self.check(name)
+                self.assertEqual(r.returncode, 0, r.stderr)
+
 
 if __name__ == '__main__':
     unittest.main()

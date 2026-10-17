@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Pulse: sampled AI conversation across networks -> topic graph (web/pulse.json).
+"""Pulse: sampled AI conversation across networks -> topic graph (web/pulse.json) and the daily briefing (web/briefing.json:
+one evidence record per story, the Top 10 cut and the gauge header values).
 
-Run:   python3 pulse.py              fetch live feeds, merge with web/data.json + web/hype.json, write web/pulse.json
+Run:   python3 pulse.py              fetch live feeds, merge with web/data.json + web/hype.json, write web/pulse.json and web/briefing.json
        python3 pulse.py --offline    rebuild from stored signals only (no network)
        python3 pulse.py --relink     the same rebuild after the Mastodon render check, keeping this run's source status as written
                                      (refresh.yml only, inside the same run as the live pulse.py: it republishes that run's sources)
@@ -14,7 +15,7 @@ hashtags, plus (when connected) chosen subreddits and Bluesky searches, AI newsl
 announcement feeds (official_feeds.json, the 'Official' network). X is not collected; newsletter links to X are kept as citations. Every topic node carries the
 posts that matched it, so a node is never more than the evidence behind it. Standard library only.
 """
-import os, sys, re, json, math, time, bisect, sqlite3, base64, html, urllib.request, urllib.parse, urllib.error
+import os, sys, re, json, math, time, bisect, sqlite3, base64, hashlib, html, urllib.request, urllib.parse, urllib.error
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone, timedelta
@@ -682,7 +683,7 @@ def build(posts, lex, hype_items, repos=None, links=frozenset()):
                     'engagement': s['obs'], 'weight': round(len(s['authors']) * (1 + 0.5 * max(0, nets - 1)), 2)}
         conv1, conv7 = n['w']['1d']['conv'], n['w']['7d']['conv']
         rising = round(conv1 / (conv7 / 7), 2) if conv7 >= 4 and conv1 >= 2 else None
-        n['samples'].sort(key=lambda x: -x[0])
+        n['samples'].sort(key=lambda x: (-x[0], x[1]['url'] or '', x[1]['net'], str(x[1]['pid'])))   # ties: a fixed order, not the input's
         seen_u, samples = set(), []
         for _, p, dt in n['samples']:
             if p['url'] in seen_u or hidden(p, links): continue                   # a count-only post is in the counts, never a sample
@@ -935,12 +936,32 @@ def headline_of(head, members, topic_label, links=frozenset()):
     if d: return unhandle(shown(d[0])[:220]), masto_link(d[0], links) or public_url(d[0]['url']), public_url((d[0].get('extra') or {}).get('link'))
     return topic_label or f"{head[0]['net']} discussion, title not shown", None, None
 
+# the substance a story's own posts link to (C8): a GitHub repository or an arXiv paper, read off the url and target link of its shown
+# posts only (a count-only post's link stays a count); tracker samples of its topics are "related in topic", never its substance
+REPO_URL = re.compile(r'^https?://(?:www\.)?github\.com/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/([A-Za-z0-9_.-]+)', re.I)
+GH_PAGES = {'about', 'apps', 'blog', 'collections', 'contact', 'customer-stories', 'enterprise', 'events', 'explore', 'features', 'join',
+            'login', 'marketplace', 'new', 'notifications', 'orgs', 'pricing', 'readme', 'resources', 'search', 'security', 'settings',
+            'site', 'solutions', 'sponsors', 'team', 'topics', 'trending'}
+PAPER_URL = re.compile(r'^https?://(?:www\.)?(?:arxiv\.org/(?:abs|pdf|html)|huggingface\.co/papers|alphaxiv\.org/abs)/(\d{4}\.\d{4,5})(?!\d)', re.I)
+
+def own_refs(urls):
+    """{'repos': [...], 'papers': [...]}: canonical GitHub repository and arXiv abstract URLs among a story's own links, sorted."""
+    repos, papers = {}, set()
+    for u in urls:
+        if not u or not public_url(u): continue
+        m = REPO_URL.match(u)
+        if m and m[1].lower() not in GH_PAGES:
+            name = re.sub(r'\.git$', '', m[2])
+            if name and name not in ('.', '..'): repos.setdefault(f'{m[1]}/{name}'.lower(), f'https://github.com/{m[1]}/{name}')
+        m = PAPER_URL.match(u)
+        if m: papers.add(f'https://arxiv.org/abs/{m[1]}')
+    return {'repos': [repos[k] for k in sorted(repos)], 'papers': sorted(papers)}
+
 def stories(rel, limit=60, links=frozenset()):
     """Cluster the last 7 days into events. Seeds: HN, Lobsters, newsletter and official items, joined when they share
     a canonical target link or most of their idf-weighted title words. Reddit, Mastodon and Bluesky posts attach to the
     best-matching seed; chatter that matches no seed forms its own story only with >= 5 voices on it.
     A newsletter whose body names a story's key words carries it. Ids hash a canonical URL: stable across runs."""
-    import hashlib
     rows = [(p, dt, f) for p, dt, f in rel if (NOW - dt).total_seconds() / 86400 <= STORY_DAYS and p['source'] in ('live', 'official')]
     docs = [(p, dt, f, toks(shown(p))) for p, dt, f in rows]
     df = {}
@@ -1020,7 +1041,7 @@ def stories(rel, limit=60, links=frozenset()):
         cnt = {}
         for d in ed:
             for w in d[3]: cnt[w] = cnt.get(w, 0) + 1
-        key = sorted((w for w, k in cnt.items() if k >= max(1, len(ed) / 2) and df[w] < N * 0.02), key=lambda w: -idf[w])[:3]
+        key = sorted((w for w, k in cnt.items() if k >= max(1, len(ed) / 2) and df[w] < N * 0.02), key=lambda w: (-idf[w], w))[:3]
         nl = {d[0]['author'] for d in c if d[0]['net'] in DIGEST}
         if len(key) >= 2:
             for d in digests:
@@ -1053,18 +1074,30 @@ def stories(rel, limit=60, links=frozenset()):
         spread = (2 * math.log2(1 + len(voices)) + len([n for n in nets if n not in DIGEST | OFFICIAL]) + 1.5 * len(nl)
                   + (1 if 'Official' in nets else 0) + math.log10(1 + hn))
         e0 = ed[0]                                            # earliest editorial post (members are in time order)
-        cid = ('release:' + top_a) if top_a else (canon((e0[0].get('extra') or {}).get('link')) or e0[0]['url'] or f"{e0[0]['net']}:{e0[0]['pid']}")
+        alt = canon((e0[0].get('extra') or {}).get('link')) or e0[0]['url'] or f"{e0[0]['net']}:{e0[0]['pid']}"
+        cid = ('release:' + top_a) if top_a else alt
         covered = bool(set(nets) & SEED_NETS) or bool(nl)
         pain = sum(1 for d in c if mode(shown(d[0])) == 'pain') / len(c)
         kind = 'news' if covered else 'pain' if pain >= 0.5 else 'chatter'
-        out.append({'id': 's:' + hashlib.sha1(cid.encode()).hexdigest()[:12], 'label': label, 'covered': covered, 'kind': kind, 'pain': round(pain, 2),
+        out.append({'id': cid, '_alt': alt, '_e0': iso(e0[1]), 'label': label, 'covered': covered, 'kind': kind, 'pain': round(pain, 2),
                     'headline': headline, 'url': url, 'link': link, 'first': iso(c[0][1]), 'last': iso(c[-1][1]),
                     'voices': len(voices), 'nets': nets, 'newsletters': sorted(nl), 'official': 'Official' in nets, 'hn_points': hn or None,
                     'key': key, 'path': path[:8], 'tags': [t for t, _ in sorted(tags.items(), key=lambda x: -x[1])[:5]],
                     'heat': round(spread * 0.5 ** (age_h / 48), 3),
+                    'refs': own_refs([u for d in c if not hidden(d[0], links) for u in (d[0]['url'], (d[0].get('extra') or {}).get('link'))]),
                     'posts': [public({'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': link_url(d[0], links), 'author': d[0]['author'], 'at': iso(d[1]),
                                       'score': d[0]['score'], 'comments': d[0]['comments']}, links)
                               for d in sorted(c, key=lambda d: -(d[0]['score'] or 0)) if not hidden(d[0], links)][:10]})
+    # one id per story: when two clusters name the same release, the one whose earliest editorial post is earliest (then the lower
+    # fallback key) keeps "release:<topic>": later posts do not move it, so the two ids do not swap as a story grows. Every
+    # other takes its earliest editorial post's key, as a story about no named release does; a key still taken gets '#' appended
+    taken = set()
+    for x in sorted(out, key=lambda x: (not x['id'].startswith('release:'), x['_e0'], x['_alt'])):
+        k = x['id'] if x['id'] not in taken else x['_alt']
+        while k in taken: k += '#'
+        taken.add(k)
+        x['id'] = 's:' + hashlib.sha1(k.encode()).hexdigest()[:12]
+        del x['_alt'], x['_e0']
     out.sort(key=lambda x: -x['heat'])
     return ([x for x in out if x['kind'] == 'news'][:limit] + [x for x in out if x['kind'] == 'chatter'][:limit // 2]
             + [x for x in out if x['kind'] == 'pain'][:limit // 3])
@@ -1078,10 +1111,14 @@ STORY_METHOD = ('stories (last 7 days): an event is a cluster of posts. HN, Lobs
                 'A newsletter carries a story when its item names all of the story\'s key words (up to three uncommon words shared by its editorial posts). '
                 'heat = (2 x log2(1 + voices) + networks outside newsletters/official + 1.5 x newsletters carrying it + 1 if a lab or vendor posted it + log10(1 + HN points)) '
                 'x 0.5^(hours since the newest post / 48). id = "s:" + first 12 hex of sha1("release:" + topic id when the story is about one named release, '
-                'else the canonical target link of its earliest editorial post, else that post\'s URL). '
+                'else the canonical target link of its earliest editorial post, else that post\'s URL); when two stories name the same release, the one whose '
+                'earliest editorial post is earliest (then the lower key) keeps the release key and the other takes its earliest editorial post\'s key, '
+                'with "#" appended while that key is still taken, so ids are unique and do not swap as posts arrive. '
                 'Reddit, X, LinkedIn, YouTube and Telegram posts (and Mastodon posts without a logged-out render check passed in the last 7 days) count but are never shown: no title, '
                 'author, link or score; a headline that would be one reads the earliest shown post\'s title, else the topic label, '
-                'else "<network> discussion, title not shown". Conversation-network authors are never published')
+                'else "<network> discussion, title not shown". Conversation-network authors are never published. '
+                'refs = the GitHub repositories and arXiv papers (arxiv.org, huggingface.co/papers, alphaxiv.org ids) that the story\'s shown posts link to, by post URL or target link; '
+                'a count-only post\'s link is not read')
 
 NOW_DAYS, BASE_DAYS = 7, 30
 NOVELTY_METHOD = ('new (the default ranking): two legs, each a percentile among topics that qualify for it, and a topic ranks by the higher one. '
@@ -1150,6 +1187,162 @@ def mastodon_candidates(posts, lex, hype_items, repos):
     nodes, _, _, _, extras = build(posts, lex, hype_items, repos, links=EVERY)
     return sorted(set(STATUS_URL.findall(json.dumps([nodes, extras['stories']]))), key=int, reverse=True)
 
+# ------------------------------------------------------------------ briefing: evidence records, Top 10 and gauge values (web/briefing.json)
+BRIEFING_VERSION = 'briefing/1'
+BRT = timezone(timedelta(hours=-3), 'BRT')            # America/Sao_Paulo: UTC-3 all year since 2019 (no DST); fixed, so no tzdata is needed
+PREVIEW, NOT_FETCHED, RELATED, NEW_TODAY, NO_SOURCE = 'preview, not yet reproducible', 'not fetched', 'related in topic', 'new today', 'no qualified source'
+TREND_DAYS = 14                                       # no trend line or day-over-day arrow before 14 ledger days (R2-4)
+AREA_DAYS, MOVERS, RELATED_MAX = 7, 5, 3
+CONFIG_FILES = ('topics_lexicon.json', 'newsletters.json', 'official_feeds.json')
+NET_ADAPTERS = {'HN': ('Hacker News (Algolia)',), 'Lobsters': ('Lobsters (ai tag)',), 'Mastodon': ('Mastodon (mastodon.social tags)',),
+                'Reddit': ('Reddit (arctic-shift archive)', 'Reddit (official API)'), 'Bluesky': ('Bluesky (app password)',),
+                'Newsletter': ('Newsletters (RSS)',), 'Official': ('Official feeds (RSS)',)}
+SPREAD_NETS = ('HN', 'Lobsters', 'Mastodon', 'Reddit', 'Bluesky')     # posts per network; newsletters and the official post are read apart
+TOP10_METHOD = ('Top 10 (new today first): the covered news stories (kind news) with a post in the 24 hours ending at the window end '
+                '(pulse.py NOW, printed in BRT, UTC-3). First the stories first seen in that window (first seen = the earliest post in our sample), '
+                'by heat; then the rest by heat, up to 10 in all. Ties break by the newest post (later first), then by stable id (ascending). '
+                'Each row reads "new today" or "first seen <date>" (BRT date); every other story of the day keeps the same evidence record')
+RECORD_METHOD = ('evidence record (one per story; state proposed: the pipeline proposes no verdict and writes no label word, the owner confirms by PR): '
+                 'the stable story id, the computed fields it was built from (voices, posts per network, newsletters carrying it, official post, '
+                 'HN points, heat, complaint share, key words, topics), the status of each source, the method version and the config hash '
+                 '(first 16 hex of sha256 over the version, the method text and the sha256 of topics_lexicon.json, newsletters.json and official_feeds.json). '
+                 'A network is fetched when one of its adapters read ok, partial when one read partial, else not fetched. A count reads "not fetched", '
+                 'never 0 or false, when no post of it was seen and its source was not fully fetched; official reads true when a lab or vendor feed posted '
+                 'the story and false only when the official feeds were fully fetched. Substance is the story\'s own links (its refs: GitHub repositories '
+                 'and arXiv papers its shown posts link to) and its official post; tracker samples of its topics read "related in topic" and never count as substance')
+GAUGE_METHOD = ('gauges (at most four; each reads "preview, not yet reproducible" until 14 ledger days, a green recompute verifier and the owner\'s confirm; '
+                'no trend line or arrow before 14 ledger days; no combined score). "Releases / research output by area" = papers published and repos '
+                'created on the 7 UTC dates ending with the window end\'s, per tracker area, among the papers and repos in data.json (output volume, '
+                'not capability); null when the tracker was not read in this run or its data is older than the window. "Hype vs substance" = for each '
+                'Top 10 story its spread (voices, posts per network, newsletters, HN points) beside its substance (official post, own repo and paper links), '
+                'components only, no ratio; null with no Top 10 story. "Daily movers" = the five topics whose rising ratio (conversation posts in the last '
+                'day / daily average over 7 days; it needs 4+ conversation posts in 7 days and 2+ in the last day) is highest above 1 (up) and the five '
+                'lowest below 1 (down), with all-network posts in 1 and 7 days for context; null when no topic has a reading or no conversation network '
+                'was fetched. Below its floor a gauge is null with the reason; no value carries over from an earlier run. Coverage is the status of the '
+                'sources a gauge reads. Risk (a dated, sourced event log, no dial) and Jobs read "no qualified source" until a qualified source exists')
+
+def net_status(sources):
+    """Per network: 'ok' when one of its adapters read ok, else 'partial' when one read partial, else 'not fetched'."""
+    out = {}
+    for net, ads in NET_ADAPTERS.items():
+        st = [(sources.get(a) or {}).get('status') for a in ads]
+        out[net] = 'ok' if 'ok' in st else 'partial' if 'partial' in st else NOT_FETCHED
+    return out
+
+def reading(n, status):
+    """A count read from one source: the count when posts were seen, 0 only when the source was fully fetched, else 'not fetched'."""
+    return n if n else 0 if status == 'ok' else NOT_FETCHED
+
+def official_reading(s, st):
+    return True if s['official'] else False if st['Official'] == 'ok' else NOT_FETCHED
+
+def seen_reading(first, lo):
+    dt = parse_dt(first)
+    return NEW_TODAY if dt >= lo else 'first seen ' + dt.astimezone(BRT).date().isoformat()
+
+def top10(stories_, now):
+    """R6-1 rows: covered news stories with a post in the 24h ending at now; those first seen in that window first, by heat,
+    then the rest by heat, up to 10; ties by the newest post, then by stable id."""
+    lo = now - timedelta(days=1)
+    live = [s for s in stories_ if s['kind'] == 'news' and s['covered'] and parse_dt(s['last']) >= lo]
+    live.sort(key=lambda s: (parse_dt(s['first']) < lo, -s['heat'], -parse_dt(s['last']).timestamp(), s['id']))
+    return [{'rank': i + 1, 'id': s['id'], 'seen': seen_reading(s['first'], lo), 'heat': s['heat'], 'last': s['last']} for i, s in enumerate(live[:10])]
+
+def ledger_days(path=None):
+    """Days the ledger holds (web/ledger/index.json from group E1 on: a list of day entries, or {'entries': [...]}); 0 without one."""
+    try: L = json.load(open(path or os.path.join(WEB, 'ledger', 'index.json')))
+    except (OSError, ValueError): return 0
+    L = L.get('entries') if isinstance(L, dict) else L
+    return len(L) if isinstance(L, list) else 0
+
+def config_hash(method):
+    files = {}
+    for name in CONFIG_FILES:
+        try: files[name] = hashlib.sha256(open(os.path.join(BASE, name), 'rb').read()).hexdigest()
+        except OSError: files[name] = None
+    blob = json.dumps({'version': BRIEFING_VERSION, 'method': method, 'files': files}, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(blob.encode('utf-8')).hexdigest()[:16]
+
+def evidence(s, st, nodes, chash, lo):
+    """One story's evidence record (design row 6, C7-C9)."""
+    refs = s.get('refs') or {'repos': [], 'papers': []}
+    off = official_reading(s, st)
+    related, taken = [], set(refs['repos']) | set(refs['papers'])
+    for tid in s['tags']:
+        for x in (nodes.get(tid) or {}).get('samples', []):
+            if len(related) >= RELATED_MAX: break
+            if x.get('source') == 'tracker' and x.get('url') and x['url'] not in taken:
+                taken.add(x['url']); related.append({'topic': tid, 'net': x['net'], 'title': x.get('title'), 'url': x['url']})
+    return {'id': s['id'], 'state': 'proposed', 'method_version': BRIEFING_VERSION, 'config_hash': chash,
+            'headline': s['headline'], 'kind': s['kind'], 'release': s['label'], 'first': s['first'], 'last': s['last'],
+            'seen': seen_reading(s['first'], lo), 'sources': st,
+            'computed': {'covered': s['covered'], 'voices': s['voices'],
+                         'networks': {n: reading(s['nets'].get(n), st[n]) for n in SPREAD_NETS},
+                         'newsletters': reading(len(s['newsletters']), st['Newsletter']), 'newsletter_names': s['newsletters'],
+                         'official': off, 'hn_points': reading(s['hn_points'], st['HN']), 'heat': s['heat'], 'pain': s['pain'],
+                         'key': s['key'], 'tags': s['tags']},
+            'substance': {'from': "the story's own links", 'official': off, 'repos': refs['repos'], 'papers': refs['papers']},
+            'related_in_topic': {'reading': RELATED, 'items': related}}
+
+def gauge(gid, name, coverage, value, reason):
+    return {'id': gid, 'name': name, 'status': PREVIEW, 'coverage': coverage, 'value': value,
+            'reason': None if value is not None else 'insufficient data: ' + reason, 'trend': None}
+
+def output_by_area(D, sources, now):
+    name, tr = 'Releases / research output by area', (sources.get('Tracker (papers + repos)') or {}).get('status')
+    cov = {'sources': {'Tracker (papers + repos)': tr or NOT_FETCHED}, 'window': f'{AREA_DAYS}d'}
+    if not D or tr != 'ok': return gauge('output_by_area', name, cov, None, 'the tracker (papers + repos) was not read in this run')
+    papers, repos = (D.get('papers') or {}).get('items') or {}, (D.get('repos') or {}).get('items') or {}
+    cov.update({'data_generated_at': D.get('generated_at'), 'scoring_version': D.get('scoring_version'), 'config_sha': D.get('config_sha'),
+                'papers_in_file': len(papers), 'repos_in_file': len(repos), 'tracked': D.get('tracked')})
+    gen = parse_dt(D.get('generated_at'))
+    if not gen or now - gen > timedelta(days=1): return gauge('output_by_area', name, cov, None, 'the tracker data is older than the 24h window')
+    cut = (now - timedelta(days=AREA_DAYS - 1)).date().isoformat()                  # 7 UTC dates, the window end's included
+    rows = [{'area': a, 'papers': sum(1 for p in papers.values() if p.get('tag') == a and (p.get('published') or '') >= cut),
+             'repos': sum(1 for r in repos.values() if r.get('tag') == a and (r.get('created') or '') >= cut)}
+            for a in D.get('views') or [] if a != 'all']
+    return gauge('output_by_area', name, cov, {'since': cut, 'areas': rows}, '')
+
+def hype_vs_substance(top, recs, st):
+    cov = {'sources': st, 'stories': len(top)}
+    if not top: return gauge('hype_vs_substance', 'Hype vs substance', cov, None, 'no covered news story had a post in the last 24h')
+    rows = []
+    for t in top:
+        c, sub = recs[t['id']]['computed'], recs[t['id']]['substance']
+        rows.append({'id': t['id'], 'hype': {'voices': c['voices'], 'networks': c['networks'], 'newsletters': c['newsletters'], 'hn_points': c['hn_points']},
+                     'substance': {'official': sub['official'], 'repos': len(sub['repos']), 'papers': len(sub['papers'])}})
+    return gauge('hype_vs_substance', 'Hype vs substance', cov, {'stories': rows}, '')
+
+def daily_movers(nodes, st):
+    conv = {n: st[n] for n in SPREAD_NETS}
+    have = [x for x in nodes if x.get('rising') is not None]
+    cov = {'sources': conv, 'topics_with_reading': len(have), 'topics': len(nodes)}
+    if all(v == NOT_FETCHED for v in conv.values()): return gauge('daily_movers', 'Daily movers', cov, None, 'no conversation network was fetched')
+    if not have: return gauge('daily_movers', 'Daily movers', cov, None, 'no topic had 4+ conversation posts in 7 days and 2+ in the last day')
+    row = lambda x: {'topic': x['id'], 'label': x['label'], 'rising': x['rising'], 'posts_1d': x['w']['1d']['posts'], 'posts_7d': x['w']['7d']['posts']}
+    up = sorted((x for x in have if x['rising'] > 1), key=lambda x: (-x['rising'], x['id']))[:MOVERS]
+    down = sorted((x for x in have if x['rising'] < 1), key=lambda x: (x['rising'], x['id']))[:MOVERS]
+    return gauge('daily_movers', 'Daily movers', cov, {'up': [row(x) for x in up], 'down': [row(x) for x in down]}, '')
+
+def briefing(stories_, nodes, sources, D, now, method, days=0):
+    """web/briefing.json: one evidence record per story, the Top 10 cut and the gauge header values (design rows 6, 8, 9).
+    A pure function of the day's stories, topic nodes, source status and tracker data: the same inputs give the same bytes."""
+    lo = now - timedelta(days=1)
+    st = net_status(sources)
+    chash = config_hash(' '.join((method, TOP10_METHOD, RECORD_METHOD, GAUGE_METHOD)))
+    by_node = {x['id']: x for x in nodes}
+    recs = [evidence(s, st, by_node, chash, lo) for s in stories_]
+    top = top10(stories_, now)
+    by_id = {r['id']: r for r in recs}
+    return {'generated_at': iso(now),
+            'window': {'start': iso(lo), 'end': iso(now), 'end_brt': now.astimezone(BRT).strftime('%Y-%m-%d %H:%M BRT'), 'hours': 24},
+            'method': {'version': BRIEFING_VERSION, 'config_hash': chash, 'config_files': list(CONFIG_FILES),
+                       'top10': TOP10_METHOD, 'records': RECORD_METHOD, 'gauges': GAUGE_METHOD},
+            'ledger_days': days, 'sources': sources, 'top10': top, 'records': recs,
+            'gauges': [output_by_area(D, sources, now), hype_vs_substance(top, by_id, st), daily_movers(nodes, st)],
+            'panels': [{'id': 'risk', 'name': 'Risk', 'form': 'dated, sourced event log; no dial', 'events': [], 'reading': NO_SOURCE},
+                       {'id': 'jobs', 'name': 'Jobs', 'form': 'panel', 'reading': NO_SOURCE}]}
+
 def main():
     relink = '--relink' in sys.argv
     offline = '--offline' in sys.argv or relink
@@ -1201,15 +1394,21 @@ def main():
            'stories': extras['stories'], 'nodes': nodes, 'edges': edges, 'projects': projects,
            'citations': {w: {'domains': c['domains']} for w, c in extras['citations'].items()},     # handles stay private (below)
            'official_feeds': official_meta()}
-    with open(os.path.join(WEB, 'pulse.json'), 'w') as f:
-        json.dump(out, f, separators=(',', ':'), ensure_ascii=False)
+    try: D = json.load(open(os.path.join(WEB, 'data.json')))
+    except (OSError, ValueError): D = None
+    brief = briefing(extras['stories'], nodes, SOURCES, D, NOW, out['method'], ledger_days())
+    for name, data in (('pulse.json', out), ('briefing.json', brief)):        # written together, so the pair always comes from one run
+        with open(os.path.join(WEB, name), 'w') as f:
+            json.dump(data, f, separators=(',', ':'), ensure_ascii=False)
     # X handles cited by newsletters are a ranking of (often pseudonymous) accounts: kept for the owner's review, never published
     with open(os.path.join(HIST, 'citations.json'), 'w') as f:
         json.dump({'generated_at': iso(NOW), 'note': 'private: X handles cited by newsletter items, a candidate follow list; not published',
                    'x_handles': {w: c['x_handles'] for w, c in extras['citations'].items()}}, f, ensure_ascii=False, indent=1)
     shown_ids = set(STATUS_URL.findall(json.dumps([nodes, extras['stories']])))
     print(f'pulse: {len(nodes)} topics, {len(edges)} links, 7d posts by network {totals["7d"]}; Mastodon render-check candidates {len(want)}, '
-          f'linked {len(shown_ids)} (fresh passes in the cache {len(links)})')
+          f'linked {len(shown_ids)} (fresh passes in the cache {len(links)}); briefing: {len(brief["records"])} records, Top 10 '
+          f'{sum(1 for t in brief["top10"] if t["seen"] == NEW_TODAY)} new today + {sum(1 for t in brief["top10"] if t["seen"] != NEW_TODAY)} heat fill, '
+          f'window end {brief["window"]["end_brt"]}')
 
 if __name__ == '__main__':
     main()
