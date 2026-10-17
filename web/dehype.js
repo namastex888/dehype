@@ -63,6 +63,7 @@ function shell() {
 <nav aria-label="${esc(t('ui.nav'))}">${NAV.map(([p, k]) => `<a href="${href(p)}"${p === page ? ' aria-current="page"' : ''}>${esc(t(k))}</a>`).join('')}</nav>
 <div class="tools"><div class="seg" role="group" aria-label="${esc(t('ui.language'))}"><button data-lang="en" lang="en" aria-pressed="${lang === 'en'}">EN</button><button data-lang="pt" lang="pt" aria-pressed="${lang === 'pt'}">PT</button></div>
 <button class="btn" id="theme">${esc(t(theme === 'dark' ? 'ui.theme.light' : 'ui.theme.dark'))}</button></div></div>`;
+  const nav = $('#top nav'), cur = $('[aria-current]', nav); if (cur && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = cur.offsetLeft - 16;
   $$('[data-lang]').forEach(b => b.onclick = () => setLang(b.dataset.lang));
   $('#theme').onclick = () => { theme = theme === 'dark' ? 'light' : 'dark'; store.set('dehype.theme', theme); shell(); redraw(); };
   $$('[data-k]').forEach(el => el.textContent = t(el.dataset.k));
@@ -93,10 +94,10 @@ function showTip(x, y, title, rows) {
 }
 const hideTip = () => tip.classList.remove('on');
 const kpis = list => `<div class="kpis">${list.map(([l, v, s]) => `<div class="kpi"><span class="lbl">${esc(l)}</span><span class="num">${v}</span>${s ? `<small>${s}</small>` : ''}</div>`).join('')}</div>`;
-function sources(S) {                                            // coverage: a one-line summary, each source's status behind it (icon + label)
+function sources(S, compact) {                                   // coverage: a one-line summary (compact: the count only), each source's status behind it
   const cls = { ok: 'ok', partial: 'partial', failed: 'bad', [NOT_FETCHED]: 'nf' }, ico = { ok: '●', partial: '◐', failed: '✕' }, E = Object.entries(S || {}), st = s => typeof s === 'string' ? s : s.status;
   const weak = E.filter(([, s]) => st(s) !== 'ok').map(([n, s]) => `${esc(nm(n))} <span class="mono">${esc(tr(st(s)))}</span>`).join(' · ');
-  return `<details class="cov"><summary><span class="lbl">${esc(t('ui.coverage'))}</span> <span class="st ok"><b aria-hidden="true">●</b> ${esc(t('ui.sources_ok', { n: E.filter(([, s]) => st(s) === 'ok').length, total: E.length }))}</span>${weak ? ` · ${weak}` : ''}</summary>
+  return `<details class="cov"><summary><span class="lbl">${esc(t('ui.coverage'))}</span> <span class="st ok"><b aria-hidden="true">●</b> ${esc(t('ui.sources_ok', { n: E.filter(([, s]) => st(s) === 'ok').length, total: E.length }))}</span>${weak && !compact ? ` · ${weak}` : ''}</summary>
 <ul>${E.map(([n, s]) => `<li class="st ${cls[st(s)] || 'nf'}"><b aria-hidden="true">${ico[st(s)] || '○'}</b> ${esc(nm(n))} <span class="mono">${esc(tr(st(s)))}</span>${s.detail ? ` <span class="dim">· ${esc(tr(s.detail))}</span>` : ''}</li>`).join('')}</ul></details>`;
 }
 function table(o) {
@@ -231,13 +232,13 @@ ${c.newsletter_names?.length ? `<h4>${esc(t('ui.newsletters'))}</h4><p>${c.newsl
 }
 // ------------------------------------------------------------------ all stories
 async function stories() {
-  const [B, P, V] = await Promise.all([load('briefing.json'), load('pulse.json'), opt('verdicts.json', { rows: [] })]);
-  const by = new Map((P.stories || []).map(s => [s.id, s])), ver = new Map((V.rows || []).map(r => [r.id, r])), now = Date.parse(B.generated_at), R = B.records || [];
+  const [B, P, V, AL] = await Promise.all([load('briefing.json'), load('pulse.json'), opt('verdicts.json', { rows: [] }), opt('story-aliases.json', { aliases: {} })]);
+  const by = new Map((P.stories || []).map(s => [s.id, s])), ver = verdicts(V, AL), now = Date.parse(B.generated_at), R = B.records || [];
   const F = { q: qp('q'), kind: 'all', seen: 'all', sort: 'heat', view: qp('view') === 'table' ? 'table' : 'list' };
   const x0 = Math.min(...R.map(r => Date.parse(r.first))), x1 = now;
   render = () => {
     const main = $('#body');
-    main.innerHTML = `${staleBanner(B)}<p class="reads">${esc(t('ui.generated', { at: B.window?.end_brt || B.generated_at }))}</p>
+    main.innerHTML = `${staleBanner(B)}${foldNote('')}<p class="reads">${esc(t('ui.generated', { at: B.window?.end_brt || B.generated_at }))}</p>
 ${kpis([[t('stories.k.stories'), nf(R.length), esc(t('stories.k.stories_sub'))], [t('stories.k.new'), nf(R.filter(r => r.seen === 'new today').length), esc(t('stories.k.new_sub'))],
   [t('stories.k.news'), nf(R.filter(r => r.kind === 'news').length), esc(t('stories.k.news_sub'))], [t('stories.k.official'), nf(R.filter(r => r.computed?.official === true).length), esc(t('stories.k.official_sub'))]])}
 ${sources(B.sources)}<div id="map"></div>
@@ -279,7 +280,7 @@ async function output() {
     const rows = areas.map(a => ({ key: a, label: nm(a), vals: [count(P, a), count(Rp, a)] }));
     const same = F.days === 7 && g?.value && g.value.since === cut && g.value.areas.every(x => { const r = rows.find(y => y.key === x.area); return r && r.vals[0] === x.papers && r.vals[1] === x.repos; });
     const gnote = !g ? '' : g.value == null ? tr(g.reason) : F.days === 7 ? (same ? t('output.gauge.same', { name: tr(g.name) }) : t('output.gauge.differs', { name: tr(g.name) })) : t('output.gauge.other', { name: tr(g.name) });
-    $('#body').innerHTML = `<div class="bar-row">${seg('days', t('ui.window_label'), [[7, '7d'], [30, '30d'], [90, '90d']], F.days)}
+    $('#body').innerHTML = `${staleBanner(B)}${foldNote(F.days + 'd')}<div class="bar-row">${seg('days', t('ui.window_label'), [[7, '7d'], [30, '30d'], [90, '90d']], F.days)}
 <select id="area" aria-label="${esc(t('output.area'))}"><option value="all">${esc(t('output.all_areas'))}</option>${areas.map(a => `<option value="${esc(a)}"${F.area === a ? ' selected' : ''}>${esc(nm(a))}</option>`).join('')}</select>
 <span class="count mono">${esc(t('output.since', { date: cut }))}</span></div>
 ${kpis([[t('output.k.papers'), nf(P.length), esc(t('output.k.of', { n: nf(Object.keys(D.papers?.items || {}).length) }))], [t('output.k.repos'), nf(Rp.length), esc(t('output.k.of', { n: nf(Object.keys(D.repos?.items || {}).length) }))],
@@ -381,7 +382,7 @@ ${Object.keys(it.notes || {}).length || it.qual_gap ? `<section><h3>${esc(t('hyp
     const b = block(), cov = (H.coverage_short || []).map((_, i) => `<li>${b.p(null, `coverage_short[${i}]`)}</li>`).join('');
     $('#banner').innerHTML = `<p><b>${cutHtml()}</b></p><p>${esc(t('x_route.disclosure'))}</p><details class="more"><summary>${esc(t('hype.more'))}</summary>${b.wrap(`<ul class="dim">${cov}</ul>`)}</details>`;
     const dots = list.slice(0, F.all ? list.length : 15).map(r => ({ id: r.id, label: H.items[r.id].name, a: r.score, d: H.items[r.id].discovery?.score ?? null }));
-    $('#body').innerHTML = `${kpis([[t('hype.k.projects'), nf(H.n_projects), esc(t('hype.k.projects_sub'))], [t('hype.k.ranked'), nf(rows.length), esc(t('hype.k.ranked_sub', { w: nm(F.win) }))],
+    $('#body').innerHTML = `${foldNote(nm(F.win))}${kpis([[t('hype.k.projects'), nf(H.n_projects), esc(t('hype.k.projects_sub'))], [t('hype.k.ranked'), nf(rows.length), esc(t('hype.k.ranked_sub', { w: nm(F.win) }))],
   [t('hype.k.discovery'), nf(rows.filter(r => H.items[r.id].discovery?.score != null).length), esc(t('hype.k.discovery_sub'))], [t('hype.k.ahead'), nf(rows.filter(r => r.label === 'attention_ahead').length), esc(t('hype.k.ahead_sub', { n: nf(rows.filter(r => r.gap > 0).length) }))]])}
 <div class="bar-row">${seg('win', t('ui.window_label'), wins.map(w => [w, nm(w)]), F.win)}<select id="area" aria-label="${esc(t('output.area'))}"><option value="all">${esc(t('output.all_areas'))}</option>${(H.views || []).filter(v => v !== 'all').map(a => `<option value="${esc(a)}"${F.area === a ? ' selected' : ''}>${esc(nm(a))}</option>`).join('')}</select>
 <input type="search" id="q" placeholder="${esc(t('ui.search'))}" aria-label="${esc(t('ui.search'))}" value="${esc(F.q)}">${semBtn()}<span class="count" aria-live="polite">${esc(t('ui.showing', { n: list.length, total: rows.length }))}</span></div>
@@ -406,15 +407,21 @@ ${Object.keys(it.notes || {}).length || it.qual_gap ? `<section><h3>${esc(t('hyp
 function fold(hash, search) {
   let h; try { h = decodeURIComponent(String(hash || '').replace(/^#/, '')).split('/'); } catch { h = []; }
   const u = new URLSearchParams(search || ''), q = u.get('q') || '', open = u.get('open') || '', tab = h[0], area = h.slice(2).join('/');
+  // the console's query grammar (field comparisons, "over 1k", dates): no longer supported, the page says so and matches the words
+  const filters = /[<>]=?\s*\d|\b(?:over|under|above|below|more than|less than|at least)\s+\d|\b\d+(?:\.\d+)?k\b|\b(?:this|last|past)\s+(?:day|week|month|year)\b|\b(?:today|yesterday)\b/i.test(q) && '1';
   const go = (p, o = {}, frag = '') => { const s = new URLSearchParams(Object.entries(o).filter(([, v]) => v)); if (u.get('lang') === 'pt') s.set('lang', 'pt'); return p + (String(s) ? '?' + s : '') + frag; };
   if (tab === 'methodology') return go('method.html', {}, h[1] ? '#' + h[1] : '');
-  if (tab === 'papers' || tab === 'repos')                       // the output page keeps 7, 30 and 90 days: 1d reads 7, 180d, 1y and overall read 90
-    return go('output.html', { tab, days: { '30d': '30', '90d': '90', '180d': '90', '1y': '90', overall: '90' }[h[1]], area: area !== 'all' && area, q: q || open });
-  if (tab === 'hype') return go('hype.html', { win: h[1], area: area !== 'all' && area, q }, open ? '#p=' + encodeURIComponent(open) : '');
-  if (tab === 'pulse' || (!tab && (q || open))) return h[2] === 'table' || q ? go('stories.html', { view: h[2] === 'table' && 'table', q }) : go('index.html');
+  if (tab === 'papers' || tab === 'repos') {                     // the output page keeps 7, 30 and 90 days: 1d reads 7, 180d, 1y and overall read 90 (from= says so)
+    const days = { '30d': '30', '90d': '90', '180d': '90', '1y': '90', overall: '90' }[h[1]];
+    return go('output.html', { tab, days, area: area !== 'all' && area, q: q || open, from: ['1d', '180d', '1y', 'overall'].includes(h[1]) && h[1], filters });
+  }
+  if (tab === 'hype') { const kept = !h[1] || ['1d', '7d', '30d', '90d', 'overall'].includes(h[1]);
+    return go('hype.html', { win: kept && h[1], area: area !== 'all' && area, q, from: !kept && h[1], filters }, open ? '#p=' + encodeURIComponent(open) : ''); }
+  if (tab === 'pulse' || (!tab && (q || open))) return h[2] === 'table' || q ? go('stories.html', { view: h[2] === 'table' && 'table', q, filters }) : go('index.html');
   return null;
 }
 // fold:end
+// stale:start (tests/dehype_stale.test.mjs runs this block)
 // ------------------------------------------------------------------ stale since (C37): the briefing belongs to the America/Sao_Paulo date of
 // its generated_at and reads "stale since" that date once 06:00 America/Sao_Paulo of the next date has passed, whatever the hour it was made.
 const SPF = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -424,13 +431,15 @@ function staleSince(generatedAt, now) {                          // the briefing
   const d = spAt(g).day, next = new Date(Date.parse(d + 'T12:00:00Z') + DAY).toISOString().slice(0, 10), probe = Date.parse(next + 'T09:00:00Z');
   return now >= Date.parse(next + 'T06:00:00Z') - (spAt(probe).wall - probe) ? d : null;
 }
-const staleBanner = B => { const d = staleSince(B.generated_at, Date.now()); return d ? `<div class="banner stale" role="status"><p><b>${esc(t('stale.since', { date: d }))}</b></p><p>${esc(t('stale.note', { date: d, at: B.window?.end_brt || B.generated_at }))}</p></div>` : ''; };
+// stale:end
+const staleBanner = B => { const d = staleSince(B.generated_at, Date.now()); return d ? `<div class="banner stale" role="status"><p><b>${esc(t('stale.since', { date: d }))}.</b> <span class="sn">${esc(t('stale.note', { date: d, at: B.window?.end_brt || B.generated_at }))}</span></p></div>` : ''; };
 // ------------------------------------------------------------------ search by meaning (the console's semantic search, kept by the fold, C21)
 // The model and index of scripts/embed/embed.mjs: search-index.json and search-vectors.bin load on the first query and the query is embedded in
-// the browser by transformers.js (pinned, from jsDelivr; the model from Hugging Face), so it never leaves the browser. Until the model is ready,
-// or when it cannot load, every word of the query must match. The row count stays on screen either way.
+// the browser by transformers.js (pinned, from jsDelivr; the model from Hugging Face), so it never leaves the browser. Nothing downloads until
+// the reader selects "Search by meaning" (a folded ?q= URL matches words); until the model is ready, or when it cannot load, every word of the
+// query must match. The row count stays on screen either way.
 const TF_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0';
-const SEM = { on: store.get('dehype.sem') !== 'off', st: 'idle', pos: {}, cache: new Map(), redo: null };
+const SEM = { on: false, st: 'idle', pos: {}, cache: new Map(), redo: null };   // off on every load: the download starts only from a click
 async function semLoad() {
   if (SEM.st !== 'idle') return; SEM.st = 'loading'; semUi();
   try {
@@ -459,48 +468,54 @@ function search(tab, rows, q, id, text) {                       // the console's
   return sc.filter(x => x.k === terms.length || (x.s != null && x.s >= Math.max(.3, best - .2))).sort((a, b) => rel(b) - rel(a)).map(x => x.r);
 }
 const semBtn = () => `<button class="btn sem" id="sem" aria-pressed="${SEM.on}" title="${esc(t('ui.sem.title'))}">${esc(t(!SEM.on ? 'ui.sem.off' : SEM.st === 'loading' ? 'ui.sem.loading' : SEM.st === 'failed' ? 'ui.sem.failed' : 'ui.sem.on'))}</button>`;
-function semUi() { const b = $('#sem'); if (!b) return; b.outerHTML = semBtn(); $('#sem').onclick = () => { SEM.on = !SEM.on; store.set('dehype.sem', SEM.on ? 'on' : 'off'); semUi(); SEM.redo?.(); }; }
+function semUi() { const b = $('#sem'); if (!b) return; b.outerHTML = semBtn(); $('#sem').onclick = () => { SEM.on = !SEM.on; semUi(); SEM.redo?.(); }; }
 const keepQ = fn => { const a = document.activeElement?.id === 'q'; fn(); const n = $('#q'); if (a && n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
 const qp = k => new URLSearchParams(location.search).get(k) || '';
+const foldNote = to => [qp('from') && to && t('fold.window', { from: qp('from'), to }), qp('filters') && t('fold.filters')].filter(Boolean).map(x => `<p class="notice">${esc(x)}</p>`).join('');
 // ------------------------------------------------------------------ daily briefing (first screen): the State of AI header, then the Top 10
 // briefing:start. At most four gauges, each with its coverage and its "preview, not yet reproducible" status; Risk and Jobs as placeholders;
 // no combined score and no trend or arrow (none before 14 ledger days, R2-4): the header shows today's values only.
-function gauge(g, body) {
-  return `<article class="g" id="g-${esc(g.id)}"><header><h3 class="lbl">${esc(tr(g.name))}</h3><span class="pill">${esc(tr(g.status))}</span></header>
-${g.value == null ? `<p class="none">${esc(tr(g.reason) || '—')}</p>` : body}${sources(g.coverage?.sources)}</article>`;
+function gauge(g, body) {                                         // name; the reading (figure left, its small view right); status and coverage last
+  return `<article class="g" id="g-${esc(g.id)}"><h3 class="lbl">${esc(tr(g.name))}</h3>
+${g.value == null ? `<p class="none">${esc(tr(g.reason) || '—')}</p>` : body}<footer><span class="pill">${esc(tr(g.status))}</span>${sources(g.coverage?.sources, true)}</footer></article>`;
 }
 const GAUGE = {
-  output_by_area: (v, B) => {
+  output_by_area: v => {
     const A = [...v.areas].sort((a, b) => b.papers - a.papers), hi = Math.max(1, ...A.map(a => a.papers)), sum = k => A.reduce((n, a) => n + a[k], 0);
-    return `<p class="big"><span class="num">${nf(sum('papers'))}</span><span class="u">${esc(t('brief.out.papers'))}</span><span class="num s">${nf(sum('repos'))}</span><span class="u">${esc(t('brief.out.repos'))}</span></p>
-<p class="sub">${esc(t('brief.out.sub', { date: v.since }))}</p><p class="mini-t">${esc(t('brief.out.mini'))}</p>
-<ul class="hb" aria-label="${esc(t('brief.out.mini'))}">${A.map(a => `<li title="${esc(nm(a.area))}: ${nf(a.papers)} · ${nf(a.repos)}"><span>${esc(nm(a.area))}</span><i style="--w:${(a.papers / hi * 100).toFixed(1)}%"></i><b class="mono">${nf(a.papers)}</b></li>`).join('')}</ul>
-<a class="go" href="${href('output')}">${esc(t('brief.out.go'))}</a>`;
+    return `<div class="gb"><div><p class="big"><span class="num">${nf(sum('papers'))}</span><span class="u">${esc(t('brief.out.papers'))}</span></p>
+<p class="sub">${esc(t('brief.out.sub', { r: nf(sum('repos')), date: v.since }))} <a href="${href('output')}">${esc(t('brief.out.go'))}</a></p></div>
+<ul class="hb" aria-label="${esc(t('brief.out.mini'))}">${A.map(a => `<li title="${esc(nm(a.area))}: ${nf(a.papers)} · ${nf(a.repos)}"><span>${esc(nm(a.area))}</span><i style="--w:${(a.papers / hi * 100).toFixed(1)}%"></i><b class="mono">${nf(a.papers)}</b></li>`).join('')}</ul></div>`;
   },
-  hype_vs_substance: (v, B) => {                                 // when no story is known either way the figure reads — (never an invented 0)
+  hype_vs_substance: v => {                                      // no story known either way: the count of unknowns leads (never an invented 0)
     const S = v.stories || [], has = x => x.substance?.official === true || x.substance?.repos > 0 || x.substance?.papers > 0;
     const unk = S.filter(x => !has(x) && x.substance?.official === NOT_FETCHED).length, hi = Math.max(1, ...S.map(x => x.hype?.voices || 0));
-    return `<p class="big"><span class="num">${unk === S.length ? '—' : nf(S.filter(has).length)}</span><span class="u">${esc(t('brief.hvs.of', { n: S.length }))}</span></p>
-<p class="sub">${esc(t('brief.hvs.sub'))}${unk ? ' ' + esc(tn('brief.hvs.unknown', unk)) : ''}</p>
-<p class="mini-t">${esc(t('brief.hvs.mini'))}</p><div class="strip">${S.map((x, i) => `<a href="#${esc(x.id)}" aria-label="${esc(t('brief.hvs.col', { rank: i + 1, n: nf(x.hype?.voices) }))}${has(x) ? ', ' + esc(t('brief.hvs.has')) : ''}"><i style="--h:${((x.hype?.voices || 0) / hi * 100).toFixed(1)}%"></i><em class="${has(x) ? 'y' : ''}"></em><span class="mono">${i + 1}</span></a>`).join('')}</div>
-<p class="key"><span><i class="kv"></i>${esc(t('ui.voices'))}</span><span><i class="ks"></i>${esc(t('brief.hvs.has'))}</span></p>`;
+    if (unk === S.length) return `<p class="big"><span class="num">${nf(unk)}</span><span class="u">${esc(t('brief.hvs.none', { n: S.length }))}</span></p><p class="sub">${esc(t('brief.hvs.sub'))}</p>`;
+    return `<div class="gb"><div><p class="big"><span class="num">${nf(S.filter(has).length)}</span><span class="u">${esc(t('brief.hvs.of', { n: S.length }))}</span></p>
+<p class="sub">${esc(t('brief.hvs.sub'))}${unk ? ' ' + esc(tn('brief.hvs.unknown', unk)) : ''}</p></div>
+<div><div class="strip" aria-label="${esc(t('brief.hvs.mini'))}">${S.map((x, i) => `<a href="#${esc(x.id)}" aria-label="${esc(t('brief.hvs.col', { rank: i + 1, n: nf(x.hype?.voices) }))}${has(x) ? ', ' + esc(t('brief.hvs.has')) : ''}"><i style="--h:${((x.hype?.voices || 0) / hi * 100).toFixed(1)}%"></i><em class="${has(x) ? 'y' : ''}"></em><span class="mono">${i + 1}</span></a>`).join('')}</div>
+<p class="key"><span><i class="kv"></i>${esc(t('ui.voices'))}</span><span><i class="ks"></i>${esc(t('brief.hvs.has'))}</span></p></div></div>`;
   },
   daily_movers: v => {
-    const li = x => `<li><span>${posted(x.label, 'und')}</span><b class="mono">${nf(x.rising)}×</b><small>${esc(t('brief.mv.posts', { d: nf(x.posts_1d), w: nf(x.posts_7d) }))}</small></li>`, lead = (v.up || [])[0];
-    return `${lead ? `<p class="big"><span class="num">${nf(lead.rising)}×</span><span class="u">${posted(lead.label, 'und')}</span></p>` : ''}<p class="sub">${esc(t('brief.mv.sub'))}</p>
-<div class="mv"><div><p class="mini-t">${esc(t('brief.mv.up'))}</p><ul>${(v.up || []).slice(0, 3).map(li).join('')}</ul></div><div><p class="mini-t">${esc(t('brief.mv.down'))}</p><ul>${(v.down || []).slice(0, 3).map(li).join('')}</ul></div></div>`;
+    const li = x => `<li title="${esc(t('brief.mv.posts', { d: nf(x.posts_1d), w: nf(x.posts_7d) }))}"><span>${posted(x.label, 'und')}</span><b class="mono">${nf(x.rising)}×</b></li>`, lead = (v.up || [])[0];
+    return `<div class="gb"><div>${lead ? `<p class="big"><span class="num">${nf(lead.rising)}×</span><span class="u">${posted(lead.label, 'und')}</span></p>` : ''}<p class="sub">${esc(t('brief.mv.sub'))}</p></div>
+<div class="mv"><p class="mini-t">${esc(t('brief.mv.up'))}</p><ul>${(v.up || []).slice(0, 2).map(li).join('')}</ul><p class="mini-t">${esc(t('brief.mv.down'))}</p><ul>${(v.down || []).slice(0, 2).map(li).join('')}</ul></div></div>`;
   }
 };
+function aliases(A) {                                            // story-aliases.json: an earlier id to the story that took its posts (check_page.mjs resolve)
+  const M = A?.aliases || {};
+  return id => { const seen = [id]; while (M[seen.at(-1)]?.to && !seen.includes(M[seen.at(-1)].to)) seen.push(M[seen.at(-1)].to); return seen.at(-1); };
+}
+const verdicts = (V, A) => { const to = aliases(A), m = new Map(); for (const r of V.rows || []) { m.set(to(r.id), r); if (!m.has(r.id)) m.set(r.id, r); } return m; };
 async function index() {
-  const [B, P, V] = await Promise.all([load('briefing.json'), load('pulse.json'), opt('verdicts.json', { rows: [] })]);
-  const by = new Map((P.stories || []).map(s => [s.id, s])), ver = new Map((V.rows || []).map(r => [r.id, r])), now = Date.parse(B.generated_at);
+  const [B, P, V, AL] = await Promise.all([load('briefing.json'), load('pulse.json'), opt('verdicts.json', { rows: [] }), opt('story-aliases.json', { aliases: {} })]);
+  const by = new Map((P.stories || []).map(s => [s.id, s])), ver = verdicts(V, AL), now = Date.parse(B.generated_at);
   const recs = new Map((B.records || []).map(r => [r.id, r])), G = (B.gauges || []).slice(0, 4), anchor = I.methods?.['briefing.json']?.['method.top10'] || '';
   render = () => {
     $('#when').innerHTML = `${esc(t('brief.window', { end: B.window?.end_brt || B.generated_at }))} · <span class="dim">${esc(t('brief.made', { ago: ago(B.generated_at, Date.now()) }))}</span>`;
     $('#stale').innerHTML = staleBanner(B);
-    $('#body').innerHTML = `<section class="soai" aria-labelledby="soai-h"><div class="soai-h"><h2 id="soai-h">${esc(t('soai.title'))}</h2><p>${esc(t('soai.note', { n: G.length, days: nf(B.ledger_days ?? 0) }))}</p></div>
-<div class="gauges">${G.map(g => gauge(g, GAUGE[g.id] && g.value != null ? GAUGE[g.id](g.value, B) : '')).join('')}
-<div class="panels">${(B.panels || []).map(p => `<article class="pn"><h3 class="lbl">${esc(tr(p.name))}</h3><p class="none">${(p.events || []).length ? p.events.map(e => `<span class="mono">${esc(e.date || '')}</span> ${link(e.url, esc(e.text || e.title || ''))}`).join('<br>') : esc(tr(p.reading))}</p><p class="dim">${esc(tr(p.form))}</p></article>`).join('')}</div></div></section>
+    $('#body').innerHTML = `<section class="soai" aria-labelledby="soai-h"><h2 id="soai-h">${esc(t('soai.title'))}</h2>
+<div class="gauges">${G.map(g => gauge(g, GAUGE[g.id] && g.value != null ? GAUGE[g.id](g.value) : '')).join('')}
+<div class="panels">${(B.panels || []).map(p => `<p class="pn"><span class="lbl">${esc(tr(p.name))}</span> <span class="none">${(p.events || []).length ? p.events.map(e => `<span class="mono">${esc(e.date || '')}</span> ${link(e.url, esc(e.text || e.title || ''))}`).join(' · ') : esc(tr(p.reading))}</span>${p.form && p.form !== 'panel' ? ` <span class="dim">· ${esc(tr(p.form))}</span>` : ''}</p>`).join('')}</div></div></section>
 <section class="top" aria-labelledby="top-h"><div class="sec-h"><h2 id="top-h">${esc(t('brief.top.title'))}</h2><p>${esc(t('brief.top.rule'))} <a href="${METHOD()}#${esc(anchor)}">${esc(t('ui.method'))}</a></p><a class="go" href="${href('stories')}">${esc(t('brief.top.all', { n: nf(recs.size) }))}</a></div>
 <ol class="stories brief">${(B.top10 || []).map(x => recs.get(x.id)).filter(Boolean).map((r, i) => evidence(r, by.get(r.id), ver.get(r.id), i, now, true)).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ol></section>`;
   };
@@ -562,7 +577,7 @@ async function audit() {
   const L = B.ledger_days > 0 ? await opt('ledger/index.json', null) : null;   // briefing.json counts the ledger's days: no request before the first
   const E = Array.isArray(L) ? L : L?.entries || [], kv = (k, v) => `<div><span class="lbl">${esc(k)}</span><span class="mono">${v}</span></div>`, none = `<span class="pill">${esc(t('audit.pending'))}</span>`;
   render = () => {
-    $('#body').innerHTML = `<section class="card"><div class="card-h"><div><h2>${esc(t('audit.today'))}</h2><p>${esc(t('audit.today.sub'))}</p></div></div>
+    $('#body').innerHTML = `${staleBanner(B)}<section class="card"><div class="card-h"><div><h2>${esc(t('audit.today'))}</h2><p>${esc(t('audit.today.sub'))}</p></div></div>
 <div class="kvs">${kv(t('audit.generated'), esc(B.window?.end_brt || B.generated_at))}${kv(t('audit.version'), esc(B.method?.version))}${kv(t('audit.hash'), esc(B.method?.config_hash))}${kv(t('audit.days'), esc(t('audit.days.n', { n: nf(B.ledger_days ?? 0) })))}${kv(t('audit.records'), nf((B.records || []).length))}</div>
 <p class="dim">${esc(t('audit.hash.note', { files: (B.method?.config_files || []).join(', ') }))} <a href="${METHOD()}#${esc(I.methods?.['briefing.json']?.['method.records'] || '')}">${esc(t('ui.method'))}</a></p></section>
 <section class="card slot-a" id="ledger" data-slot="ledger"><div class="card-h"><div><h2>${esc(t('audit.ledger'))}</h2><p>${esc(t('audit.ledger.sub'))}</p></div></div>

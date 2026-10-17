@@ -154,7 +154,8 @@ class FoldTest(unittest.TestCase):
         self.assert_only(check_page({'dehype.js': js}), 'dehype.js: a folded page lacks a kept wording')
 
     def test_the_briefing_shows_no_trend_or_arrow_and_at_most_four_gauges(self):
-        js = self.js.replace("${esc(tr(g.status))}</span></header>", "${esc(tr(g.status))}</span>${g.trend ? '↑' : ''}</header>")
+        js = self.js.replace("${esc(tr(g.status))}</span>${sources(", "${esc(tr(g.status))}</span>${g.trend ? '↑' : ''}${sources(")
+        self.assertNotEqual(js, self.js)
         self.assert_only(check_page({'dehype.js': js}), 'dehype.js: the briefing shows a trend or arrow')
         js = self.js.replace("(B.gauges || []).slice(0, 4)", "(B.gauges || [])")
         self.assert_only(check_page({'dehype.js': js}), 'dehype.js: the briefing does not cap the gauge header at four gauges')
@@ -162,6 +163,23 @@ class FoldTest(unittest.TestCase):
     def test_new_pages_keep_the_public_data_rules(self):
         h = read(os.path.join(WEB, 'audit.html')).replace('</main>', '<a href="https://x.com/someone/status/1">x</a></main>')
         self.assert_only(check_page({'audit.html': h}), 'audit.html: X link')
+
+    def test_stale_since_cases_pass_under_node_test(self):              # Decision 15's runner, also run here until E1 adds it to ci.yml
+        r = subprocess.run(['node', '--test', os.path.join(ROOT, 'tests', 'dehype_stale.test.mjs')], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn('pass 7', r.stdout)
+
+    def test_only_the_pinned_transformers_import(self):
+        self.assert_only(check_page({'dehype.js': self.js + "\nimport('https://example.com/x.js');"}), 'dehype.js: imports code other than the exact-pinned transformers.js')
+        js = self.js.replace("transformers@4.2.0'", "transformers@latest'")
+        self.assert_only(check_page({'dehype.js': js}), 'dehype.js: imports code other than the exact-pinned transformers.js')
+        js = self.js + "\nconst Y = 'https://cdn.jsdelivr.net/npm/@someone/pkg@1.0.0';"
+        self.assert_only(check_page({'dehype.js': js}), 'dehype.js: account-naming URL (a person handle)')
+
+    def test_verdicts_resolve_through_the_alias_file(self):
+        for f in ('index.html', 'stories.html'):
+            self.assertIn('story-aliases.json', read(os.path.join(WEB, f)).split('data-src="')[1].split('"')[0])
+        self.assertIn("opt('story-aliases.json'", self.js)
 
     def test_method_page_reads_the_web_copies_and_links_no_blob(self):
         self.assertIn("load('METHODOLOGY.pt.md')", self.js)

@@ -461,6 +461,7 @@ python3 -m unittest discover -s tests
 python3 eval.py --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json
 python3 eval.py --issue11-smoke --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json --compare-v2
 node scripts/check_page.mjs
+node --test tests/dehype_stale.test.mjs
 ```
 
 **depends-on:** C2
@@ -614,6 +615,8 @@ cmp METHODOLOGY.md web/METHODOLOGY.md
 cmp METHODOLOGY.pt.md web/METHODOLOGY.pt.md
 git cat-file -e origin/dev:.genie/brainstorms/open-ai-reality-media/DRAFT.md
 ```
+
+> C3 notes for F (from the C3 review): (1) before public launch, vendor transformers.js 4.2.0 and its onnxruntime wasm files into `web/vendor/` with integrity hashes, so the search by meaning (`web/dehype.js` `TF_URL`, today pinned on jsDelivr and loaded only after the reader selects it) no longer pulls code from a CDN; (2) the refresh cron (06:17 BRT today) runs after the 06:00 BRT deadline that `dehype.js` staleSince applies (C37), so the briefing reads "stale since" each morning until F moves the cron ahead of 06:00; (3) `web/og.png` is still the old observatory art (the `og:image` URL already points at the dehype Pages site).
 
 **depends-on:** E2
 

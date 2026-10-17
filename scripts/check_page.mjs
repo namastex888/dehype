@@ -28,7 +28,7 @@ const POST_BODY = ['title', 'author', 'url', 'link', 'score', 'comments', 'who',
 const NET_URL = [['Reddit', 'reddit\\.com|redd\\.it'], ['X', 'x\\.com|twitter\\.com|t\\.co|nitter\\.net|fxtwitter\\.com|vxtwitter\\.com'], ['LinkedIn', 'linkedin\\.com|lnkd\\.in'],
   ['YouTube', 'youtube\\.com|youtu\\.be|youtube-nocookie\\.com'], ['Telegram', 't\\.me|telegram\\.me']]
   .map(([n, h]) => [n, new RegExp(`^https?://(?:[\\w-]+\\.)*(?:${h})(?=[/:?#]|$)`, 'i')]);
-const ACCOUNT_URL = /^https?:\/\/(?!(?:[\w-]+\.)*npmjs\.(?:org|com)\/|cdn\.jsdelivr\.net\/npm\/)[^\s?#]*\/@|bsky\.app\/profile\/[^/\s]+\/post\/|\/users\/[^/\s]+\/statuses\/|did:(?:plc|web):/i;
+const ACCOUNT_URL = /^https?:\/\/(?!(?:[\w-]+\.)*npmjs\.(?:org|com)\/|cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@)[^\s?#]*\/@|bsky\.app\/profile\/[^/\s]+\/post\/|\/users\/[^/\s]+\/statuses\/|did:(?:plc|web):/i;
 const STATUS_URL = /^https:\/\/mastodon\.social\/statuses\/(\d{1,20})$/, LINK_MS = 7 * 864e5;
 let MC = {}, genAt = NaN;                                        // the render-check cache; pulse.json generated_at (ms)
 try { MC = JSON.parse(readFileSync(join(web, 'checks', 'mastodon-links.json'), 'utf8')).statuses || {}; }
@@ -583,7 +583,7 @@ let i18nNote = 'no strings file';
 // (reviewed_in, a 64-hex hash, a pt text, a dossier prose field of hype.json); an entry whose hash no longer matches is a warning, because
 // the page then shows the English under the notice (C24: no S1 check requires a reviewed entry, and an empty file passes).
 const SEARCH = ['search-index.json', 'search-vectors.bin'];      // the console's search by meaning, kept by the fold (C21)
-const PAGES = { 'index.html': ['briefing.json', 'pulse.json', 'verdicts.json'], 'stories.html': ['briefing.json', 'pulse.json', 'verdicts.json'],
+const PAGES = { 'index.html': ['briefing.json', 'pulse.json', 'verdicts.json', 'story-aliases.json'], 'stories.html': ['briefing.json', 'pulse.json', 'verdicts.json', 'story-aliases.json'],
   'output.html': ['briefing.json', 'data.json', ...SEARCH],
   'hype.html': ['hype.json', 'removals.json', 'checks/dossier-gone.json', 'i18n/dossier.pt.json', 'i18n/dossier-x-figures.json', ...SEARCH],
   'method.html': ['METHODOLOGY.md', 'METHODOLOGY.pt.md', 'POLICY.md', 'POLICY.pt.md'],
@@ -603,6 +603,10 @@ let pageNote = 'no dehype pages';
   const loads = [...js.matchAll(/\b(?:load|opt)\('([^']+)'[,)]/g)].map(m => m[1]), ok = new Set(['i18n/strings.json', ...Object.values(PAGES).flat()]);
   for (const f of loads) if (!ok.has(f)) finding('dehype.js', 'loads a file no dehype page names in data-src', f);
   if ((js.match(/\bfetch\(/g) || []).length !== 1) finding('dehype.js', 'fetches outside its one loader (load)', 'fetch(');
+  // the one script loaded from elsewhere: transformers.js for the search by meaning, exact-pinned, imported only from its literal URL
+  const TF = js.match(/\bconst TF_URL = '(https:\/\/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@\d+\.\d+\.\d+)';/);
+  if (!TF || (js.match(/\bimport\s*\(/g) || []).length !== 1 || !/\bimport\(TF_URL\)/.test(js))
+    finding('dehype.js', 'imports code other than the exact-pinned transformers.js TF_URL (one import(TF_URL), TF_URL a literal https://cdn.jsdelivr.net/npm/@huggingface/transformers@<x.y.z>)', 'import(');
   for (const [f, src] of Object.entries(PAGES)) {
     let h;
     try { h = readFileSync(join(web, f), 'utf8'); } catch { fail.push(`${f} missing (a dehype page, design row 10)`); continue; }
