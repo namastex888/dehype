@@ -4,6 +4,7 @@
 Run standalone:  python3 hype_build.py [--no-history]
 Scrub only:      python3 hype_build.py --scrub web/hype.json   (the public-data rules on the committed file; idempotent; also drops every
                  post that removals.json or checks/dossier-gone.json beside the file names: deletion-only, refresh.yml runs it daily)
+Dossier fields:  python3 hype_build.py --dossier-fields web/hype.json   (slug, field path and SHA256 per prose field, for web/i18n/dossier.pt.json)
 run.py calls build(con=..., run_id=...) automatically when hype/hype_research.json exists.
 
 NEVER INVENTS NUMBERS. Unknown -> null (rendered '—'). All social counts are the research agent's
@@ -479,6 +480,15 @@ def scrub_file(path):
           f"{before - after} posts removed (removals.json {len(removed)} entries, checks/dossier-gone.json {len(gone)} hashes); "
           + ('rewritten' if changed else 'unchanged'))
 
+def dossier_fields(path):
+    """--dossier-fields: the slug, field path and SHA256 of every dossier prose field in a built hype.json, one JSON object per line,
+    for web/i18n/dossier.pt.json entries (design row 13, C24). Read-only."""
+    H = json.load(open(path, encoding='utf-8'))
+    for slug, f, c, k in prose_fields(H):
+        t = c[k] if isinstance(c, list) else c.get(k)
+        if isinstance(t, str) and t: print(json.dumps({'slug': slug, 'field': f, 'sha256': sha(t), 'en': t}, ensure_ascii=False))
+
 if __name__ == '__main__':
-    if '--scrub' in sys.argv: scrub_file((sys.argv[sys.argv.index('--scrub') + 1:] or [OUT])[0])
+    if '--dossier-fields' in sys.argv: dossier_fields((sys.argv[sys.argv.index('--dossier-fields') + 1:] or [OUT])[0])
+    elif '--scrub' in sys.argv: scrub_file((sys.argv[sys.argv.index('--scrub') + 1:] or [OUT])[0])
     else: build(record='--no-history' not in sys.argv)

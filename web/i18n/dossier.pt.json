@@ -1,0 +1,4 @@
+{
+ "note": "Reviewed Portuguese dossier prose (design row 13, R8-1, C24). One entry per prose field: slug (null for file-level text), field (the path hype_build.py prose_fields names), sha256 (of the English text it translates, as python3 hype_build.py --dossier-fields web/hype.json prints it), pt, and reviewed_in (the number of the merged pull request that brought it). The Hype page shows an entry only while its hash matches the current English; otherwise the English shows under the fixed Portuguese notice. May be empty: no S1 check requires an entry.",
+ "entries": []
+}
