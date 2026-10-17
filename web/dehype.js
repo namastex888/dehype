@@ -340,7 +340,6 @@ async function hype() {
   }
   const src = u => /^https?:\/\//.test(u || '') ? link(u, esc(t('ui.source'))) : u ? `<span class="dim">${esc(tr(u, CITE))}</span>` : '';
   const cutLine = () => t('hype.cut', { date: day(H.content_cutoff) }), cutHtml = () => esc(t('hype.cut', { date: '\u0000' })).replace('\u0000', `<span class="nw">${esc(day(H.content_cutoff))}</span>`);
-  const first = x => { const i = x.search(/[.!?]\s+(?=[A-ZÀ-Ý])/); return i < 0 ? [x, ''] : [x.slice(0, i + 1), x.slice(i + 1).trim()]; };
   function detail(slug) {
     const it = H.items[slug], el = $('#panel'), sc = $('#scrim');
     if (!it) { el.classList.remove('on'); sc.classList.remove('on'); return; }
@@ -375,11 +374,10 @@ ${Object.keys(it.notes || {}).length || it.qual_gap ? `<section><h3>${esc(t('hyp
     const rows = (H[F.win]?.all?.rows || []).filter(r => H.items[r.id] && (F.area === 'all' || H.items[r.id].tag === F.area)), q = F.q.trim().toLowerCase();
     const list = rows.filter(r => !q || [r.id, H.items[r.id].name, ...(H.items[r.id].aliases || [])].join(' ').toLowerCase().includes(q));
     const b = block(), cov = (H.coverage_short || []).map((_, i) => `<li>${b.p(null, `coverage_short[${i}]`)}</li>`).join('');
-    const [d1, d2] = first(t('x_route.disclosure'));
-    $('#banner').innerHTML = `<p><b>${cutHtml()}</b></p><p>${esc(d1)}</p><details class="more"><summary>${esc(t('hype.more'))}</summary><p>${esc(d2)}</p>${b.wrap(`<ul class="dim">${cov}</ul>`)}</details>`;
+    $('#banner').innerHTML = `<p><b>${cutHtml()}</b></p><p>${esc(t('x_route.disclosure'))}</p><details class="more"><summary>${esc(t('hype.more'))}</summary>${b.wrap(`<ul class="dim">${cov}</ul>`)}</details>`;
     const dots = list.slice(0, F.all ? list.length : 15).map(r => ({ id: r.id, label: H.items[r.id].name, a: r.score, d: H.items[r.id].discovery?.score ?? null }));
     $('#body').innerHTML = `${kpis([[t('hype.k.projects'), nf(H.n_projects), esc(t('hype.k.projects_sub'))], [t('hype.k.ranked'), nf(rows.length), esc(t('hype.k.ranked_sub', { w: nm(F.win) }))],
-  [t('hype.k.discovery'), nf(rows.filter(r => H.items[r.id].discovery?.score != null).length), esc(t('hype.k.discovery_sub'))], [t('hype.k.ahead'), nf(rows.filter(r => r.gap > 0).length), esc(t('hype.k.ahead_sub'))]])}
+  [t('hype.k.discovery'), nf(rows.filter(r => H.items[r.id].discovery?.score != null).length), esc(t('hype.k.discovery_sub'))], [t('hype.k.ahead'), nf(rows.filter(r => r.label === 'attention_ahead').length), esc(t('hype.k.ahead_sub', { n: nf(rows.filter(r => r.gap > 0).length) }))]])}
 <div class="bar-row">${seg('win', t('ui.window_label'), wins.map(w => [w, nm(w)]), F.win)}<select id="area" aria-label="${esc(t('output.area'))}"><option value="all">${esc(t('output.all_areas'))}</option>${(H.views || []).filter(v => v !== 'all').map(a => `<option value="${esc(a)}"${F.area === a ? ' selected' : ''}>${esc(nm(a))}</option>`).join('')}</select>
 <input type="search" id="q" placeholder="${esc(t('ui.search'))}" aria-label="${esc(t('ui.search'))}" value="${esc(F.q)}"><span class="count" aria-live="polite">${esc(t('ui.showing', { n: list.length, total: rows.length }))}</span></div>
 <div id="dumb"></div><div class="tw" id="tbl"></div>`;
