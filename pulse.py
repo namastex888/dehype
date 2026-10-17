@@ -703,7 +703,7 @@ def build(posts, lex, hype_items, repos=None, links=frozenset()):
             if p['url'] in seen_u or hidden(p, links): continue                   # a count-only post is in the counts, never a sample
             seen_u.add(p['url'])
             samples.append(public({'net': p['net'], 'title': shown(p)[:200], 'url': link_url(p, links), 'date': iso(dt)[:10],
-                                   'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']}, links, False))
+                                   'score': p['score'], 'comments': p['comments'], 'author': p['author'], 'source': p['source']}, links, hidden(p, links)))
             if len(samples) >= 8: break
         spread = [public({'net': net, 'at': iso(dt), 'day_only': dt.hour == dt.minute == dt.second == 0, 'author': p['author'], 'url': link_url(p, links),
                           'title': shown(p)[:160], 'source': p['source']}, links, hidden(p, links))
@@ -1100,7 +1100,7 @@ def stories(rel, limit=60, links=frozenset()):
                     'heat': round(spread * 0.5 ** (age_h / 48), 3),
                     'refs': own_refs([u for d in c if not hidden(d[0], links) for u in (d[0]['url'], (d[0].get('extra') or {}).get('link'))]),
                     'posts': [public({'net': d[0]['net'], 'title': shown(d[0])[:200], 'url': link_url(d[0], links), 'author': d[0]['author'], 'at': iso(d[1]),
-                                      'score': d[0]['score'], 'comments': d[0]['comments']}, links, False)
+                                      'score': d[0]['score'], 'comments': d[0]['comments']}, links, hidden(d[0], links))
                               for d in sorted(c, key=lambda d: -(d[0]['score'] or 0)) if not hidden(d[0], links)][:10]})
     # one id per story: when two clusters name the same release, the one whose earliest editorial post is earliest (then the lower
     # fallback key) keeps "release:<topic>": later posts do not move it, so the two ids do not swap as a story grows. Every
@@ -1206,7 +1206,8 @@ def mastodon_candidates(posts, lex, hype_items, repos):
 # every recheckable post the outputs could show (stored posts of the last RECHECK_DAYS) and every dossier post that keeps a source id
 # (its HN posts): HN through the Firebase item endpoint (deleted or dead), Mastodon through mastodon.social /api/v1/statuses/<id> (a 404
 # is removed; a 404 the render check recorded in web/checks/mastodon-links.json counts too, Decision 12), Bluesky through
-# app.bsky.feed.getPosts (a URI missing from the answer is removed) and Reddit through arctic-shift by id ([deleted] or [removed]; Reddit
+# app.bsky.feed.getPosts (a URI missing from the answer is removed) and Reddit through arctic-shift by id ([deleted] or [removed] in the
+# post's selftext or title, or a removed_by_category; never the author alone; Reddit
 # is counts only, so such a record leaves the counts). A post found gone is deleted from the history DB and, when a dossier post has its
 # URL, the URL's SHA256 is appended to web/checks/dossier-gone.json (hashes only), which internal_posts() and hype_build.py --scrub apply.
 # Fail-closed: a recheckable post the lookup did not reach (time cap, rate budget, network error) shows as a count. --offline makes no
@@ -1286,7 +1287,7 @@ def hn_lookup(ids, deadline):
         if _left(deadline) <= 0: return None
         st, d, _ = GET(f'https://hacker-news.firebaseio.com/v0/item/{i}.json', _wait(deadline))
         if st != 200 or not isinstance(d, dict): return None
-        return 'gone' if d.get('deleted') or d.get('dead') else 'alive'
+        return 'gone:deleted' if d.get('deleted') else 'gone:dead' if d.get('dead') else 'alive'
     return _each(ids, one, 16)
 
 def masto_lookup(ids, deadline):
@@ -1297,7 +1298,7 @@ def masto_lookup(ids, deadline):
         rem = (h or {}).get('X-RateLimit-Remaining')
         if st == 429: left[0] = 0
         elif str(rem or '').isdigit(): left[0] = int(rem)
-        return 'alive' if st == 200 else 'gone' if st == 404 else None
+        return 'alive' if st == 200 else 'gone:404' if st == 404 else None
     return _each(ids, one, 2)
 
 def _batches(ids, n, deadline, url, read):
@@ -1314,21 +1315,25 @@ def bsky_lookup(uris, deadline):
     def read(batch, d):
         if not isinstance(d.get('posts'), list): return {}
         got = {p.get('uri') for p in d['posts'] if isinstance(p, dict)}
-        return {u: 'alive' if u in got else 'gone' for u in batch}
+        return {u: 'alive' if u in got else 'gone:missing' for u in batch}
     return _batches(uris, 25, deadline, lambda b: 'https://public.api.bsky.app/xrpc/app.bsky.feed.getPosts?'
                     + urllib.parse.urlencode([('uris', u) for u in b]), read)
 
 def reddit_lookup(ids, deadline):
+    def gone(x):                                       # post-level signals only: an account deleted later leaves the post up
+        for k in ('selftext', 'title'):
+            if x.get(k) in ('[deleted]', '[removed]'): return f'gone:{k} {x[k]}'
+        return f"gone:removed_by_category {x['removed_by_category']}" if x.get('removed_by_category') else None
     def read(batch, d):
-        gone = lambda x: x.get('author') == '[deleted]' or x.get('selftext') in ('[deleted]', '[removed]')
-        return {x['id']: 'gone' if gone(x) else 'alive' for x in d.get('data') or [] if isinstance(x, dict) and x.get('id') in batch}
+        return {x['id']: gone(x) or 'alive' for x in d.get('data') or [] if isinstance(x, dict) and x.get('id') in batch}
+    # whole records: arctic-shift's fields= filter refuses removed_by_category (measured 2026-10-17: 250 ids, 1.2 MB, about 2 s)
     return _batches(ids, 250, deadline, lambda b: 'https://arctic-shift.photon-reddit.com/api/posts/ids?'
-                    + urllib.parse.urlencode({'ids': ','.join(b), 'fields': 'id,author,selftext'}), read)
+                    + urllib.parse.urlencode({'ids': ','.join(b)}), read)
 
 LOOKUPS = {'HN': hn_lookup, 'Mastodon': masto_lookup, 'Bluesky': bsky_lookup, 'Reddit': reddit_lookup}
 
 def recheck(posts, first=(), last=None, cap=None):
-    """Look up every due post by id, the four networks side by side under one time cap -> ({key: 'alive' | 'gone'}, {network: ids asked}).
+    """Look up every due post by id, the four networks side by side under one time cap -> ({key: 'alive' | 'gone:<signal>'}, {network: ids asked}).
     first: Mastodon ids asked before the rest (those the day's outputs link); last: {key: time} of earlier Mastodon lookups, so the
     rest rotate (never asked first, then the oldest answer); the rate budget rarely reaches every Mastodon count in one run."""
     ids = {}
@@ -1348,7 +1353,8 @@ def recheck(posts, first=(), last=None, cap=None):
     return res, {n: len(v) for n, v in order.items()}
 
 def load_recheck(path=None):
-    try: S = json.load(open(path or os.path.join(HIST, 'recheck.json')))
+    try:
+        with open(path or os.path.join(HIST, 'recheck.json')) as f: S = json.load(f)
     except (OSError, ValueError): S = {}
     return {'gone': S.get('gone') or {}, 'last': S.get('last') or {}, 'run': S.get('run')}
 
@@ -1367,10 +1373,11 @@ def apply_removals(con, stored, internal, posts, want, links, cache, state, mode
         run, res = state['run'], dict(state['run'].get('results') or {})
     for sid, e in cache.items():                                         # the render check's lookups of the same endpoint (Decision 12)
         if not isinstance(e, dict) or e.get('api_status') not in (200, 404): continue
-        k, seen = 'Mastodon:' + sid, 'alive' if e['api_status'] == 200 else 'gone'
+        k, seen = 'Mastodon:' + sid, 'alive' if e['api_status'] == 200 else 'gone:404 (render check)'
         if run and mode == 'relink' and str(e.get('checked_at') or '') >= run['at']: res[k] = seen     # looked up in this run, after the recheck
-        elif seen == 'gone': res.setdefault(k, 'gone')                                                 # a recorded 404 removes, never revives
-    gone = {k for k, s in res.items() if s == 'gone'} | set(state['gone'])
+        elif seen != 'alive': res.setdefault(k, seen)                                                  # a recorded 404 removes, never revives
+    for k in state['gone']: res.setdefault(k, 'gone:recorded')                  # found gone by an earlier run (history/recheck.json)
+    gone = {k for k, s in res.items() if s.startswith('gone')}
     in_db = {id(p) for p in stored}
     dead = [p for p in posts if recheck_key(p) in gone]
     forget(con, [p for p in dead if id(p) in in_db])
@@ -1383,8 +1390,9 @@ def apply_removals(con, stored, internal, posts, want, links, cache, state, mode
     unreached = 0
     for p in keep:
         if due_for_recheck(p) and res.get(recheck_key(p)) != 'alive': p['unreached'] = True; unreached += 1
-    by = {}
-    for p in dead: by[p['net']] = by.get(p['net'], 0) + 1
+    by = {}                                                                     # per network and signal
+    for p in dead:
+        sig = f"{p['net']} {res[recheck_key(p)].partition(':')[2] or 'gone'}"; by[sig] = by.get(sig, 0) + 1
     how = {'live': f'time cap {RECHECK_CAP}s, {round(time.monotonic() - t0)}s', 'relink': f"this run's recheck of {run['at']}, time cap {run['cap_seconds']}s" if run else
            'no recheck of this run found: no call', 'offline': 'offline: no call'}[mode]
     line = (f'recheck: {len(due)} due, {sum(1 for p in due if res.get(recheck_key(p)) == "alive")} reached and present, removed {len(dead)} '

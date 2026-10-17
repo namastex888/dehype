@@ -239,19 +239,17 @@ def relink(o):
         if isinstance(v, (dict, list)): relink(v)
         elif is_url(v) and url_net(v) and not (k == 'x_handle' and X_PROFILE.match(v)): o[k] = cite(url_net(v))
 
-REMOVED = 'a removed post'
-
 def drop_removed(o, drop):
-    """Any other field that still carries a removed post's URL reads REMOVED instead (the claim beside it stays)."""
+    """Any other field that still carries a removed post's URL becomes null (the claim beside it stays; the page shows no link)."""
     for k, v in (o.items() if isinstance(o, dict) else enumerate(o)):
         if isinstance(v, (dict, list)): drop_removed(v, drop)
-        elif is_url(v) and url_hash(v) in drop: o[k] = REMOVED
+        elif is_url(v) and url_hash(v) in drop: o[k] = None
 
 def scrub(H, srcs=None, figs=None, drop=None):
     """Apply the group-A rules to a built hype.json in place; a second run changes nothing. srcs, figs: the owner-reviewed
     skeptic[].by disposition list and X-figure list (default: web/i18n/). An unlisted name or hit is left for CI to fail.
     drop: SHA256 hashes of post URLs that web/removals.json names or web/checks/dossier-gone.json lists (default: both files in
-    web/); each such post leaves its item's posts, and the same URL anywhere else in an item reads REMOVED (deletion-only, C34)."""
+    web/); each such post leaves its item's posts, and the same URL anywhere else in an item becomes null (deletion-only, C34)."""
     if drop is None:
         removed, gone = removal_lists()
         drop = removed | {e.get('sha256') for e in gone}

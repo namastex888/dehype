@@ -1111,9 +1111,13 @@ class VerdictFixtureTest(unittest.TestCase):
                        ('https://vxtwitter.com/i/status/1', 'X'), ('https://www.youtube-nocookie.com/embed/x', 'YouTube'), ('https://t.com/x', None)]:
             with self.subTest(u): self.assertEqual(pulse.url_net(u), net)
 
-    def test_committed_owner_files_are_valid_and_empty(self):
-        self.assertEqual(json.loads(read(os.path.join(ROOT, 'web', 'verdicts.json'))), {'rows': []})
-        self.assertEqual(json.loads(read(os.path.join(ROOT, 'web', 'corrections.json'))), {'entries': []})
+    def test_committed_owner_files_are_valid(self):
+        # shape only: both grow by the owner's pull requests, and the refresh Gate runs this suite (check_page.mjs checks each row)
+        V, C = (json.loads(read(os.path.join(ROOT, 'web', f))) for f in ('verdicts.json', 'corrections.json'))
+        self.assertEqual((set(V), set(C)), ({'rows'}, {'entries'}))
+        self.assertIsInstance(V['rows'], list); self.assertIsInstance(C['entries'], list)
+        for r in V['rows']: self.assertRegex(r['id'], r'^s:[0-9a-f]{12}$'); self.assertIn(r['label'], LABEL_WORDS)
+        for i, e in enumerate(C['entries']): self.assertEqual(e['id'], f'c:{i + 1}')
 
 
 @unittest.skipUnless(shutil.which('git'), 'git not installed')
@@ -1299,6 +1303,7 @@ class RecheckTest(unittest.TestCase):
             self.assertIn({'net': 'HN', 'at': '2026-10-17T04:00:00Z'}, P['stories'][0]['path'])   # 104 in the story, as a count
             self.assertIn('recheck: 9 due, 4 reached and present, removed 4 found gone ', log)
             self.assertIn('1 unreached shown as counts (time cap 180s, ', log)
+            self.assertIn("found gone {'Bluesky missing': 1, 'HN deleted': 1, 'Mastodon 404': 1, 'Reddit selftext [removed]': 1}", log)
             self.assertEqual(len([u for u in stub.calls if '/v0/item/' in u]), 3)       # one lookup per id, no retry
             first = {k: P[k] for k in ('totals', 'nodes', 'stories')}
             # --relink in the same refresh run: no call, the same posts shown and counted
@@ -1329,6 +1334,19 @@ class RecheckTest(unittest.TestCase):
         m = pulse.post('Mastodon', '9001', 'https://mastodon.social/@m_a/9001', 't', 'm_a', RM['now'])
         self.assertEqual(pulse.post_hashes(m), {sha('https://mastodon.social/@m_a/9001'), sha('https://mastodon.social/statuses/9001')})
 
+    def test_reddit_gone_only_on_a_post_level_signal(self):
+        # [deleted] or [removed] in the selftext or title, or a removed_by_category; an author deleted later leaves the post up
+        data = [{'id': 'a', 'author': '[deleted]', 'selftext': 'still here', 'title': 't', 'removed_by_category': None},
+                {'id': 'b', 'author': 'x', 'selftext': '[deleted]', 'title': 't'}, {'id': 'c', 'author': 'x', 'selftext': '', 'title': '[removed]'},
+                {'id': 'd', 'author': 'x', 'selftext': '', 'title': 't', 'removed_by_category': 'moderator'}]
+        keep = pulse.GET
+        try:
+            pulse.GET = lambda url, timeout: (200, {'data': data}, {})
+            got = pulse.reddit_lookup(['a', 'b', 'c', 'd', 'e'], pulse.time.monotonic() + 30)
+        finally:
+            pulse.GET = keep
+        self.assertEqual(got, {'a': 'alive', 'b': 'gone:selftext [deleted]', 'c': 'gone:title [removed]', 'd': 'gone:removed_by_category moderator'})
+
     def test_time_cap_and_failed_lookups_reach_nothing(self):
         posts = [pulse.post('HN', str(i), f'https://news.ycombinator.com/item?id={i}', 't', 'a', RM['now']) for i in (1, 2)]
         keep = pulse.GET
@@ -1358,7 +1376,7 @@ class RecheckTest(unittest.TestCase):
             H = json.loads(read(hype))['items']['claude-code']
             self.assertEqual([p.get('url') for p in H['posts']], [p.get('url') for p in F['hype']['items']['claude-code']['posts']
                                                                    if p.get('url') not in F['dropped']])
-            self.assertEqual(H['first_seen_url'], 'a removed post')
+            self.assertIsNone(H['first_seen_url'])                                        # the URL elsewhere in the item: null, no link
             once = read(hype)
             subprocess.run([sys.executable, os.path.join(ROOT, 'hype_build.py'), '--scrub', hype], capture_output=True, check=True)
             self.assertEqual(read(hype), once)
@@ -1417,6 +1435,30 @@ class RemovalFixtureTest(unittest.TestCase):
                 got = [l[2:] for l in r.stderr.splitlines() if l.startswith('- ')]
                 self.assertEqual(len(got), len(c['expect']), r.stderr)
                 for m in c['expect']: self.assertTrue(any(g.startswith(m) for g in got), (m, got))
+
+    def test_request_applies_to_pulse_and_briefing_from_the_next_daily_rebuild(self):
+        # the owner's removal pull request (removals.json and the scrubbed hype.json) must pass CI against the day's pulse.json and
+        # briefing.json, which drop the post at the next daily rebuild; an entry dated before their generated_at day must be applied
+        P, hraw = json.loads(read(os.path.join(ROOT, 'web', 'pulse.json'))), read(os.path.join(ROOT, 'web', 'hype.json')).decode()
+        url = next(x['url'] for x in P['stories'] if x.get('url') and x['url'] not in hraw)
+        day = datetime.fromisoformat(P['generated_at'][:10])
+        braw = read(os.path.join(ROOT, 'web', 'briefing.json')).decode()
+        for when, code in ((day + timedelta(days=1), 0), (day - timedelta(days=2), 1)):    # today on yesterday's data; two days before
+            with self.subTest(str(when.date())), tempfile.TemporaryDirectory() as d:
+                web = os.path.join(d, 'web')
+                shutil.copytree(os.path.join(ROOT, 'web'), web)
+                with open(os.path.join(web, 'removals.json'), 'w') as f: json.dump({'entries': [{'sha256': sha(url), 'date': str(when.date())}]}, f)
+                r = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+                self.assertEqual(r.returncode, code, r.stdout + r.stderr)
+                got = [l[2:] for l in r.stderr.splitlines() if l.startswith('- ')]
+                if code:
+                    want = ['pulse.json: post named by removals.json is still published'] + (
+                        ['briefing.json: post named by removals.json is still published'] if json.dumps(url)[1:-1] in braw else [])
+                    self.assertEqual(len(got), len(want), r.stderr)
+                    for m in want: self.assertTrue(any(g.startswith(m) for g in got), (m, got))
+                else:
+                    self.assertIn('removals: 1 requests, 0 dossier posts found gone, none published (', r.stdout)
+                    self.assertIn('await the next daily rebuild)', r.stdout)
 
     def test_node_whose_posts_are_all_counts_passes_and_one_hiding_a_shown_post_fails(self):
         # a node seen only through posts the recheck did not reach has no samples and a spread of counts; a shown title there fails

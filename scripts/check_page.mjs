@@ -420,11 +420,12 @@ let verdictNote = 'no verdicts';
 }
 
 // Removal requests and deleted posts (design row 7, C34): removals.json (owner-reviewed) and checks/dossier-gone.json (bot-written,
-// append-only) name posts by the SHA256 of the post URL as stored (hashes only, so neither file publishes the post); hype.json,
-// pulse.json and briefing.json hold no URL either list names.
+// append-only) name posts by the SHA256 of the post URL as stored (hashes, not the URLs); hype.json holds no URL either list names
+// (the removal pull request scrubs it); pulse.json and briefing.json hold no URL that dossier-gone.json lists, nor one that a
+// removals.json entry dated before their generated_at day (UTC) names: they drop a requested post at the next daily rebuild.
 const HEX64 = /^[0-9a-f]{64}$/;
-function hashList(f, key, dateKey, missing) {
-  const R = readJSON(f, missing), out = new Set();
+function hashList(f, key, dateKey, missing) {                    // {sha256: date} of the well-formed entries
+  const R = readJSON(f, missing), out = new Map();
   if (R === null) return out;
   publicRules(f, R);
   if (!Array.isArray(R[key])) { fail.push(`${f} lacks its ${key} list`); return out; }
@@ -432,7 +433,7 @@ function hashList(f, key, dateKey, missing) {
   R[key].forEach((e, i) => {
     const ok = e && typeof e === 'object' && !Array.isArray(e) && HEX64.test(e.sha256 || '') && DAY.test(e[dateKey] || '')
       && Object.keys(e).every(k => k === 'sha256' || k === dateKey);
-    if (ok) out.add(e.sha256); else finding(f, `entry is not ${shape}`, `${key}[${i}]`);
+    if (ok) out.set(e.sha256, e[dateKey]); else finding(f, `entry is not ${shape}`, `${key}[${i}]`);
   });
   return out;
 }
@@ -440,12 +441,20 @@ let removalNote = 'no removals';
 {
   const R = hashList('removals.json', 'entries', 'date', 'removals.json missing (owner-reviewed; {"entries": []} when it holds no request)');
   const G = hashList('checks/dossier-gone.json', 'gone', 'found');
-  const why = u => R.has(sha(u)) ? 'post named by removals.json is still published' : G.has(sha(u)) ? 'post whose URL hash checks/dossier-gone.json lists is still published' : null;
+  let pending = 0;
   for (const f of ['hype.json', 'pulse.json', 'briefing.json']) {
     const X = f === 'hype.json' ? H : readJSON(f);
-    if (X) walk(X, '', (v, at) => { const w = typeof v === 'string' && /^https?:\/\//.test(v) && why(v); if (w) finding(f, w, at); });
+    if (!X) continue;
+    const day = f === 'hype.json' ? null : String(X.generated_at || '').slice(0, 10);
+    const why = u => {
+      const h = sha(u), d = R.get(h);
+      if (d !== undefined && (day === null || d < day)) return 'post named by removals.json is still published';
+      if (d !== undefined) pending++;
+      return G.has(h) ? 'post whose URL hash checks/dossier-gone.json lists is still published' : null;
+    };
+    walk(X, '', (v, at) => { const w = typeof v === 'string' && /^https?:\/\//.test(v) && why(v); if (w) finding(f, w, at); });
   }
-  removalNote = `removals: ${R.size} requests, ${G.size} dossier posts found gone, none published`;
+  removalNote = `removals: ${R.size} requests, ${G.size} dossier posts found gone, none published` + (pending ? ` (${pending} places in pulse.json or briefing.json await the next daily rebuild)` : '');
 }
 
 for (const [rule, at] of Object.entries(found)) fail.push(`${rule} at ${at.length} place${at.length > 1 ? 's' : ''}, e.g. ${at.slice(0, 3).join(', ')}`);
