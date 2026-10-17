@@ -99,6 +99,23 @@ class PagesTest(unittest.TestCase):
         self.assertIsNone(hype_build.scrub(H, drop=set())['items'][slug]['links']['x_handle'])
         self.assertTrue(hype_build.own_account('claude-code', {'name': 'Claude Code'}, 'https://x.com/claudeai'))
 
+    def test_listed_organisation_account_stays_and_a_person_goes(self):
+        sys.path.insert(0, ROOT)
+        import hype_build
+        from scripts.check_owner_files import OWNER_FILES
+        self.assertIn('web/i18n/x-org-accounts.json', OWNER_FILES)
+        orgs = json.loads(read(os.path.join(WEB, 'i18n', 'x-org-accounts.json')))['accounts']
+        self.assertIn('openai', orgs)
+        H = json.loads(read(os.path.join(WEB, 'hype.json')))
+        self.assertEqual(H['items']['sora']['links']['x_handle'], 'https://x.com/OpenAI')      # an organisation the owner listed
+        self.assertIsNone(H['items']['skyvern']['links']['x_handle'])                       # a person: not listed, no token match
+        self.assertTrue(hype_build.own_account('qwen3-8', {'name': 'Qwen3.8'}, 'https://x.com/Alibaba_Qwen', orgs))
+        self.assertFalse(hype_build.own_account('skyvern', {'name': 'Skyvern'}, 'https://x.com/Suchintan', orgs))
+        H['items']['skyvern']['links']['x_handle'] = 'https://x.com/Suchintan'
+        self.assert_fails(check_page({'hype.json': H}), "hype.json: links.x_handle is not the project's own account")
+        del orgs['openai']
+        self.assert_fails(check_page({'i18n/x-org-accounts.json': {'accounts': orgs}}), "hype.json: links.x_handle is not the project's own account")
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -90,8 +90,12 @@ function publicRules(file, D) {
     if (linked && v.who) finding(file, 'person handle: Mastodon who', at);
   });
 }
+let ORGS = null;                                                 // i18n/x-org-accounts.json (owner-reviewed): organisation accounts
 function ownAccount(slug, it, url) {                             // hype_build.own_account: the project's own X account, not a person
-  const h = url.replace(/\/+$/, '').split('/').pop().toLowerCase().replace(/[^a-z0-9]/g, ''), repo = (it.links?.repo || '').replace(/\/+$/, '').split('/').pop();
+  ORGS ??= readJSON('i18n/x-org-accounts.json', 'i18n/x-org-accounts.json missing (owner-reviewed organisation X accounts; {"accounts": {}} when none)')?.accounts || {};
+  const h = url.replace(/\/+$/, '').split('/').pop().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (Object.hasOwn(ORGS, h)) return true;
+  const repo = (it.links?.repo || '').replace(/\/+$/, '').split('/').pop();
   return [it.name || '', slug, repo].some(x => x.toLowerCase().split(/[^a-z0-9]+/).some(t => t.length >= 4 && h.includes(t)));
 }
 function hypeRules(H) {

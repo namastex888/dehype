@@ -246,11 +246,14 @@ def drop_removed(o, drop):
         if isinstance(v, (dict, list)): drop_removed(v, drop)
         elif is_url(v) and url_hash(v) in drop: o[k] = None
 
-def own_account(slug, it, url):
+def own_account(slug, it, url, orgs=None):
     """links.x_handle stays only when it is the project's own account: the handle (lower case, punctuation stripped) contains a
-    token of 4+ characters from the project's name, slug or repository name; otherwise it may be a person, and the link goes.
+    token of 4+ characters from the project's name, slug or repository name, or the handle (same form) is an organisation account
+    the owner listed in web/i18n/x-org-accounts.json; otherwise it may be a person, and the link goes.
     scripts/check_page.mjs applies the same rule."""
+    if orgs is None: orgs = load(os.path.join(I18N, 'x-org-accounts.json'), {}).get('accounts') or {}
     h = re.sub(r'[^a-z0-9]', '', url.rstrip('/').rsplit('/', 1)[-1].lower())
+    if h in orgs: return True
     repo = ((it.get('links') or {}).get('repo') or '').rstrip('/').rsplit('/', 1)[-1]
     return any(len(t) >= 4 and t in h for s in (it.get('name') or '', slug, repo) for t in re.split(r'[^a-z0-9]+', s.lower()))
 
