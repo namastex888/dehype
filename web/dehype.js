@@ -1,4 +1,5 @@
-// dehype shell (design rows 10, 11, 13; D5 amended: static pages, one stylesheet, one script, no build). Each page names the data
+// dehype shell (design rows 9-11, 13; D5 amended: static pages, one stylesheet, one script, no build): the briefing (index.html), all
+// stories, output, Hype, method and audit pages; index.html also folds the console's old URLs (fold below). Each page names the data
 // files it reads in <body data-src>; our own text comes from i18n/strings.json in en and pt; headlines and titles stay as posted with
 // their lang tag. The data files carry our own text in English: tr() maps such a value back to its strings.json entry with the
 // templates scripts/check_page.mjs uses (ours) and renders the page language. English method paragraphs are never shown: pages link
@@ -8,9 +9,8 @@
 const DH = (() => {
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-const REPO = 'https://github.com/namastex888/dehype/blob/dev/';            // method and policy links until group C3 adds method.html
-const METHOD = { en: REPO + 'METHODOLOGY.md', pt: REPO + 'METHODOLOGY.pt.md' }, POLICY = { en: REPO + 'web/POLICY.md', pt: REPO + 'web/POLICY.pt.md' };
-const NAV = [['stories', 'nav.stories'], ['output', 'nav.output'], ['hype', 'nav.hype'], ['index', 'nav.console']];
+const REPO = 'https://github.com/namastex888/dehype/blob/dev/';            // repository files the method text links (code, config)
+const NAV = [['index', 'nav.briefing'], ['stories', 'nav.stories'], ['output', 'nav.output'], ['hype', 'nav.hype'], ['method', 'nav.method'], ['audit', 'nav.audit']];
 const COUNT_ONLY = new Set(['Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mastodon']);
 const NOT_FETCHED = 'not fetched', DAY = 864e5;
 const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { } } };
@@ -18,7 +18,9 @@ const page = document.body.dataset.page, files = (document.body.dataset.src || '
 let I = { strings: {}, fields: {} }, REF = {}, lang = 'en', theme = 'dark', DATA_KEYS = [], render = () => { };
 const cache = {};
 // ------------------------------------------------------------------ data and strings
-function load(f) { return cache[f] ||= fetch(f, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`); return r.json(); }); }
+function load(f) {                                              // the one loader: JSON, the method sources as text, the search vectors as bytes
+  return cache[f] ||= fetch(f, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`); return /\.md$/.test(f) ? r.text() : /\.bin$/.test(f) ? r.arrayBuffer() : r.json(); });
+}
 const opt = (f, empty) => load(f).catch(() => empty);
 const entry = k => { const e = I.strings[k]; return e && e.ref ? REF[k] : e; };
 function t(k, v = {}) { const e = entry(k), s = e ? (e[lang] || e.en) : k; return s.replace(/\{(\w+)\}/g, (m, x) => x in v ? v[x] : m); }
@@ -47,7 +49,8 @@ const loc = () => lang === 'pt' ? 'pt-BR' : 'en-US';
 const nf = n => typeof n === 'number' ? n.toLocaleString(loc(), { maximumFractionDigits: 1 }) : n == null ? '—' : esc(tr(n));
 const day = s => (s || '').slice(0, 10);
 const ago = (iso, now) => { const h = (now - Date.parse(iso)) / 36e5; return !isFinite(h) ? '—' : h < 1 ? t('ui.ago.now') : h < 48 ? tn('ui.ago.h', Math.round(h)) : tn('ui.ago.d', Math.round(h / 24)); };
-const href = p => p + '.html' + (lang === 'pt' ? '?lang=pt' : '');
+const href = (p, q = '') => p + '.html' + ((q || lang === 'pt') ? '?' + [q, lang === 'pt' ? 'lang=pt' : ''].filter(Boolean).join('&') : '');
+const METHOD = () => href('method'), POLICY = () => href('method', 'doc=policy');   // the method page renders both sources in the page language
 const link = (u, text, l) => /^https?:\/\//.test(u || '') ? `<a href="${esc(u)}" target="_blank" rel="noopener"${l ? ` lang="${esc(l)}"` : ''}>${text}</a>` : text;
 const posted = (s, l) => `<span lang="${esc(l || 'und')}">${esc(s)}</span>`;              // as posted, never translated
 async function sha(s) { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); }
@@ -60,6 +63,7 @@ function shell() {
 <nav aria-label="${esc(t('ui.nav'))}">${NAV.map(([p, k]) => `<a href="${href(p)}"${p === page ? ' aria-current="page"' : ''}>${esc(t(k))}</a>`).join('')}</nav>
 <div class="tools"><div class="seg" role="group" aria-label="${esc(t('ui.language'))}"><button data-lang="en" lang="en" aria-pressed="${lang === 'en'}">EN</button><button data-lang="pt" lang="pt" aria-pressed="${lang === 'pt'}">PT</button></div>
 <button class="btn" id="theme">${esc(t(theme === 'dark' ? 'ui.theme.light' : 'ui.theme.dark'))}</button></div></div>`;
+  const nav = $('#top nav'), cur = $('[aria-current]', nav); if (cur && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = cur.offsetLeft - 16;
   $$('[data-lang]').forEach(b => b.onclick = () => setLang(b.dataset.lang));
   $('#theme').onclick = () => { theme = theme === 'dark' ? 'light' : 'dark'; store.set('dehype.theme', theme); shell(); redraw(); };
   $$('[data-k]').forEach(el => el.textContent = t(el.dataset.k));
@@ -67,7 +71,7 @@ function shell() {
   $('meta[name=description]')?.setAttribute('content', t(page + '.scope'));
   $('#reads').innerHTML = esc(t('ui.reads')) + ' ' + files.map(f => `<code class="mono">${esc(f)}</code>`).join(', ');
   $('#foot').innerHTML = `<div class="wrap"><p>${esc(t('ui.foot.data'))} ${files.map(f => `<a href="${esc(f)}"><code class="mono">${esc(f)}</code></a>`).join(' · ')}</p>
-<p><a href="${METHOD[lang]}">${esc(t('ui.method'))}</a> · <a href="${POLICY[lang]}#corrections">${esc(t('ui.corrections'))}</a> · ${esc(t('ui.foot.counts'))}</p></div>`;
+<p><a href="${METHOD()}">${esc(t('ui.method'))}</a> · <a href="${POLICY()}#corrections">${esc(t('ui.corrections'))}</a> · ${esc(t('ui.foot.counts'))}</p></div>`;
 }
 function setLang(l) {
   lang = l; store.set('dehype.lang', l); TR.clear(); NAMES = null;
@@ -90,10 +94,10 @@ function showTip(x, y, title, rows) {
 }
 const hideTip = () => tip.classList.remove('on');
 const kpis = list => `<div class="kpis">${list.map(([l, v, s]) => `<div class="kpi"><span class="lbl">${esc(l)}</span><span class="num">${v}</span>${s ? `<small>${s}</small>` : ''}</div>`).join('')}</div>`;
-function sources(S) {                                            // coverage: a one-line summary, each source's status behind it (icon + label)
+function sources(S, compact) {                                   // coverage: a one-line summary (compact: the count only), each source's status behind it
   const cls = { ok: 'ok', partial: 'partial', failed: 'bad', [NOT_FETCHED]: 'nf' }, ico = { ok: '●', partial: '◐', failed: '✕' }, E = Object.entries(S || {}), st = s => typeof s === 'string' ? s : s.status;
   const weak = E.filter(([, s]) => st(s) !== 'ok').map(([n, s]) => `${esc(nm(n))} <span class="mono">${esc(tr(st(s)))}</span>`).join(' · ');
-  return `<details class="cov"><summary><span class="lbl">${esc(t('ui.coverage'))}</span> <span class="st ok"><b aria-hidden="true">●</b> ${esc(t('ui.sources_ok', { n: E.filter(([, s]) => st(s) === 'ok').length, total: E.length }))}</span>${weak ? ` · ${weak}` : ''}</summary>
+  return `<details class="cov"><summary><span class="lbl">${esc(t('ui.coverage'))}</span> <span class="st ok"><b aria-hidden="true">●</b> ${esc(t('ui.sources_ok', { n: E.filter(([, s]) => st(s) === 'ok').length, total: E.length }))}</span>${weak && !compact ? ` · ${weak}` : ''}</summary>
 <ul>${E.map(([n, s]) => `<li class="st ${cls[st(s)] || 'nf'}"><b aria-hidden="true">${ico[st(s)] || '○'}</b> ${esc(nm(n))} <span class="mono">${esc(tr(st(s)))}</span>${s.detail ? ` <span class="dim">· ${esc(tr(s.detail))}</span>` : ''}</li>`).join('')}</ul></details>`;
 }
 function table(o) {
@@ -199,25 +203,26 @@ function verdictSlot(v) {
 const nets = c => { const e = Object.entries(c.networks || {}); return e.filter(([, v]) => v !== 0).sort((a, b) => (typeof b[1] === 'number' ? b[1] : -1) - (typeof a[1] === 'number' ? a[1] : -1)).map(([k, v]) => `<span class="nw">${esc(nm(k))} ${nf(v)}</span>`).join(' · ') || '—'; };
 const rd = v => `<span class="num mono${typeof v === 'number' ? '' : ' s'}">${typeof v === 'boolean' || v === NOT_FETCHED || v == null ? esc(yesno(v)) : nf(v)}</span>`;
 const yesno = v => v === true ? t('ui.yes') : v === false ? t('ui.no') : tr(v ?? NOT_FETCHED);
-function evidence(r, s, v, i, now) {
+function evidence(r, s, v, i, now, brief = false) {            // a story's evidence record; brief: the briefing row (spread path in view)
   const c = r.computed || {}, sub = r.substance || {}, u = s && (s.link || s.url), fixed = rx('headline.count_only').test(r.headline || '');
   const hd = fixed ? esc(tr(r.headline, ['headline.count_only'])) : posted(r.headline, r.lang);
   const st = Object.entries(r.sources || {}), ok = st.filter(([, x]) => x === 'ok').length, weak = st.filter(([, x]) => x !== 'ok').map(([n, x]) => `${esc(nm(n))} ${esc(tr(x))}`).join(' · ');
   const posts = (s?.posts || []).filter(p => p.title), counted = Object.entries(s?.nets || {}).filter(([n]) => COUNT_ONLY.has(n));
   const path = (s?.path || []).map(p => `${esc(['Newsletter', 'Official'].includes(p.net) && p.who ? p.who : nm(p.net))} <span class="mono dim">${esc(day(p.at).slice(5))}</span>`).join(' → ');
   const rel = r.related_in_topic || {}, refs = [...(sub.repos || []), ...(sub.papers || [])];
+  const meta = `${esc(t('ui.sources_ok', { n: ok, total: st.length }))}${weak ? ` · ${weak}` : ''} · ${esc(t('ui.newest', { ago: ago(r.last, now) }))}`;
   return `<li class="story" id="${esc(r.id)}"><span class="rk">${String(i + 1).padStart(2, '0')}</span><div>
 <span class="seen${r.seen === 'new today' ? ' new' : ''}">${esc(tr(r.seen))}</span>${r.release ? ` <span class="meta">· ${esc(r.release)}</span>` : ''} <span class="meta">· ${esc(kind(r))}</span>
 <h3>${u ? link(u, hd) : hd}</h3>
-<div class="read"><div><span class="lbl">${esc(t('ui.voices'))}</span><span class="num mono">${nf(c.voices)}</span></div>
+<div class="read${brief ? ' b' : ''}"><div><span class="lbl">${esc(t('ui.voices'))}</span><span class="num mono">${nf(c.voices)}</span></div>
 <div><span class="lbl">${esc(t('ui.networks'))}</span><span class="nets">${nets(c)}</span></div>
 <div><span class="lbl">${esc(t('ui.newsletters'))}</span>${rd(c.newsletters)}</div>
-<div><span class="lbl">${esc(t('ui.lab_post'))}</span>${rd(c.official)}</div>
-<div><span class="lbl">${esc(t('ui.hn_points'))}</span>${rd(c.hn_points)}</div></div>
+${brief ? `<div class="sp"><span class="lbl">${esc(t('brief.spread'))}</span><span class="nets">${path || '—'}</span></div>` : `<div><span class="lbl">${esc(t('ui.lab_post'))}</span>${rd(c.official)}</div>
+<div><span class="lbl">${esc(t('ui.hn_points'))}</span>${rd(c.hn_points)}</div>`}</div>
 ${verdictSlot(v)}
-<div class="meta">${esc(t('ui.sources_ok', { n: ok, total: st.length }))}${weak ? ` · ${weak}` : ''} · ${esc(t('ui.newest', { ago: ago(r.last, now) }))}</div>
-<details class="more"><summary>${esc(t('ui.evidence'))}</summary><div class="ev">
-<h4>${esc(t('ui.path'))}</h4><p>${path || '—'}</p>
+${brief ? '' : `<div class="meta">${meta}</div>`}<details class="more"><summary>${esc(t('ui.evidence'))}${brief ? ` <span class="meta">· ${esc(t('ui.newest', { ago: ago(r.last, now) }))}</span>` : ''}</summary><div class="ev">
+${brief ? `<p class="meta">${meta}</p>` : ''}
+${brief ? `<h4>${esc(t('ui.lab_post'))} · ${esc(t('ui.hn_points'))}</h4><p>${rd(c.official)} · ${rd(c.hn_points)}</p>` : ''}<h4>${esc(t('ui.path'))}</h4><p>${path || '—'}</p>
 <h4>${esc(t('ui.posts'))}</h4><ul>${posts.map(p => `<li><span class="mono dim">${esc(nm(p.net))}</span> ${link(p.url, posted(p.title, p.lang))}${['Newsletter', 'Official'].includes(p.net) && p.author ? ` <span class="dim">· ${esc(p.author)}</span>` : ''} <span class="mono dim">${esc(day(p.at))}</span></li>`).join('')}
 ${counted.map(([n, k]) => `<li class="dim">${esc(tn('ui.counted', k, { net: nm(n) }))}</li>`).join('')}${!posts.length && !counted.length ? `<li class="dim">${esc(t('ui.none'))}</li>` : ''}</ul>
 <h4>${esc(tr(sub.from || "the story's own links"))}</h4><ul>${refs.map(x => `<li>${link(x, `<span class="mono">${esc(x.replace(/^https:\/\/(github\.com|arxiv\.org\/abs)\//, ''))}</span>`)}</li>`).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ul>
@@ -227,13 +232,13 @@ ${c.newsletter_names?.length ? `<h4>${esc(t('ui.newsletters'))}</h4><p>${c.newsl
 }
 // ------------------------------------------------------------------ all stories
 async function stories() {
-  const [B, P, V] = await Promise.all([load('briefing.json'), load('pulse.json'), opt('verdicts.json', { rows: [] })]);
-  const by = new Map((P.stories || []).map(s => [s.id, s])), ver = new Map((V.rows || []).map(r => [r.id, r])), now = Date.parse(B.generated_at), R = B.records || [];
-  const F = { q: '', kind: 'all', seen: 'all', sort: 'heat', view: 'list' };
+  const [B, P, V, AL] = await Promise.all([load('briefing.json'), load('pulse.json'), opt('verdicts.json', { rows: [] }), opt('story-aliases.json', { aliases: {} })]);
+  const by = new Map((P.stories || []).map(s => [s.id, s])), ver = verdicts(V, AL), now = Date.parse(B.generated_at), R = B.records || [];
+  const F = { q: qp('q'), kind: 'all', seen: 'all', sort: 'heat', view: qp('view') === 'table' ? 'table' : 'list' };
   const x0 = Math.min(...R.map(r => Date.parse(r.first))), x1 = now;
   render = () => {
     const main = $('#body');
-    main.innerHTML = `<p class="reads">${esc(t('ui.generated', { at: B.window?.end_brt || B.generated_at }))}</p>
+    main.innerHTML = `${staleBanner(B)}${foldNote('')}<p class="reads">${esc(t('ui.generated', { at: B.window?.end_brt || B.generated_at }))}</p>
 ${kpis([[t('stories.k.stories'), nf(R.length), esc(t('stories.k.stories_sub'))], [t('stories.k.new'), nf(R.filter(r => r.seen === 'new today').length), esc(t('stories.k.new_sub'))],
   [t('stories.k.news'), nf(R.filter(r => r.kind === 'news').length), esc(t('stories.k.news_sub'))], [t('stories.k.official'), nf(R.filter(r => r.computed?.official === true).length), esc(t('stories.k.official_sub'))]])}
 ${sources(B.sources)}<div id="map"></div>
@@ -266,7 +271,7 @@ ${seg('view', t('ui.view'), [['list', t('ui.evidence_view')], ['table', t('ui.ta
 async function output() {
   const [B, D] = await Promise.all([load('briefing.json'), load('data.json')]);
   const now = Date.parse(B.generated_at), g = (B.gauges || []).find(x => x.id === 'output_by_area'), areas = (D.views || []).filter(a => a !== 'all');
-  const F = { days: 7, area: 'all', tab: 'papers', q: '', all: false };
+  const F = { days: [7, 30, 90].includes(+qp('days')) ? +qp('days') : 7, area: areas.includes(qp('area')) ? qp('area') : 'all', tab: qp('tab') === 'repos' ? 'repos' : 'papers', q: qp('q'), all: false };
   const date = { papers: it => it.published, repos: it => it.created };
   render = () => {
     const cut = new Date(now - (F.days - 1) * DAY).toISOString().slice(0, 10), wk = F.days + 'd';
@@ -275,7 +280,7 @@ async function output() {
     const rows = areas.map(a => ({ key: a, label: nm(a), vals: [count(P, a), count(Rp, a)] }));
     const same = F.days === 7 && g?.value && g.value.since === cut && g.value.areas.every(x => { const r = rows.find(y => y.key === x.area); return r && r.vals[0] === x.papers && r.vals[1] === x.repos; });
     const gnote = !g ? '' : g.value == null ? tr(g.reason) : F.days === 7 ? (same ? t('output.gauge.same', { name: tr(g.name) }) : t('output.gauge.differs', { name: tr(g.name) })) : t('output.gauge.other', { name: tr(g.name) });
-    $('#body').innerHTML = `<div class="bar-row">${seg('days', t('ui.window_label'), [[7, '7d'], [30, '30d'], [90, '90d']], F.days)}
+    $('#body').innerHTML = `${staleBanner(B)}${foldNote(F.days + 'd')}<div class="bar-row">${seg('days', t('ui.window_label'), [[7, '7d'], [30, '30d'], [90, '90d']], F.days)}
 <select id="area" aria-label="${esc(t('output.area'))}"><option value="all">${esc(t('output.all_areas'))}</option>${areas.map(a => `<option value="${esc(a)}"${F.area === a ? ' selected' : ''}>${esc(nm(a))}</option>`).join('')}</select>
 <span class="count mono">${esc(t('output.since', { date: cut }))}</span></div>
 ${kpis([[t('output.k.papers'), nf(P.length), esc(t('output.k.of', { n: nf(Object.keys(D.papers?.items || {}).length) }))], [t('output.k.repos'), nf(Rp.length), esc(t('output.k.of', { n: nf(Object.keys(D.repos?.items || {}).length) }))],
@@ -290,19 +295,19 @@ ${sources(D.sources)}<p class="reads">${esc(gnote)}${g ? ` <span class="pill">${
   };
   function drill(F, D, wk, L) {
     const score = new Map((D[F.tab]?.[wk]?.all?.rows || []).map(r => [r.id, r]));
-    const q = F.q.trim().toLowerCase();
-    const items = L.filter(([id, it]) => (F.area === 'all' || it.tag === F.area) && (!q || [id, it.title, it.desc, it.lab, it.owner].join(' ').toLowerCase().includes(q)))
-      .sort((a, b) => (score.get(b[0])?.score ?? -1) - (score.get(a[0])?.score ?? -1) || ((b[1].upvotes || b[1].stars || 0) - (a[1].upvotes || a[1].stars || 0)));
+    const items = search(F.tab, L.filter(([, it]) => F.area === 'all' || it.tag === F.area)
+      .sort((a, b) => (score.get(b[0])?.score ?? -1) - (score.get(a[0])?.score ?? -1) || ((b[1].upvotes || b[1].stars || 0) - (a[1].upvotes || a[1].stars || 0))), F.q, x => x[0], ([id, it]) => [id, it.title, it.desc, it.lab, it.owner].join(' '));
+    SEM.redo = () => keepQ(() => drill(F, D, wk, L));
     const shown = F.all ? items : items.slice(0, 25);
     const cols = F.tab === 'papers' ? [[t('output.col.paper')], [t('output.col.lab'), 'hm'], [t('output.area'), 'hm'], [t('output.col.published'), 'n hm'], [t('output.col.upvotes'), 'n'], [t('output.col.score'), 'n']]
       : [[t('output.col.repo')], [t('output.col.desc'), 'hm'], [t('output.area'), 'hm'], [t('output.col.created'), 'n hm'], [t('output.col.stars'), 'n'], [t('output.col.gained'), 'n hm'], [t('output.col.score'), 'n']];
     const cells = ([id, it]) => F.tab === 'papers' ? [link('https://arxiv.org/abs/' + id, posted(it.title)), esc(it.lab || '—'), esc(nm(it.tag || '—')), esc(it.published || '—'), nf(it.upvotes), nf(score.get(id)?.score)]
       : [link(it.url, `<span class="mono">${esc(id)}</span>`), it.desc ? posted(it.desc) : '—', esc(nm(it.tag || '—')), esc(day(it.created) || '—'), nf(it.stars), nf(score.get(id)?.gained), nf(score.get(id)?.score)];
     $('#drill').innerHTML = `<div class="bar-row">${seg('tab', t('output.kind'), [['papers', t('output.papers')], ['repos', t('output.repos')]], F.tab)}
-<input type="search" id="q" placeholder="${esc(t('ui.search'))}" aria-label="${esc(t('ui.search'))}" value="${esc(F.q)}"><span class="count" aria-live="polite">${esc(t('ui.showing', { n: shown.length, total: items.length }))}</span></div>
+<input type="search" id="q" placeholder="${esc(t('ui.search'))}" aria-label="${esc(t('ui.search'))}" value="${esc(F.q)}">${semBtn()}<span class="count" aria-live="polite">${esc(t('ui.showing', { n: shown.length, total: items.length }))}</span></div>
 <div class="tw">${table({ caption: t('output.table.caption', { area: F.area === 'all' ? t('output.all_areas') : nm(F.area), wk }), cols, rows: shown.map(x => ({ cells: cells(x) })) })}</div>
 ${items.length > shown.length ? `<p><button class="btn" id="all">${esc(t('ui.show_all', { n: items.length }))}</button></p>` : ''}`;
-    onSeg('tab', v => { F.tab = v; F.all = false; render(); });
+    onSeg('tab', v => { F.tab = v; F.all = false; render(); }); semUi();
     const qi = $('#q'); qi.oninput = e => { F.q = e.target.value; drill(F, D, wk, L); const n = $('#q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
     $('#all')?.addEventListener('click', () => { F.all = true; drill(F, D, wk, L); });
   }
@@ -323,7 +328,7 @@ async function hype() {
   }
   const ph = XF.placeholder?.en;
   const wins = ['1d', '7d', '30d', '90d', 'overall'].filter(w => H.windows?.[w]?.enabled && H[w]);
-  const F = { win: wins.includes('7d') ? '7d' : wins[0], area: 'all', q: '', all: false, open: decodeURIComponent((location.hash.match(/^#p=(.+)$/) || [])[1] || '') };
+  const F = { win: wins.includes(qp('win')) ? qp('win') : wins.includes('7d') ? '7d' : wins[0], area: (H.views || []).includes(qp('area')) && qp('area') !== 'all' ? qp('area') : 'all', q: qp('q'), all: false, open: decodeURIComponent((location.hash.match(/^#p=(.+)$/) || [])[1] || '') };
   function block() {                                             // dossier prose, with the Portuguese notice when any field falls back
     const b = { fb: false };
     b.p = (slug, field) => {
@@ -371,15 +376,16 @@ ${Object.keys(it.notes || {}).length || it.qual_gap ? `<section><h3>${esc(t('hyp
   }
   const open = slug => { F.open = slug; history.replaceState(null, '', '#p=' + encodeURIComponent(slug)); detail(slug); };
   render = () => {
-    const rows = (H[F.win]?.all?.rows || []).filter(r => H.items[r.id] && (F.area === 'all' || H.items[r.id].tag === F.area)), q = F.q.trim().toLowerCase();
-    const list = rows.filter(r => !q || [r.id, H.items[r.id].name, ...(H.items[r.id].aliases || [])].join(' ').toLowerCase().includes(q));
+    const rows = (H[F.win]?.all?.rows || []).filter(r => H.items[r.id] && (F.area === 'all' || H.items[r.id].tag === F.area));
+    const list = search('hype', rows, F.q, r => r.id, r => [r.id, H.items[r.id].name, ...(H.items[r.id].aliases || [])].join(' '));
+    SEM.redo = () => keepQ(render);
     const b = block(), cov = (H.coverage_short || []).map((_, i) => `<li>${b.p(null, `coverage_short[${i}]`)}</li>`).join('');
     $('#banner').innerHTML = `<p><b>${cutHtml()}</b></p><p>${esc(t('x_route.disclosure'))}</p><details class="more"><summary>${esc(t('hype.more'))}</summary>${b.wrap(`<ul class="dim">${cov}</ul>`)}</details>`;
     const dots = list.slice(0, F.all ? list.length : 15).map(r => ({ id: r.id, label: H.items[r.id].name, a: r.score, d: H.items[r.id].discovery?.score ?? null }));
-    $('#body').innerHTML = `${kpis([[t('hype.k.projects'), nf(H.n_projects), esc(t('hype.k.projects_sub'))], [t('hype.k.ranked'), nf(rows.length), esc(t('hype.k.ranked_sub', { w: nm(F.win) }))],
+    $('#body').innerHTML = `${foldNote(nm(F.win))}${kpis([[t('hype.k.projects'), nf(H.n_projects), esc(t('hype.k.projects_sub'))], [t('hype.k.ranked'), nf(rows.length), esc(t('hype.k.ranked_sub', { w: nm(F.win) }))],
   [t('hype.k.discovery'), nf(rows.filter(r => H.items[r.id].discovery?.score != null).length), esc(t('hype.k.discovery_sub'))], [t('hype.k.ahead'), nf(rows.filter(r => r.label === 'attention_ahead').length), esc(t('hype.k.ahead_sub', { n: nf(rows.filter(r => r.gap > 0).length) }))]])}
 <div class="bar-row">${seg('win', t('ui.window_label'), wins.map(w => [w, nm(w)]), F.win)}<select id="area" aria-label="${esc(t('output.area'))}"><option value="all">${esc(t('output.all_areas'))}</option>${(H.views || []).filter(v => v !== 'all').map(a => `<option value="${esc(a)}"${F.area === a ? ' selected' : ''}>${esc(nm(a))}</option>`).join('')}</select>
-<input type="search" id="q" placeholder="${esc(t('ui.search'))}" aria-label="${esc(t('ui.search'))}" value="${esc(F.q)}"><span class="count" aria-live="polite">${esc(t('ui.showing', { n: list.length, total: rows.length }))}</span></div>
+<input type="search" id="q" placeholder="${esc(t('ui.search'))}" aria-label="${esc(t('ui.search'))}" value="${esc(F.q)}">${semBtn()}<span class="count" aria-live="polite">${esc(t('ui.showing', { n: list.length, total: rows.length }))}</span></div>
 <div id="dumb"></div><div class="tw" id="tbl"></div>`;
     card($('#dumb'), { title: t('hype.gap.title'), sub: `${t('hype.gap.note')} · ${cutLine()}`, legend: [[t('hype.attention'), '--s2'], [t('hype.discovery'), '--s1']],
       draw: (p, W) => { dumbbell(p, W, dots, { a: t('hype.attention'), d: t('hype.discovery'), none: t('hype.no_discovery'), label: t('hype.gap.title'), pick: open }); if (list.length > 15) p.insertAdjacentHTML('beforeend', `<p><button class="btn" id="more">${esc(F.all ? t('ui.show_top', { n: 15 }) : t('ui.show_all', { n: list.length }))}</button></p>`); $('#more', p)?.addEventListener('click', () => { F.all = !F.all; render(); }); },
@@ -387,15 +393,210 @@ ${Object.keys(it.notes || {}).length || it.qual_gap ? `<section><h3>${esc(t('hyp
     $('#tbl').innerHTML = table({ caption: cutLine(), cols: [['#', 'n hm'], [t('hype.project')], [t('hype.attention'), 'n'], [t('hype.discovery'), 'n'], [t('hype.gap.class'), 'hm'], [t('ui.voices'), 'n hm'], [t('hype.posts'), 'n hm'], [t('hype.platforms'), 'hm']],
       rows: list.map(r => { const it = H.items[r.id], m = it.win?.[F.win] || {}; return { attr: ` class="go" tabindex="0" data-p="${esc(r.id)}"`, cells: [r.rank ?? '—', `<b>${posted(it.name)}</b>`, nf(r.score), nf(it.discovery?.score), esc(t(GAP[r.label] || 'hype.gap.insufficient')), nf(m.voices), nf(m.mentions), `<span class="mono dim">${esc((m.platforms || []).map(nm).join(' · '))}</span>`] }; }) });
     $$('#tbl tr.go').forEach(tr_ => { tr_.onclick = () => open(tr_.dataset.p); tr_.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); open(tr_.dataset.p); } }; });
-    onSeg('win', v => { F.win = v; render(); });
+    onSeg('win', v => { F.win = v; render(); }); semUi();
     $('#area').onchange = e => { F.area = e.target.value; render(); };
     $('#q').oninput = e => { F.q = e.target.value; render(); const n = $('#q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
     if (F.open) detail(F.open);
   };
   render();
 }
+// ------------------------------------------------------------------ the fold (design row 11, C21): the console's URLs to their dehype pages
+// fold:start. The console (web/index.html to 2bc0ace) wrote #pulse/<win>[/table], #papers|#repos|#hype/<win>/<area>, #methodology[/<section>],
+// with ?q= (its search) and ?open= (an open item). Pure: tests/fixtures/console_anchors.json lists each form and scripts/check_page.mjs runs
+// this function on it. Returns the dehype URL, or null when the URL is no console anchor (the briefing itself).
+function fold(hash, search) {
+  let h; try { h = decodeURIComponent(String(hash || '').replace(/^#/, '')).split('/'); } catch { h = []; }
+  const u = new URLSearchParams(search || ''), q = u.get('q') || '', open = u.get('open') || '', tab = h[0], area = h.slice(2).join('/');
+  // the console's query grammar (field comparisons, "over 1k", dates): no longer supported, the page says so and matches the words
+  const filters = /[<>]=?\s*\d|\b(?:over|under|above|below|more than|less than|at least)\s+\d|\b\d+(?:\.\d+)?k\b|\b(?:this|last|past)\s+(?:day|week|month|year)\b|\b(?:today|yesterday)\b/i.test(q) && '1';
+  const go = (p, o = {}, frag = '') => { const s = new URLSearchParams(Object.entries(o).filter(([, v]) => v)); if (u.get('lang') === 'pt') s.set('lang', 'pt'); return p + (String(s) ? '?' + s : '') + frag; };
+  if (tab === 'methodology') return go('method.html', {}, h[1] ? '#' + h[1] : '');
+  if (tab === 'papers' || tab === 'repos') {                     // the output page keeps 7, 30 and 90 days: 1d reads 7, 180d, 1y and overall read 90 (from= says so)
+    const days = { '30d': '30', '90d': '90', '180d': '90', '1y': '90', overall: '90' }[h[1]];
+    return go('output.html', { tab, days, area: area !== 'all' && area, q: q || open, from: ['1d', '180d', '1y', 'overall'].includes(h[1]) && h[1], filters });
+  }
+  if (tab === 'hype') { const kept = !h[1] || ['1d', '7d', '30d', '90d', 'overall'].includes(h[1]);
+    return go('hype.html', { win: kept && h[1], area: area !== 'all' && area, q, from: !kept && h[1], filters }, open ? '#p=' + encodeURIComponent(open) : ''); }
+  if (tab === 'pulse' || (!tab && (q || open))) return h[2] === 'table' || q ? go('stories.html', { view: h[2] === 'table' && 'table', q, filters }) : go('index.html');
+  return null;
+}
+// fold:end
+// stale:start (tests/dehype_stale.test.mjs runs this block)
+// ------------------------------------------------------------------ stale since (C37): the briefing belongs to the America/Sao_Paulo date of
+// its generated_at and reads "stale since" that date once 06:00 America/Sao_Paulo of the next date has passed, whatever the hour it was made.
+const SPF = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const spAt = ms => { const p = Object.fromEntries(SPF.formatToParts(ms).map(x => [x.type, x.value])); return { day: `${p.year}-${p.month}-${p.day}`, wall: Date.parse(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:00Z`) }; };
+function staleSince(generatedAt, now) {                          // the briefing's date when it is stale at now (ms), else null
+  const g = Date.parse(generatedAt); if (!Number.isFinite(g)) return null;
+  const d = spAt(g).day, next = new Date(Date.parse(d + 'T12:00:00Z') + DAY).toISOString().slice(0, 10), probe = Date.parse(next + 'T09:00:00Z');
+  return now >= Date.parse(next + 'T06:00:00Z') - (spAt(probe).wall - probe) ? d : null;
+}
+// stale:end
+const staleBanner = B => {                                       // "stale since" the briefing's date, and the 06:00 BRT update it missed (the next date)
+  const d = staleSince(B.generated_at, Date.now()), next = d && new Date(Date.parse(d + 'T12:00:00Z') + DAY).toISOString().slice(0, 10);
+  return d ? `<div class="banner stale" role="status"><p><b>${esc(t('stale.since', { date: d, deadline: next }))}.</b> <span class="sn">${esc(t('stale.note', { date: d, at: B.window?.end_brt || B.generated_at }))}</span></p></div>` : ''; };
+// ------------------------------------------------------------------ search by meaning (the console's semantic search, kept by the fold, C21)
+// The model and index of scripts/embed/embed.mjs: search-index.json and search-vectors.bin load on the first query and the query is embedded in
+// the browser by transformers.js (pinned, from jsDelivr; the model from Hugging Face), so it never leaves the browser. Nothing downloads until
+// the reader selects "Search by meaning" (a folded ?q= URL matches words); until the model is ready, or when it cannot load, every word of the
+// query must match. The row count stays on screen either way.
+const TF_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.2.0';
+const SEM = { on: false, st: 'idle', pos: {}, cache: new Map(), redo: null };   // off on every load: the download starts only from a click
+async function semLoad() {
+  if (SEM.st !== 'idle') return; SEM.st = 'loading'; semUi();
+  try {
+    const [ix, bin] = await Promise.all([load('search-index.json'), load('search-vectors.bin')]);
+    if (bin.byteLength !== ix.rows * ix.dim || !ix.revision) throw new Error('search index and vectors disagree');
+    const tf = await import(TF_URL);
+    SEM.ext = await tf.pipeline('feature-extraction', ix.model, { dtype: ix.dtype, revision: ix.revision });
+    SEM.ix = ix; SEM.vec = new Int8Array(bin);
+    for (const [tab, v] of Object.entries(ix.tabs)) SEM.pos[tab] = new Map(v.ids.map((id, i) => [id, v.offset + i]));
+    SEM.st = 'ready';
+  } catch (e) { SEM.st = 'failed'; console.warn('search by meaning unavailable, matching words', e); }
+  semUi(); SEM.redo?.();
+}
+function semVec(q) {
+  if (SEM.st !== 'ready') { semLoad(); return null; }
+  if (!SEM.cache.has(q)) { SEM.cache.set(q, null); SEM.ext(q, { pooling: 'mean', normalize: true }).then(x => { SEM.cache.set(q, x.data); SEM.redo?.(); }).catch(() => SEM.cache.delete(q)); }
+  return SEM.cache.get(q);
+}
+function search(tab, rows, q, id, text) {                       // the console's rule: keyword hits, or rows within 0.2 of the best match (at least 0.3)
+  const terms = q.trim().toLowerCase().split(/\s+/).filter(Boolean); if (!terms.length) return rows;
+  const kw = r => { const s = text(r).toLowerCase(); return terms.filter(w => s.includes(w)).length; };
+  const v = SEM.on && SEM.st !== 'failed' ? semVec(terms.join(' ')) : null;
+  if (!v) return rows.filter(r => kw(r) === terms.length);
+  const ix = SEM.ix, sim = r => { const p = SEM.pos[tab]?.get(id(r)); if (p == null) return null; let s = 0; for (let k = 0, o = p * ix.dim; k < ix.dim; k++) s += v[k] * SEM.vec[o + k]; return s / ix.scale; };
+  const sc = rows.map(r => ({ r, s: sim(r), k: kw(r) })), best = Math.max(0, ...sc.map(x => x.s ?? 0)), rel = x => (x.s ?? 0) + .06 * x.k;
+  return sc.filter(x => x.k === terms.length || (x.s != null && x.s >= Math.max(.3, best - .2))).sort((a, b) => rel(b) - rel(a)).map(x => x.r);
+}
+const semBtn = () => `<button class="btn sem" id="sem" aria-pressed="${SEM.on}" title="${esc(t('ui.sem.title'))}">${esc(t(!SEM.on ? 'ui.sem.off' : SEM.st === 'loading' ? 'ui.sem.loading' : SEM.st === 'failed' ? 'ui.sem.failed' : 'ui.sem.on'))}</button>`;
+function semUi() { const b = $('#sem'); if (!b) return; b.outerHTML = semBtn(); $('#sem').onclick = () => { SEM.on = !SEM.on; semUi(); SEM.redo?.(); }; }
+const keepQ = fn => { const a = document.activeElement?.id === 'q'; fn(); const n = $('#q'); if (a && n) { n.focus(); n.setSelectionRange(n.value.length, n.value.length); } };
+const qp = k => new URLSearchParams(location.search).get(k) || '';
+const foldNote = to => [qp('from') && to && t('fold.window', { from: qp('from'), to }), qp('filters') && t('fold.filters')].filter(Boolean).map(x => `<p class="notice">${esc(x)}</p>`).join('');
+// ------------------------------------------------------------------ daily briefing (first screen): the State of AI header, then the Top 10
+// briefing:start. At most four gauges, each with its coverage and its "preview, not yet reproducible" status; Risk and Jobs as placeholders;
+// no combined score and no trend or arrow (none before 14 ledger days, R2-4): the header shows today's values only.
+function gauge(g, body) {                                         // name; the reading (figure left, its small view right); status and coverage last
+  return `<article class="g" id="g-${esc(g.id)}"><h3 class="lbl">${esc(tr(g.name))}</h3>
+${g.value == null ? `<p class="none">${esc(tr(g.reason) || '—')}</p>` : body}<footer><span class="pill">${esc(tr(g.status))}</span>${sources(g.coverage?.sources, true)}</footer></article>`;
+}
+const GAUGE = {
+  output_by_area: v => {
+    const A = [...v.areas].sort((a, b) => b.papers - a.papers), hi = Math.max(1, ...A.map(a => a.papers)), sum = k => A.reduce((n, a) => n + a[k], 0);
+    return `<div class="gb"><div><p class="big"><span class="num">${nf(sum('papers'))}</span><span class="u">${esc(t('brief.out.papers'))}</span></p>
+<p class="sub">${esc(t('brief.out.sub', { r: nf(sum('repos')), date: '\u0000' })).replace('\u0000', `<span class="nw">${esc(v.since)}</span>`)} <a href="${href('output')}">${esc(t('brief.out.go'))}</a></p></div>
+<ul class="hb" aria-label="${esc(t('brief.out.mini'))}">${A.map(a => `<li title="${esc(nm(a.area))}: ${nf(a.papers)} · ${nf(a.repos)}"><span>${esc(nm(a.area))}</span><i style="--w:${(a.papers / hi * 100).toFixed(1)}%"></i><b class="mono">${nf(a.papers)}</b></li>`).join('')}</ul></div>`;
+  },
+  hype_vs_substance: v => {                                      // no story known either way: the count of unknowns leads (never an invented 0)
+    const S = v.stories || [], has = x => x.substance?.official === true || x.substance?.repos > 0 || x.substance?.papers > 0;
+    const unk = S.filter(x => !has(x) && x.substance?.official === NOT_FETCHED).length, hi = Math.max(1, ...S.map(x => x.hype?.voices || 0));
+    if (unk === S.length) return `<p class="big"><span class="num">${nf(unk)}</span><span class="u">${esc(t('brief.hvs.none', { n: S.length }))}</span></p><p class="sub">${esc(t('brief.hvs.sub'))}</p>`;
+    return `<div class="gb"><div><p class="big"><span class="num">${nf(S.filter(has).length)}</span><span class="u">${esc(t('brief.hvs.of', { n: S.length }))}</span></p>
+<p class="sub">${esc(t('brief.hvs.sub'))}${unk ? ' ' + esc(tn('brief.hvs.unknown', unk)) : ''}</p></div>
+<div><div class="strip" aria-label="${esc(t('brief.hvs.mini'))}">${S.map((x, i) => `<a href="#${esc(x.id)}" aria-label="${esc(t('brief.hvs.col', { rank: i + 1, n: nf(x.hype?.voices) }))}${has(x) ? ', ' + esc(t('brief.hvs.has')) : ''}"><i style="--h:${((x.hype?.voices || 0) / hi * 100).toFixed(1)}%"></i><em class="${has(x) ? 'y' : ''}"></em><span class="mono">${i + 1}</span></a>`).join('')}</div>
+<p class="key"><span><i class="kv"></i>${esc(t('ui.voices'))}</span><span><i class="ks"></i>${esc(t('brief.hvs.has'))}</span></p></div></div>`;
+  },
+  daily_movers: v => {
+    const li = x => `<li title="${esc(t('brief.mv.posts', { d: nf(x.posts_1d), w: nf(x.posts_7d) }))}"><span>${posted(x.label, 'und')}</span><b class="mono">${nf(x.rising)}×</b></li>`, lead = (v.up || [])[0];
+    return `<div class="gb"><div>${lead ? `<p class="big"><span class="num">${nf(lead.rising)}×</span><span class="u">${posted(lead.label, 'und')}</span></p>` : ''}<p class="sub">${esc(t('brief.mv.sub'))}</p></div>
+<div class="mv"><p class="mini-t">${esc(t('brief.mv.up'))}</p><ul>${(v.up || []).slice(0, 2).map(li).join('')}</ul><p class="mini-t">${esc(t('brief.mv.down'))}</p><ul>${(v.down || []).slice(0, 2).map(li).join('')}</ul></div></div>`;
+  }
+};
+function aliases(A) {                                            // story-aliases.json: an earlier id to the story that took its posts (check_page.mjs resolve)
+  const M = A?.aliases || {};
+  return id => { const seen = [id]; while (M[seen.at(-1)]?.to && !seen.includes(M[seen.at(-1)].to)) seen.push(M[seen.at(-1)].to); return seen.at(-1); };
+}
+const verdicts = (V, A) => { const to = aliases(A), m = new Map(); for (const r of V.rows || []) { m.set(to(r.id), r); if (!m.has(r.id)) m.set(r.id, r); } return m; };
+async function index() {
+  const [B, P, V, AL] = await Promise.all([load('briefing.json'), load('pulse.json'), opt('verdicts.json', { rows: [] }), opt('story-aliases.json', { aliases: {} })]);
+  const by = new Map((P.stories || []).map(s => [s.id, s])), ver = verdicts(V, AL), now = Date.parse(B.generated_at);
+  const recs = new Map((B.records || []).map(r => [r.id, r])), G = (B.gauges || []).slice(0, 4), anchor = I.methods?.['briefing.json']?.['method.top10'] || '';
+  render = () => {
+    $('#when').innerHTML = `${esc(t('brief.window', { end: B.window?.end_brt || B.generated_at }))} · <span class="dim">${esc(t('brief.made', { ago: ago(B.generated_at, Date.now()) }))}</span>`;
+    $('#stale').innerHTML = staleBanner(B);
+    $('#body').innerHTML = `<section class="soai" aria-labelledby="soai-h"><div class="soai-h"><h2 id="soai-h">${esc(t('soai.title'))}</h2><span class="mono">${esc(t('soai.line', { days: nf(B.ledger_days ?? 0) }))}</span></div>
+<div class="gauges">${G.map(g => gauge(g, GAUGE[g.id] && g.value != null ? GAUGE[g.id](g.value) : '')).join('')}
+<div class="panels">${(B.panels || []).map(p => `<p class="pn"><span class="lbl">${esc(tr(p.name))}</span> <span class="none">${(p.events || []).length ? p.events.map(e => `<span class="mono">${esc(e.date || '')}</span> ${link(e.url, esc(e.text || e.title || ''))}`).join(' · ') : esc(tr(p.reading))}</span>${p.form && p.form !== 'panel' ? ` <span class="dim">· ${esc(tr(p.form))}</span>` : ''}</p>`).join('')}</div></div><div class="dots" aria-hidden="true">${[...G, 0].map((_, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</div></section>
+<section class="top" aria-labelledby="top-h"><div class="sec-h"><h2 id="top-h">${esc(t('brief.top.title'))}</h2><p>${esc(t('brief.top.rule'))} <a href="${METHOD()}#${esc(anchor)}">${esc(t('ui.method'))}</a></p><a class="go" href="${href('stories')}">${esc(t('brief.top.all', { n: nf(recs.size) }))}</a></div>
+<ol class="stories brief">${(B.top10 || []).map(x => recs.get(x.id)).filter(Boolean).map((r, i) => evidence(r, by.get(r.id), ver.get(r.id), i, now, true)).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ol></section>`;
+    const strip = $('.gauges'), dots = $$('.dots i');                // narrow screens: the gauge strip scrolls; the dots show which card is in view
+    strip.onscroll = () => { const w = strip.firstElementChild.getBoundingClientRect().width + 10, k = Math.round(strip.scrollLeft / w); dots.forEach((d, i) => d.classList.toggle('on', i === k)); };
+  };
+  render();
+}
+// briefing:end
+// ------------------------------------------------------------------ method and policy: the web/ copies of the root sources, as written
+// The English headings take the console's slug (old #methodology/<section> links land on the same id); a heading under <a id="x"></a>
+// takes x, and a Portuguese heading takes only that (no slug of Portuguese text), so both languages share every anchor.
+const SLUG = s => s.toLowerCase().replace(/<[^>]+>/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const mhref = (doc, l) => 'method.html' + ((doc === 'policy' || l === 'pt') ? '?' + [doc === 'policy' && 'doc=policy', l === 'pt' && 'lang=pt'].filter(Boolean).join('&') : '');
+function inl(s) {
+  return esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>').replace(/(^|[\s(])\*([^*\s][^*]*?)\*(?=[\s).,;:]|$)/g, '$1<i>$2</i>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, x, u) => {
+      u = u.replace(/&amp;/g, '&'); const [f, frag] = u.split('#'), d = /^METHODOLOGY(\.pt)?\.md$/.test(f) ? 'method' : /^POLICY(\.pt)?\.md$/.test(f) ? 'policy' : null;
+      const h = !f ? '#' + frag : d ? mhref(d, /\.pt\.md$/.test(f) ? 'pt' : 'en') + (frag ? '#' + frag : '') : /^https?:/.test(u) ? u : REPO + u;
+      return `<a href="${esc(h)}"${/^https?:/.test(h) ? ' target="_blank" rel="noopener"' : ''}>${x}</a>`;
+    });
+}
+function md2html(src, slugs) {                                   // slugs: English text may take a slug id; toc: the level-2 headings
+  const L = src.replace(/\r/g, '').split('\n'), LI = /^\s*([-*]|\d+\.)\s+/, A = /^<a id="([^"]+)"><\/a>$/, toc = [];
+  let h = '', i = 0, pend = null;
+  while (i < L.length) {
+    const l = L[i], a = l.match(A);
+    if (a) { pend = a[1]; i++; continue; }
+    if (/^```/.test(l)) { const c = []; i++; while (i < L.length && !/^```/.test(L[i])) c.push(L[i++]); i++; h += `<pre><code>${esc(c.join('\n'))}</code></pre>`; continue; }
+    const m = l.match(/^(#{1,4})\s+(.*)/);
+    if (m) { const id = pend || (slugs ? SLUG(m[2]) : ''), n = m[1].length; pend = null; if (n === 2) toc.push([id, m[2]]); h += `<h${n}${id ? ` id="${esc(id)}"` : ''}>${inl(m[2])}</h${n}>`; i++; continue; }
+    pend = null;
+    if (/^\s*\|/.test(l)) { const rows = []; while (i < L.length && /^\s*\|/.test(L[i])) rows.push(L[i++]); const cells = r => r.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+      h += `<div class="tw"><table class="t"><thead><tr>${cells(rows[0]).map(c => `<th scope="col">${inl(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(2).map(r => `<tr>${cells(r).map(c => `<td>${inl(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`; continue; }
+    if (LI.test(l)) { const ol = /^\s*\d+\./.test(l), it = []; while (i < L.length && (LI.test(L[i]) || (/^\s{2,}\S/.test(L[i]) && it.length))) { if (LI.test(L[i])) it.push(L[i].replace(LI, '')); else it[it.length - 1] += ' ' + L[i].trim(); i++; }
+      h += `<${ol ? 'ol' : 'ul'}>${it.map(x => `<li>${inl(x)}</li>`).join('')}</${ol ? 'ol' : 'ul'}>`; continue; }
+    if (/^>\s?/.test(l)) { const q = []; while (i < L.length && /^>\s?/.test(L[i])) q.push(L[i++].replace(/^>\s?/, '')); h += `<blockquote>${inl(q.join(' '))}</blockquote>`; continue; }
+    if (!l.trim()) { i++; continue; }
+    const p = []; while (i < L.length && L[i].trim() && !/^(#{1,4}\s|```|\s*\||>|<a id=)/.test(L[i]) && !LI.test(L[i])) p.push(L[i++]); h += `<p>${inl(p.join(' '))}</p>`;
+  }
+  return { html: h, toc };
+}
+async function method() {
+  const doc = qp('doc') === 'policy' ? 'policy' : 'method';
+  render = async () => {
+    const src = await (doc === 'policy' ? (lang === 'pt' ? load('POLICY.pt.md') : load('POLICY.md')) : (lang === 'pt' ? load('METHODOLOGY.pt.md') : load('METHODOLOGY.md')));
+    const M = md2html(src, lang === 'en'), file = { method: 'METHODOLOGY', policy: 'POLICY' }[doc] + (lang === 'pt' ? '.pt' : '') + '.md';
+    $('#body').innerHTML = `<nav class="seg docs" aria-label="${esc(t('method.docs'))}">${['method', 'policy'].map(d => `<a href="${mhref(d, lang)}"${d === doc ? ' aria-current="page"' : ''}>${esc(t({ method: 'method.doc.method', policy: 'method.doc.policy' }[d]))}</a>`).join('')}</nav>
+<div class="doc"><nav class="toc" aria-label="${esc(t('method.toc'))}"><details open><summary class="lbl">${esc(t('method.toc'))}</summary>${M.toc.map(([id, x]) => id ? `<a href="#${esc(id)}">${inl(x)}</a>` : '').join('')}</details>
+<p class="dim">${esc(t('method.source'))} <a href="${esc(file)}"><code class="mono">${esc(file)}</code></a></p></nav><article class="md" lang="${lang === 'pt' ? 'pt-BR' : 'en'}">${M.html}</article></div>`;
+    if (matchMedia('(max-width: 760px)').matches) $('.toc details').open = false;
+    const go = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (go) { go.classList.add('hl'); go.scrollIntoView({ block: 'start' }); }
+  };
+  await render();
+}
+// ------------------------------------------------------------------ audit: what anyone can check today, and the slots the ledger groups fill
+// Slots (E1, E2): #ledger (ledger/index.json entries), #attestation (Sigstore attestation of the day's manifest), #timestamp (OpenTimestamps
+// proof, "pending" until a ledger entry records its Bitcoin block, then "anchored"). Until a file exists its slot reads "not yet published".
+async function audit() {
+  const [B, V, C, R] = await Promise.all([load('briefing.json'), opt('verdicts.json', { rows: [] }), opt('corrections.json', { entries: [] }), opt('removals.json', { entries: [] })]);
+  const L = B.ledger_days > 0 ? await opt('ledger/index.json', null) : null;   // briefing.json counts the ledger's days: no request before the first
+  const E = Array.isArray(L) ? L : L?.entries || [], kv = (k, v) => `<div><span class="lbl">${esc(k)}</span><span class="mono">${v}</span></div>`, none = `<span class="pill">${esc(t('audit.pending'))}</span>`;
+  render = () => {
+    $('#body').innerHTML = `${staleBanner(B)}<section class="card"><div class="card-h"><div><h2>${esc(t('audit.today'))}</h2><p>${esc(t('audit.today.sub'))}</p></div></div>
+<div class="kvs">${kv(t('audit.generated'), esc(B.window?.end_brt || B.generated_at))}${kv(t('audit.version'), esc(B.method?.version))}${kv(t('audit.hash'), esc(B.method?.config_hash))}${kv(t('audit.days'), esc(t('audit.days.n', { n: nf(B.ledger_days ?? 0) })))}${kv(t('audit.records'), nf((B.records || []).length))}</div>
+<p class="dim">${esc(t('audit.hash.note', { files: (B.method?.config_files || []).join(', ') }))} <a href="${METHOD()}#${esc(I.methods?.['briefing.json']?.['method.records'] || '')}">${esc(t('ui.method'))}</a></p></section>
+<section class="card slot-a" id="ledger" data-slot="ledger"><div class="card-h"><div><h2>${esc(t('audit.ledger'))}</h2><p>${esc(t('audit.ledger.sub'))}</p></div></div>
+${E.length ? `<div class="tw">${table({ cols: [[t('audit.col.date')], [t('audit.col.manifest')], [t('audit.col.proof')]], rows: E.map(e => ({ cells: [esc(e.date || '—'), `<span class="mono">${esc(e.manifest_sha256 || e.sha256 || '—')}</span>`, esc(e.block ? t('audit.anchored', { n: e.block }) : t('audit.pending_proof'))] })) })}</div>` : `<p>${none} ${esc(t('audit.ledger.none'))}</p>`}</section>
+<section class="card slot-a" id="attestation" data-slot="attestation"><div class="card-h"><div><h2>${esc(t('audit.attest'))}</h2><p>${esc(t('audit.attest.sub'))}</p></div></div><p>${none}</p></section>
+<section class="card slot-a" id="timestamp" data-slot="timestamp"><div class="card-h"><div><h2>${esc(t('audit.ots'))}</h2><p>${esc(t('audit.ots.sub'))}</p></div></div><p>${none}</p></section>
+<section class="card"><div class="card-h"><div><h2>${esc(t('audit.owner'))}</h2><p>${esc(t('audit.owner.sub'))}</p></div></div>
+<div class="kvs">${kv(t('audit.verdicts'), `<a href="verdicts.json">${nf((V.rows || []).length)}</a>`)}${kv(t('audit.corrections'), `<a href="corrections.json">${nf((C.entries || []).length)}</a>`)}${kv(t('audit.removals'), `<a href="removals.json">${nf((R.entries || []).length)}</a>`)}</div>
+<p><a href="${POLICY()}">${esc(t('method.doc.policy'))}</a></p></section>`;
+  };
+  render();
+}
 // ------------------------------------------------------------------ start
 async function start() {
+  if (page === 'index') { const to = fold(location.hash, location.search); if (to?.startsWith('index.html')) history.replaceState(null, '', to); else if (to) return location.replace(to); }
   const u = new URLSearchParams(location.search);
   lang = ['en', 'pt'].includes(u.get('lang')) ? u.get('lang') : store.get('dehype.lang') === 'pt' ? 'pt' : 'en';
   theme = store.get('dehype.theme') === 'light' ? 'light' : 'dark';
@@ -405,10 +606,10 @@ async function start() {
     DATA_KEYS = [...new Set(Object.values(I.fields || {}).flatMap(p => Object.values(p).flatMap(s => Array.isArray(s) ? s : s.keys || [])))];
     shell();
     $('#main').classList.add('loading');
-    await ({ stories, output, hype })[page]();
+    await ({ index, stories, output, hype, method, audit })[page]();
   } catch (e) { document.documentElement.classList.add('ready'); $('#body').innerHTML = `<div class="err">${esc(t('ui.error'))} <span class="mono">${esc(e.message)}</span></div>`; }
   $('#main').classList.remove('loading');
 }
 start();
-return { t, tr, load, evidence, verdictSlot, sources, kpis, card, table, scatter, hbars, dumbbell, METHOD };
+return { t, tr, load, evidence, verdictSlot, sources, kpis, card, table, scatter, hbars, dumbbell, METHOD, fold, staleSince, md2html };
 })();
