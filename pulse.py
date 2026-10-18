@@ -10,6 +10,8 @@ Run:   python3 pulse.py              fetch live feeds, merge with web/data.json 
 Env:   REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET, REDDIT_USER_AGENT   enable the Reddit adapter (official OAuth API)
        BSKY_HANDLE, BSKY_APP_PASSWORD                               enable the Bluesky adapter (app password)
 State: history/signals.sqlite keeps 45 days of normalised posts; it rides in the same Actions cache as run.py's history.
+       history/indicators.json holds the live run's context-panel input (indicators.py: BLS, HN "Who is hiring?", Wikipedia page
+       views); --relink reuses it when it is the same run's, --offline shows those panels as not fetched.
 
 Networks are samples, never totals: Hacker News stories above a points floor, the Lobsters AI tag, a fixed set of Mastodon
 hashtags, plus (when connected) chosen subreddits and Bluesky searches, AI newsletter feeds (newsletters.json) and lab/vendor
@@ -21,6 +23,8 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone, timedelta
+import indicators as IND
+FETCH_INDICATORS = IND.fetch_all                     # the context panels' only network call (tests stub it)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 WEB, HIST = os.path.join(BASE, 'web'), os.path.join(BASE, 'history')
@@ -1445,7 +1449,7 @@ BRT = timezone(timedelta(hours=-3), 'BRT')            # America/Sao_Paulo: UTC-3
 PREVIEW, NOT_FETCHED, RELATED, NEW_TODAY, NO_SOURCE = 'preview, not yet reproducible', 'not fetched', 'related in topic', 'new today', 'no qualified source'
 TREND_DAYS = 14                                       # no trend line or day-over-day arrow before 14 ledger days (R2-4)
 AREA_DAYS, MOVERS, RELATED_MAX = 7, 5, 3
-CONFIG_FILES = ('topics_lexicon.json', 'newsletters.json', 'official_feeds.json')
+CONFIG_FILES = ('topics_lexicon.json', 'newsletters.json', 'official_feeds.json', 'indicators.json')
 NET_ADAPTERS = {'HN': ('Hacker News (Algolia)',), 'Lobsters': ('Lobsters (ai tag)',), 'Mastodon': ('Mastodon (mastodon.social tags)',),
                 'Reddit': ('Reddit (arctic-shift archive)', 'Reddit (official API)'), 'Bluesky': ('Bluesky (app password)',),
                 'Newsletter': ('Newsletters (RSS)',), 'Official': ('Official feeds (RSS)',)}
@@ -1457,7 +1461,7 @@ TOP10_METHOD = ('Top 10 (new today first): the covered news stories (kind news) 
 RECORD_METHOD = ('evidence record (one per story; state proposed: the pipeline proposes no verdict and writes no label word, the owner confirms by PR): '
                  'the stable story id, the computed fields it was built from (voices, posts per network, newsletters carrying it, official post, '
                  'HN points, heat, complaint share, key words, topics), the status of each source, the method version and the config hash '
-                 '(first 16 hex of sha256 over the version, the method text and the sha256 of topics_lexicon.json, newsletters.json and official_feeds.json). '
+                 '(first 16 hex of sha256 over the version, the method text and the sha256 of topics_lexicon.json, newsletters.json, official_feeds.json and indicators.json). '
                  'A network is fetched when one of its adapters read ok, partial when one read partial, else not fetched. A count reads "not fetched", '
                  'never 0 or false, when no post of it was seen and its source was not fully fetched; official reads true when a lab or vendor feed posted '
                  'the story and false only when the official feeds were fully fetched. Substance is the story\'s own links (its refs: GitHub repositories '
@@ -1471,7 +1475,14 @@ GAUGE_METHOD = ('gauges (at most four; each reads "preview, not yet reproducible
                 'day / daily average over 7 days; it needs 4+ conversation posts in 7 days and 2+ in the last day) is highest above 1 (up) and the five '
                 'lowest below 1 (down), with all-network posts in 1 and 7 days for context; null when no topic has a reading or no conversation network '
                 'was fetched. Below its floor a gauge is null with the reason; no value carries over from an earlier run. Coverage is the status of the '
-                'sources a gauge reads. Risk (a dated, sourced event log, no dial) and Jobs read "no qualified source" until a qualified source exists')
+                'sources a gauge reads. Risk (a dated, sourced event log, no dial) and Jobs read "no qualified source" until a qualified source exists; '
+                'Jobs reads it for any change in jobs attributed to AI and carries context, not a forecast: the BLS series of indicators.json (latest '
+                'month of each, preliminary flagged, and the same month a year earlier, as BLS publishes them) and, for the newest two Hacker News '
+                '"Who is hiring?" threads, the top-level posts and those whose text names one of the AI terms of indicators.json. "Page views on '
+                'Wikipedia (AI articles)" = user views (agent user, all access) of the fixed articles of indicators.json per project, summed over the 7 '
+                'days ending with the newest day in the response and over the 7 days before them, both shown, no ratio; null for a project unless every '
+                'listed article returned all 14 days. Page views are attention to an article, not awareness. Each source is read once per live run '
+                'under one time budget; a source that failed reads null with its reason, never 0')
 
 def net_status(sources):
     """Per network: 'ok' when one of its adapters read ok, else 'partial' when one read partial, else 'not fetched'."""
@@ -1576,9 +1587,11 @@ def daily_movers(nodes, st):
     down = sorted((x for x in have if x['rising'] < 1), key=lambda x: (x['rising'], x['id']))[:MOVERS]
     return gauge('daily_movers', 'Daily movers', cov, {'up': [row(x) for x in up], 'down': [row(x) for x in down]}, '')
 
-def briefing(stories_, nodes, sources, D, now, method, days=0):
+def briefing(stories_, nodes, sources, D, now, method, days=0, ind=None):
     """web/briefing.json: one evidence record per story, the Top 10 cut and the gauge header values (design rows 6, 8, 9).
-    A pure function of the day's stories, topic nodes, source status and tracker data: the same inputs give the same bytes."""
+    A pure function of the day's stories, topic nodes, source status, tracker data and the stored indicator input (indicators.py; None:
+    not fetched in this run, every context value null with its reason): the same inputs give the same bytes."""
+    ctx, views = IND.panels(ind)
     lo = now - timedelta(days=1)
     st = net_status(sources)
     chash = config_hash(' '.join((method, TOP10_METHOD, RECORD_METHOD, GAUGE_METHOD)))
@@ -1593,7 +1606,8 @@ def briefing(stories_, nodes, sources, D, now, method, days=0):
             'ledger_days': days, 'sources': sources, 'top10': top, 'records': recs,
             'gauges': [output_by_area(D, sources, now), hype_vs_substance(top, by_id, st), daily_movers(nodes, st)],
             'panels': [{'id': 'risk', 'name': 'Risk', 'form': 'dated, sourced event log; no dial', 'events': [], 'reading': NO_SOURCE},
-                       {'id': 'jobs', 'name': 'Jobs', 'form': 'panel', 'reading': NO_SOURCE}]}
+                       {'id': 'jobs', 'name': 'Jobs', 'form': 'panel', 'reading': NO_SOURCE, 'context_note': IND.CONTEXT_NOTE, 'context': ctx},
+                       views]}
 
 # ------------------------------------------------------------------ story-id aliases (web/story-aliases.json; design row 7, C2, C32)
 ALIAS_METHOD = ('story-id aliases (bot-written each run, apart from the owner-reviewed web/verdicts.json): the day\'s stories are compared with '
@@ -1649,6 +1663,9 @@ def main():
     try: prev_pulse = json.load(open(os.path.join(WEB, 'pulse.json')))      # the previous run's file: feed status, story-id aliases
     except (OSError, ValueError): prev_pulse = None
     con = db()
+    ind, ind_job = None, None
+    if not offline:                                          # the context panels' sources, beside the feeds, under their own time budget
+        ind_pool = ThreadPoolExecutor(1); ind_job = ind_pool.submit(FETCH_INDICATORS, NOW)
     if not offline:
         for name, fn in (('Hacker News (Algolia)', fetch_hn), ('Lobsters (ai tag)', fetch_lobsters), ('Mastodon (mastodon.social tags)', fetch_mastodon),
                          ('Reddit (arctic-shift archive)', fetch_reddit_archive), ('Reddit (official API)', fetch_reddit),
@@ -1662,6 +1679,10 @@ def main():
             except Exception as e:                                           # a failed feed keeps its stored posts
                 note(name, 'failed', f'{type(e).__name__}: {str(e)[:100]} (stored posts kept)')
             print(name, SOURCES[name], flush=True)
+    if ind_job:
+        ind = ind_job.result(); ind_pool.shutdown()
+        IND.save(ind, os.path.join(HIST, 'indicators.json')); SOURCES.update(IND.source_status(ind))
+        for k in IND.NAMES.values(): print(k, SOURCES[k], flush=True)
     if offline:                                              # keep the last live run's feed status, labelled as such
         try:
             for k, v in prev_pulse.get('sources', {}).items():
@@ -1670,6 +1691,10 @@ def main():
         except (AttributeError, KeyError): pass
         for k in ADAPTERS:
             SOURCES.setdefault(k, {'status': 'unknown', 'detail': 'not fetched in this offline rebuild'})
+        if relink: ind = IND.load(os.path.join(HIST, 'indicators.json'))   # this run's own stored input; no call
+        if ind and ind.get('fetched_at') != (prev_pulse or {}).get('generated_at'): ind = None    # only the same run's input
+        if not ind:                                          # no value carries over from an earlier run
+            for k in IND.NAMES.values(): SOURCES[k] = {'status': 'unknown', 'detail': 'not fetched in this offline rebuild'}
     stored = load_stored(con)
     removed, gone_list = removal_lists()                 # web/removals.json (owner-reviewed) and web/checks/dossier-gone.json (bot-written)
     named = [p for p in stored if post_hashes(p) & removed]
@@ -1707,7 +1732,7 @@ def main():
            'official_feeds': official_meta()}
     try: D = json.load(open(os.path.join(WEB, 'data.json')))
     except (OSError, ValueError): D = None
-    brief = briefing(extras['stories'], nodes, SOURCES, D, NOW, out['method'], ledger_days())
+    brief = briefing(extras['stories'], nodes, SOURCES, D, NOW, out['method'], ledger_days(), ind)
     for name, data in (('pulse.json', out), ('briefing.json', brief)):        # written together, so the pair always comes from one run
         with open(os.path.join(WEB, name), 'w') as f:
             json.dump(data, f, separators=(',', ':'), ensure_ascii=False)

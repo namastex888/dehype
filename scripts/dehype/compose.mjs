@@ -8,8 +8,8 @@
 // Stale since (design row 18, C5; group E1): when the Pulse step failed, refresh.yml restores the committed pulse.json and briefing.json and
 // writes web/checks/pulse-failed.json ({"at": <the failed run's time>, "run": <its run id>}; gitignored, never staged). compose.mjs then
 // also rewrites web/briefing.json as a stale briefing: it keeps generated_at, window, method, sources and ledger_days, names "stale since"
-// its São Paulo date with the reason, and carries no value over (no record, no Top 10, every gauge value null with the stale reason, no
-// risk event); the feeds read the same (plugins/feed.mjs). Run again on a stale briefing, it keeps the date and takes the newer run.
+// its São Paulo date with the reason, and carries no value over (no record, no Top 10, every gauge, context and page-view value null with
+// the stale reason, no risk event); the feeds read the same (plugins/feed.mjs). Run again on a stale briefing, it keeps the date and takes the newer run.
 import { Context } from '@deepseek-ai/cordis';
 import { createRequire } from 'node:module';
 import { readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -31,7 +31,12 @@ function stale(B, M, S) {
   return { ...B, stale: { since, reason, at: M.at, run: String(M.run) }, top10: [], records: [],
     gauges: (B.gauges || []).map(g => ({ id: g.id, name: g.name, status: g.status, coverage: { sources: {} }, value: null,
       reason: fill(S['gauge.reason.stale'].en, { date: since, detail: reason }), trend: null })),
-    panels: (B.panels || []).map(p => Array.isArray(p.events) ? { ...p, events: [], reading: 'no qualified source' } : p) };
+    panels: (B.panels || []).map(p => {                          // the Risk log empties; every context and page-view value reads null with the stale reason
+      const gone = x => ({ ...x, value: null, reason: fill(S['gauge.reason.stale'].en, { date: since, detail: reason }) });
+      if (Array.isArray(p.events)) return { ...p, events: [], reading: 'no qualified source' };
+      if (Array.isArray(p.context)) return { ...p, context: p.context.map(gone) };
+      return 'value' in p ? gone(p) : p;
+    }) };
 }
 let mark = null;
 try { mark = JSON.parse(readFileSync(join(WEB, 'checks', 'pulse-failed.json'), 'utf8')); } catch (e) { if (e.code !== 'ENOENT') throw e; }

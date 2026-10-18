@@ -336,6 +336,31 @@ class StaleSinceTest(unittest.TestCase):
             self.assertIn('briefing.json: stale briefing carries a value over (records, Top 10 and gauge values stay empty) at 1 place, e.g. stale',
                           findings(g))
 
+    def test_a_stale_briefing_carries_no_context_or_page_view_value(self):
+        # the recorded indicator input (tests/fixtures/indicators) in the day's briefing; a failed Pulse step nulls every context value
+        import indicators
+        with tempfile.TemporaryDirectory() as d:
+            web = os.path.join(d, 'web'); shutil.copytree(WEB, web)
+            p = os.path.join(web, 'briefing.json'); B0 = json.loads(read(p)); since = manifest.sp_date(B0['generated_at'])
+            S = json.loads(read(os.path.join(ROOT, 'tests', 'fixtures', 'indicators', 'stored_2026-10-18.json')))
+            ctx, views = indicators.panels(S)
+            B0['panels'] = [x for x in B0['panels'] if x['id'] == 'risk'] + [
+                {'id': 'jobs', 'name': 'Jobs', 'form': 'panel', 'reading': 'no qualified source', 'context_note': indicators.CONTEXT_NOTE, 'context': ctx}, views]
+            with open(p, 'w') as f: json.dump(B0, f, ensure_ascii=False)
+            with open(os.path.join(web, 'checks', 'pulse-failed.json'), 'w') as f:
+                json.dump({'at': pulse.iso(pulse.parse_dt(B0['generated_at']) + timedelta(days=1)), 'run': '4243'}, f)
+            r = compose(d); self.assertEqual(r.returncode, 0, r.stderr)
+            B = json.loads(read(p)); P = {x['id']: x for x in B['panels']}
+            why = f'insufficient data: stale since {since}, the Pulse step failed in refresh run 4243'
+            for x in P['jobs']['context'] + [P['pageviews']]: self.assertIsNone(x['value']); self.assertEqual(x['reason'], why)
+            self.assertEqual(P['jobs']['reading'], 'no qualified source')
+            g = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+            self.assertEqual(g.returncode, 0, g.stderr)
+            B['panels'] = B0['panels']                                                     # a stale briefing that carries a view count over
+            with open(p, 'w') as f: json.dump(B, f, ensure_ascii=False)
+            g = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+            self.assertIn('briefing.json: stale briefing carries a value over (records, Top 10 and gauge values stay empty) at 1 place, e.g. stale', findings(g))
+
     def test_a_marker_without_the_run_is_refused_and_nothing_is_written(self):
         with tempfile.TemporaryDirectory() as d:
             web = os.path.join(d, 'web'); shutil.copytree(WEB, web)

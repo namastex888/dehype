@@ -1,0 +1,89 @@
+{
+  "note": "Fixed, reviewed inputs of the context panels (pulse.py, indicators.py): changed only by a reviewed PR, and hashed into the briefing's config_hash. Each source's terms were read on the date given and are cited in METHODOLOGY.md (Indicators). Names here are our own text: each has its en and pt entry in web/i18n/strings.json.",
+  "bls": {
+    "endpoint": "https://api.bls.gov/publicAPI/v1/timeseries/data/",
+    "terms": [
+      "https://www.bls.gov/opub/copyright-information.htm",
+      "https://www.bls.gov/developers/termsOfService.htm",
+      "https://www.bls.gov/developers/api_faqs.htm"
+    ],
+    "terms_read": "2026-10-18",
+    "why": "US industries whose work is itself the kind AI tools now do or assist (writing software, IT services, data processing and hosting, business support including call centres), beside the all-industry baseline (total nonfarm jobs, the unemployment rate). Seasonally adjusted, monthly, national. General labour context: none of these series attributes a change to AI.",
+    "series": [
+      {
+        "id": "CES0000000001",
+        "name": "Total nonfarm jobs (baseline)",
+        "unit": "thousands of jobs"
+      },
+      {
+        "id": "CES5051320001",
+        "name": "Software publishers",
+        "unit": "thousands of jobs"
+      },
+      {
+        "id": "CES6054150001",
+        "name": "Computer systems design and related services",
+        "unit": "thousands of jobs"
+      },
+      {
+        "id": "CES5051800001",
+        "name": "Computing infrastructure, data processing and web hosting",
+        "unit": "thousands of jobs"
+      },
+      {
+        "id": "CES6056140001",
+        "name": "Business support services (incl. call centres)",
+        "unit": "thousands of jobs"
+      },
+      {
+        "id": "LNS14000000",
+        "name": "Unemployment rate (baseline)",
+        "unit": "percent"
+      }
+    ]
+  },
+  "hn_hiring": {
+    "endpoint": "https://hn.algolia.com/api/v1/",
+    "terms": [
+      "https://github.com/HackerNews/API",
+      "https://www.ycombinator.com/legal/",
+      "https://hn.algolia.com/api"
+    ],
+    "terms_read": "2026-10-18",
+    "thread_title": "Ask HN: Who is hiring?",
+    "months": 2,
+    "terms_cs": "\\b(AI|A\\.I\\.|ML|LLMs?|GenAI|MLOps|NLP)\\b",
+    "terms_ci": "machine learning|artificial intelligence|deep learning|large language models?|generative ai|computer vision|reinforcement learning|\\bagentic\\b"
+  },
+  "wikipedia": {
+    "endpoint": "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/",
+    "terms": [
+      "https://doc.wikimedia.org/generated-data-platform/aqs/analytics-api/documentation/access-policy.html",
+      "https://foundation.wikimedia.org/wiki/Policy:Wikimedia_Foundation_User-Agent_Policy"
+    ],
+    "terms_read": "2026-10-18",
+    "why": "Articles about AI as a subject, no company or product page, so one vendor's news does not move the total. Each Portuguese article is the English one's interlanguage link (checked 2026-10-18). Views by users (agent user: crawlers and automated agents excluded), all access methods.",
+    "access": "all-access",
+    "agent": "user",
+    "projects": {
+      "en.wikipedia": [
+        "AI_safety",
+        "Artificial_general_intelligence",
+        "Artificial_intelligence",
+        "Deep_learning",
+        "Generative_AI",
+        "Large_language_model",
+        "Machine_learning"
+      ],
+      "pt.wikipedia": [
+        "Aprendizado_de_máquina",
+        "Aprendizagem_profunda",
+        "Inteligência_artificial",
+        "Inteligência_artificial_generativa",
+        "Inteligência_artificial_geral",
+        "Modelos_de_linguagem_em_grande_escala",
+        "Segurança_da_inteligência_artificial"
+      ]
+    }
+  }
+}
