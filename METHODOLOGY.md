@@ -404,6 +404,15 @@ npx -p opentimestamps@0.4.9 ots-cli.js verify --ignore-bitcoin-node -f manifest-
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for data sources, seed lists and the never-invent-numbers rule.
 
+## Licence
+
+From the commit that adds this section and replaces the MIT `LICENSE` file (`git log --follow -- LICENSE` names it), dehype is licensed as follows:
+
+- **Code** (everything in this repository that is not data): [AGPL-3.0](LICENSE), the GNU Affero General Public License, version 3 only. Whoever runs a modified copy as a network service offers its users the source of that version.
+- **Data** (`web/*.json`, the four feeds, `web/ledger/` and the assets of the dated Releases): [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), covering only our selection, arrangement and computed fields: scores, counts, coverage, story ids, gauge values, evidence states and our own text. It does not relicense what we did not make: post titles, headlines, names, links and other third-party text keep their owners' terms, and each source keeps its own (arXiv metadata is CC0).
+- **Earlier releases keep their licence.** Every commit and release before that commit, the 2.0 release of 2026-10-07 included, stays available under MIT for code and CC BY 4.0 for data; this change withdraws neither grant.
+- Third-party code keeps its own licence and notice: Cordis (MIT) in `scripts/dehype/NOTICE`, and the OpenTimestamps client (LGPL-3.0) in `scripts/checks/NOTICE`; the search by meaning loads transformers.js (Apache-2.0) and onnxruntime-web (MIT) from their own packages.
+
 ## Issue 11 change record and attributed rulings
 
 Before repair, the actual v2 code selected one million download operations over one hundred business customers and normalized downloads/users/customers into units 1.000/0.500/0.334. Actual `run.build_features` emitted merge 2.0 for ten opened/twenty merge events despite a known four-member intersection, and 0.0 for an empty PR denominator. Current code retains separate source records, leaves unknown cohorts unnormalized, uses the intersection fraction and keeps empty/unknown cohorts missing. Boundary fixtures are explicitly synthetic; the committed feature/HYPE fixtures are preserved subsets, not accuracy ground truth.

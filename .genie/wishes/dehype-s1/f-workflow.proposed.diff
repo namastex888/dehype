@@ -1,0 +1,142 @@
+diff -ru a/.github/workflows/deploy.yml b/.github/workflows/deploy.yml
+--- a/.github/workflows/deploy.yml	2026-10-18 00:04:21
++++ b/.github/workflows/deploy.yml	2026-10-18 00:04:21
+@@ -1,7 +1,6 @@
+ name: deploy
+-# Publishes web/ to GitHub Pages (always) and to Cloudflare Pages (when its secrets exist). Runs on pushes to dev that touch the site, on demand,
++# Publishes web/ to GitHub Pages, the only host (design row 21). Runs on pushes to dev that touch the site, on demand,
+ # and as the last job of the daily refresh (pushes made with GITHUB_TOKEN do not trigger workflows).
+-# Cloudflare needs repository secrets CLOUDFLARE_API_TOKEN (Pages:Edit) and CLOUDFLARE_ACCOUNT_ID; without them that job skips.
+ on:
+   push:
+     branches: [dev]
+@@ -13,8 +12,6 @@
+ concurrency:
+   group: deploy
+   cancel-in-progress: false
+-env:
+-  PROJECT: ${{ vars.CF_PAGES_PROJECT || 'trend-observatory' }}
+ jobs:
+   github-pages:
+     runs-on: ubuntu-latest
+@@ -46,45 +43,3 @@
+           path: web
+       - id: deployment
+         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+-  cloudflare:
+-    runs-on: ubuntu-latest
+-    timeout-minutes: 10
+-    steps:
+-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+-        with:
+-          ref: dev
+-          persist-credentials: false
+-          fetch-depth: 0
+-      - name: Owner-reviewed files (as in the GitHub Pages job)
+-        env:
+-          BASE: ${{ github.event.before }}
+-        run: python3 scripts/check_owner_files.py "$BASE"
+-      - name: Check credentials
+-        id: creds
+-        env:
+-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+-        run: |
+-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+-            echo "::notice::CLOUDFLARE_API_TOKEN not set; skipping deploy (see docs/ARCHITECTURE.md#3-publishing)"
+-            echo "ok=false" >> "$GITHUB_OUTPUT"
+-          else
+-            echo "ok=true" >> "$GITHUB_OUTPUT"
+-          fi
+-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+-        if: steps.creds.outputs.ok == 'true'
+-        with:
+-          node-version: '22'
+-      - name: Sync methodology and check the page
+-        if: steps.creds.outputs.ok == 'true'
+-        run: |
+-          cp METHODOLOGY.md web/METHODOLOGY.md
+-          node scripts/check_page.mjs
+-      - name: Deploy to Cloudflare Pages
+-        # the token exists only in this step; it runs wrangler 4.143.0 via npx (its own dependencies resolve at install time)
+-        if: steps.creds.outputs.ok == 'true'
+-        env:
+-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+-        run: |
+-          npx --yes wrangler@4.143.0 pages project create "$PROJECT" --production-branch dev 2>/dev/null || true
+-          npx --yes wrangler@4.143.0 pages deploy web --project-name "$PROJECT" --branch dev --commit-hash "$(git rev-parse HEAD)" --commit-dirty=true
+diff -ru a/.github/workflows/refresh.yml b/.github/workflows/refresh.yml
+--- a/.github/workflows/refresh.yml	2026-10-18 00:04:21
++++ b/.github/workflows/refresh.yml	2026-10-18 00:04:21
+@@ -24,9 +24,16 @@
+ # ledger entry that day), committed pending; each later run upgrades every earlier proof no entry records anchored, commits the upgraded
+ # file in place, runs verify --ignore-bitcoin-node (block headers from https://blockstream.info/api) and records each accepted proof's
+ # date and Bitcoin block in its own entry only. `git add web/ledger` stages the proofs.
++# Ready time (design row 20; C12, C34): scheduled at 04:45 America/Sao_Paulo (UTC-3, no daylight saving) so the day's briefing, gauges and
++# feeds are live on Pages before 06:00; the cron is re-fitted after 7-10 scheduled runs and the deploy times are recorded in the wish.
++# Push (C42, M2): the data commit is made and replayed onto dev in a step with no secret (dehype is a public repository, so the replay
++# fetches over the public URL); PUSH_TOKEN is only in the next step, which runs git (hooks, credential helper, fsmonitor off), no npm,
++# node or python. Not full isolation: github.token is still GH_TOKEN's fallback in "Fetch and score" and is held by the gh release steps,
++# and an earlier step can write $GITHUB_ENV, $GITHUB_PATH or .git/config (include.path, url.*.insteadOf) that the push step inherits.
++# The full fix (future work) is a separate push job on a fresh runner that receives the commit as a git bundle.
+ on:
+   schedule:
+-    - cron: '17 9 * * *'   # 06:17 America/Sao_Paulo
++    - cron: '45 7 * * *'   # 04:45 America/Sao_Paulo
+   workflow_dispatch:
+ permissions:
+   contents: write
+@@ -228,22 +235,39 @@
+           if-no-files-found: error
+       - name: Gate
+         run: python -m unittest discover tests && node scripts/check_page.mjs
+-      - name: Commit snapshot
+-        env:
+-          PUSH_TOKEN: ${{ github.token }}
++      - name: Commit snapshot and replay it onto dev (no secret in this step)
++        id: snapshot
+         run: |
+           git config user.name "trend-observatory-bot"
+           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+           git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json web/briefing.json web/checks/mastodon-links.json web/story-aliases.json web/hype.json web/checks/dossier-gone.json web/feed.xml web/feed.json web/feed.pt.xml web/feed.pt.json web/ledger
+           if git diff --cached --quiet; then echo "no data change"; exit 0; fi
+           git commit -m "data: daily refresh $(date -u +%Y-%m-%d)"
++          # dev may have moved during the run: replay the data commit on top (fresh data wins) over the public URL, then recompose the
++          # feeds on the replayed tree (verdicts.json or strings.json may have changed on dev) and recheck them and the owner files
++          git pull --rebase -X theirs "https://github.com/${GITHUB_REPOSITORY}.git" dev
++          node scripts/dehype/compose.mjs
++          git add web/feed.xml web/feed.json web/feed.pt.xml web/feed.pt.json
++          if ! git diff --cached --quiet; then git commit --amend --no-edit; echo "feeds recomposed after the replay"; fi
++          python -m unittest tests.test_feed
+           # this push uses github.token, so it triggers no ci.yml run: the bot checks its own commit before pushing (no push on a failure)
+           python scripts/check_owner_files.py HEAD~1
++          echo "commit=1" >> "$GITHUB_OUTPUT"
++      - name: Push the data commit to dev (the token is in this step only; it runs git alone, with no hook, credential helper or fsmonitor)
++        if: steps.snapshot.outputs.commit == '1'
++        env:
++          PUSH_TOKEN: ${{ github.token }}
++        run: |
++          g() { git -c core.hooksPath=/dev/null -c credential.helper= -c core.fsmonitor=false "$@"; }
+           remote="https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+-          # dev may have moved during the 20-40 min run: replay the data commit on top (fresh data wins), retry twice
+           for i in 1 2 3; do
+-            git pull --rebase -X theirs "$remote" dev && git push "$remote" HEAD:dev && exit 0
+-            git rebase --abort 2>/dev/null || true
++            base=$(g rev-parse HEAD~1)
++            g push "$remote" HEAD:dev && exit 0
++            g pull --rebase -X theirs "https://github.com/${GITHUB_REPOSITORY}.git" dev || { g rebase --abort 2>/dev/null || true; }
++            # the feeds were composed on $base: replay them only when nothing compose.mjs reads moved on dev since then
++            if g diff --name-only "$base" HEAD~1 -- web/verdicts.json web/story-aliases.json web/i18n scripts/dehype | grep -q .; then
++              echo "::error::the feed inputs changed on dev after the replay; re-run the refresh"; exit 1
++            fi
+             sleep $((i * 10))
+           done
+           echo "::error::could not push the data commit to dev"; exit 1
+@@ -265,7 +289,6 @@
+       pages: write
+       id-token: write
+     uses: ./.github/workflows/deploy.yml
+-    secrets: inherit
+   attest:
+     # Sigstore attestation of the day's manifest (design row 18, C4, C42), in its own job: no checkout, no npm or pip code, and a token
+     # that can only mint the OIDC identity and write the attestation. Check it with `gh attestation verify <manifest> --repo <owner/repo>`.

@@ -1,7 +1,7 @@
 """dehype pages (design rows 10, 11, 13; C21, C24; group C2): the shared shell, the three pages, the Hype page's fixed wordings and the
 reviewed-Portuguese dossier file. Fixtures follow Decision 14: each case overlays a copy of the committed web/ and check_page.mjs must
 fail with that rule's own finding, or pass."""
-import hashlib, json, os, subprocess, sys, unittest
+import hashlib, json, os, re, subprocess, sys, tempfile, unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -186,6 +186,109 @@ class FoldTest(unittest.TestCase):
         self.assertIn("load('POLICY.pt.md')", self.js)
         self.assertNotIn("REPO + 'METHODOLOGY.md'", self.js)                 # the method and policy links go to method.html now
         self.assertNotIn("'nav.console'", self.js)                          # the console tab is folded
+
+
+# ------------------------------------------------------------------ group F: staging set, push token, licence and records (design rows 19-22)
+REFRESH = os.path.join(ROOT, '.github', 'workflows', 'refresh.yml')
+SC22_STAGED = {'web/data.json', 'web/search-index.json', 'web/search-vectors.bin', 'web/pulse.json', 'web/briefing.json', 'web/checks/mastodon-links.json',
+               'web/story-aliases.json', 'web/hype.json', 'web/checks/dossier-gone.json', 'web/feed.xml', 'web/feed.json', 'web/feed.pt.xml', 'web/feed.pt.json', 'web/ledger'}
+OWNER_LISTS = ('web/verdicts.json', 'web/corrections.json', 'web/removals.json', 'web/i18n/dossier.pt.json', 'web/i18n/dossier-x-figures.json', 'web/i18n/dossier-sources.json')
+
+
+def staged(wf):
+    """The union of the workflow's `git add` lines (M2 adds a second, feeds-only line after the replay)."""
+    return {p for l in wf.splitlines() if l.strip().startswith('git add ') for p in l.split()[2:]}
+
+
+def gate_on_workflow(text):
+    """check_page.mjs on the committed web/ with its staging-set rule pointed at a fixture refresh.yml (CHECK_PAGE_REFRESH_YML)."""
+    with tempfile.TemporaryDirectory() as d:
+        f = os.path.join(d, 'refresh.yml')
+        with open(f, 'w', encoding='utf-8') as h: h.write(text)
+        return subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), WEB], capture_output=True, text=True,
+                              env=dict(os.environ, CHECK_PAGE_REFRESH_YML=f))
+
+
+class ReleaseTest(unittest.TestCase):
+    """SC-22 (C2, C44): the bot's staging set; the push-token step; SC-21 licence part; row 21 and 22 records."""
+    @classmethod
+    def setUpClass(cls):
+        cls.wf = read(REFRESH)
+        cls.add = next(l for l in cls.wf.splitlines() if l.strip().startswith('git add '))
+
+    def assert_only(self, r, *msgs):
+        FoldTest.assert_only(self, r, *msgs)
+
+    def test_committed_staging_set_is_bot_written_only(self):
+        S = staged(self.wf)
+        self.assertTrue(S <= SC22_STAGED, S - SC22_STAGED)
+        for f in OWNER_LISTS + ('web', 'web/', '.', '-A', '--all', '-u'): self.assertNotIn(f, S)
+        if 'python scripts/manifest.py daily' in self.wf: self.assertEqual(S, SC22_STAGED)        # E1/E2 wiring applied: the whole SC-22 set
+        r = gate_on_workflow(self.wf)
+        self.assertEqual(r.returncode, 0, r.stderr); self.assertIn('staging set ', r.stdout)
+
+    def test_owner_reviewed_files_never_staged(self):
+        for f in OWNER_LISTS:
+            with self.subTest(f):
+                self.assert_only(gate_on_workflow(self.wf.replace(self.add, self.add + ' ' + f)), 'refresh.yml: stages an owner-reviewed file')
+
+    def test_no_wholesale_add_or_commit(self):
+        for extra in ('-A', '.', 'web', 'web/*.json'):
+            with self.subTest(extra):
+                self.assert_only(gate_on_workflow(self.wf.replace(self.add, self.add + ' ' + extra)), 'refresh.yml: stages a path outside the bot-written set')
+        wf = self.wf.replace('git commit -m "data: daily refresh', 'git commit -am "data: daily refresh')
+        self.assert_only(gate_on_workflow(wf), 'refresh.yml: commits more than the staged set')
+        O = 'refresh.yml: stages an owner-reviewed file'                     # quoting, git -C and `git stage` hide nothing (review HIGH)
+        for extra in ('"web/verdicts.json"', "'web/removals.json'", 'web/"corrections".json'):
+            with self.subTest(extra): self.assert_only(gate_on_workflow(self.wf.replace(self.add, self.add + ' ' + extra)), O)
+        for line in ('git -C . add web/verdicts.json', 'git stage web/verdicts.json', 'git -c core.x=1 add web/removals.json', 'git --git-dir=.git add web/verdicts.json'):
+            with self.subTest(line): self.assert_only(gate_on_workflow(self.wf.replace(self.add, self.add + '\n          ' + line)), O)
+        self.assert_only(gate_on_workflow(self.wf.replace(self.add, self.add + ' "$F"')), 'refresh.yml: stages a path through a variable, command or escape')
+        for c in ('git commit -m "x" "web/verdicts.json"', 'git commit --only -m x', 'git commit -m x -- web/verdicts.json', 'git -C . commit -a -m x'):
+            with self.subTest(c): self.assert_only(gate_on_workflow(self.wf.replace(self.add, self.add + '\n          ' + c)), 'refresh.yml: commits more than the staged set')
+
+    def test_every_written_output_is_staged(self):
+        self.assert_only(gate_on_workflow(self.wf.replace(self.add, self.add.replace(' web/hype.json', ''))), 'refresh.yml: a file the refresh writes is not staged')
+        wf = self.wf.replace(self.add, self.add.replace(' web/ledger', '')) + '\n      - run: python scripts/manifest.py daily --web web\n'
+        self.assert_only(gate_on_workflow(wf), 'refresh.yml: a file the refresh writes is not staged')
+        add = self.add if ' web/ledger' in self.add else self.add + ' web/ledger'
+        r = gate_on_workflow(self.wf.replace(self.add, add) + '\n      - run: python scripts/manifest.py daily --web web\n')
+        self.assertEqual(r.returncode, 0, r.stderr)                                                  # the SC-22 set with the ledger step
+
+    def test_push_token_never_beside_npm_or_node(self):                 # C42 / M2: the token step runs no composition or dependency code
+        steps = re.split(r'\n      - ', self.wf.split('\njobs:\n')[1])
+        tok = [x for x in steps if 'PUSH_TOKEN' in x]
+        self.assertTrue(tok)
+        for x in tok:
+            self.assertNotRegex(x, r'\b(?:npm|npx|node)\b')
+            if 'id: snapshot' in self.wf: self.assertNotRegex(x, r'\bpython\b'); self.assertIn('core.hooksPath=/dev/null', x)   # M2 applied
+
+    def test_method_page_carries_the_licence_in_both_languages(self):     # SC-21, licence part
+        for f, lang in (('METHODOLOGY.md', 'English'), ('METHODOLOGY.pt.md', 'Portuguese')):
+            with self.subTest(f):
+                md = read(os.path.join(WEB, f))
+                self.assert_only(check_page({f: md.replace('CC BY-SA 4.0', 'CC BY 4.0')}), f'{f}: the method page lacks the licence text in {lang}')
+
+    def test_licence_records(self):
+        with open(os.path.join(ROOT, 'LICENSE'), 'rb') as f: lic = f.read()
+        self.assertEqual(hashlib.sha256(lic).hexdigest(), '0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0')   # the GNU text, verbatim
+        cff = read(os.path.join(ROOT, 'CITATION.cff'))
+        self.assertIn('  - AGPL-3.0-only\n  - CC-BY-SA-4.0', cff); self.assertNotIn('\nversion:', cff)
+        for f in ('README.md', 'CONTRIBUTING.md'):
+            t = read(os.path.join(ROOT, f))
+            for w in ('AGPL-3.0', 'CC BY-SA 4.0', 'MIT', 'CC BY 4.0'): self.assertIn(w, t, f)
+        self.assertIn('Copyright (C) 2026 Felipe Rosa / Namastex', read(os.path.join(ROOT, 'README.md')))
+
+    def test_roadmap_and_readme_records(self):                          # SC-24 (row 21)
+        rm = read(os.path.join(ROOT, 'docs', 'ROADMAP.md')); rows = {l.split('|')[1].strip(): l for l in rm.splitlines() if l.startswith('| ') and l.count('|') > 3}
+        for k in ('D2', 'D3', 'P4'): self.assertNotRegex(rows[k], r'(?i)cloudflare|\bR2\b')
+        self.assertIn('several static pages', rows['D5'].lower()); self.assertIn('GitHub Pages only', rows['D2']); self.assertRegex(rows['P4'], r'ledger on Pages.*dated (GitHub )?Release')
+        self.assertIn('dehype briefing on several static pages', rm.splitlines()[2])
+        for k, qs in (('S2', ()), ('S3', ('O12', 'O6')), ('S4', ('A10',)), ('S5', ('O30', 'recompute verifier')), ('S6', ('O4b',)), ('G1', ('O16',))):
+            self.assertIn(k, rows, k)
+            for q in qs: self.assertIn(q, rows[k], k)
+        self.assertTrue(read(os.path.join(ROOT, 'README.md')).startswith('# dehype'))
+        self.assertNotIn("'/investigations/", read(os.path.join(WEB, 'prototypes', 'explorer.js')))     # relative explorer fetch root
 
 
 if __name__ == '__main__':

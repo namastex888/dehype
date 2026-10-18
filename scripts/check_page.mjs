@@ -620,6 +620,65 @@ let removalNote = 'no removals';
   removalNote = `removals: ${R.size} requests, ${G.size} dossier posts found gone, none published` + (pending ? ` (${pending} places in pulse.json, briefing.json or the feeds await the next daily rebuild)` : '');
 }
 
+// Release records (design rows 19 and 22; C2, C44; group F). The repository this gate belongs to holds the workflow.
+const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
+// Staging set (row 19): every path the refresh's `git add` (or `git commit`) names is a bot-written output, never an owner-reviewed file
+// (they enter only by a merged PR), and every output a step of the refresh writes is staged: a bot-written cache that is not committed
+// is not a cache. A producer is named by its command, so the ledger is required once the manifest step runs (the E1/E2 wiring).
+// CHECK_PAGE_REFRESH_YML points the rule at a fixture workflow (tests only).
+const OWNER_REVIEWED = ['web/verdicts.json', 'web/corrections.json', 'web/removals.json', 'web/i18n/dossier.pt.json', 'web/i18n/dossier-x-figures.json',
+  'web/i18n/dossier-sources.json', 'web/i18n/strings.json', 'web/i18n/x-org-accounts.json', 'web/POLICY.md', 'web/POLICY.pt.md'];
+const PRODUCERS = [['python run.py', ['web/data.json']], ['node scripts/embed/embed.mjs web', ['web/search-index.json', 'web/search-vectors.bin']],
+  ['run: python pulse.py\n', ['web/pulse.json', 'web/briefing.json', 'web/story-aliases.json', 'web/checks/dossier-gone.json']],
+  ['node scripts/check_mastodon_links.mjs', ['web/checks/mastodon-links.json']], ['python hype_build.py --scrub web/hype.json', ['web/hype.json']],
+  ['node scripts/dehype/compose.mjs', ['web/feed.xml', 'web/feed.json', 'web/feed.pt.xml', 'web/feed.pt.json']],
+  ['python scripts/manifest.py daily', ['web/ledger']], ['node scripts/ots.mjs', ['web/ledger']]];
+const BOT_SET = new Set(PRODUCERS.flatMap(([, o]) => o));
+function stagingRules(F) {
+  let wf;
+  try { wf = readFileSync(F, 'utf8'); } catch { fail.push(`refresh.yml unreadable (${F}): the staging-set check needs the workflow`); return 'no staging set'; }
+  const code = wf.replace(/\r/g, '').split('\n').filter(l => !/^\s*#/.test(l)).map(l => l.replace(/\s+#\s.*$/, '')).join('\n');
+  // shell words, quotes removed ("web/x.json" and 'web/x.json' are web/x.json); a word that still names a variable, command or escape fails
+  const words = s => (s.match(/(?:"[^"]*"|'[^']*'|[^\s"']+)+/g) || []).map(w => ({ raw: w, w: w.replace(/"([^"]*)"|'([^']*)'/g, '$1$2') }));
+  const GIT = verb => new RegExp(`\\bgit(?:\\s+-[Cc]\\s+\\S+|\\s+--[\\w-]+(?:=\\S+)?)*\\s+(?:${verb})\\b([^\\n;&|]*)`, 'g');
+  const staged = new Set(), R = 'refresh.yml';
+  const adds = [...code.matchAll(GIT('add|stage'))];
+  if (!adds.length) finding(R, 'no `git add` line (the bot stages its outputs by name)', 'git add');
+  for (const [, rest] of adds) for (const { raw, w: p } of words(rest)) {
+    if (/[$`\\]/.test(p)) finding(R, 'stages a path through a variable, command or escape (name each file literally)', raw);
+    else if (OWNER_REVIEWED.includes(p)) finding(R, 'stages an owner-reviewed file (it enters only by a merged PR, design row 19)', p);
+    else if (!BOT_SET.has(p)) finding(R, 'stages a path outside the bot-written set (no flag, glob, directory or other file)', p);
+    else staged.add(p);
+  }
+  const VALUE = new Set(['--message', '--file', '--author', '--date', '--cleanup', '--trailer', '--reuse-message', '--reedit-message', '--fixup', '--squash']);
+  const WIDE = 'commits more than the staged set (no -a, --all, --include, --only or pathspec on git commit)';
+  for (const [, rest] of code.matchAll(GIT('commit'))) {
+    const W = words(rest).map(x => x.w);
+    for (let i = 0, ends = false; i < W.length; i++) {
+      const p = W[i];
+      if (ends || !p.startsWith('-')) { finding(R, WIDE, p); continue; }
+      if (p === '--') { ends = true; continue; }
+      if (p.startsWith('--')) { if (['--all', '--include', '--only', '--pathspec-from-file'].some(f => p === f || p.startsWith(f + '='))) finding(R, WIDE, p); else if (VALUE.has(p)) i++; continue; }
+      for (let k = 1; k < p.length; k++) {                       // a short-flag cluster: -am, -m<msg>, -F <file>
+        if ('aio'.includes(p[k])) { finding(R, WIDE, p); break; }
+        if ('mFCc'.includes(p[k])) { if (k === p.length - 1) i++; break; }
+      }
+    }
+  }
+  const produced = new Set(PRODUCERS.filter(([cmd]) => code.includes(cmd)).flatMap(([, o]) => o));
+  for (const p of produced) if (!staged.has(p)) finding(R, 'a file the refresh writes is not staged (a bot-written cache that is not committed is not a cache)', p);
+  return `staging set ${staged.size} paths from ${adds.length} git add line${adds.length === 1 ? '' : 's'}`;
+}
+const releaseNote = stagingRules(process.env.CHECK_PAGE_REFRESH_YML || join(REPO, '.github', 'workflows', 'refresh.yml'));
+// Licence (row 22, SC-21 licence part): both method sources carry the licence section, so the method page shows it in either language.
+const LICENCE = { en: ['AGPL-3.0', 'CC BY-SA 4.0', 'selection, arrangement and computed fields', 'MIT', 'CC BY 4.0'],
+  pt: ['AGPL-3.0', 'CC BY-SA 4.0', 'seleção, organização e campos calculados', 'MIT', 'CC BY 4.0'] };
+function licenceRules(f, lang, md) {
+  const L = md.replace(/\r/g, '').split('\n'), i = L.findIndex((l, k) => /^## /.test(l) && (lang === 'en' ? SLUG(l.slice(3)) === 'licence' : L[k - 1] === '<a id="licence"></a>'));
+  const sec = i < 0 ? '' : L.slice(i + 1, (k => k < 0 ? L.length : i + 1 + k)(L.slice(i + 1).findIndex(l => /^#{1,2} /.test(l)))).join(' ');
+  const miss = LICENCE[lang].filter(w => !flat(sec).includes(w));
+  if (miss.length) finding(f, `the method page lacks the licence text in ${lang === 'en' ? 'English' : 'Portuguese'} (a ## section with id "licence": code AGPL-3.0, data CC BY-SA 4.0 for our selection, arrangement and computed fields, earlier releases MIT and CC BY 4.0)`, i < 0 ? 'no licence section' : miss.join(', '));
+}
 // Two languages (design rows 12 and 14; C17, C31, C33): every entry of i18n/strings.json has a non-empty en and pt with the same
 // placeholders; each public field that holds our own text matches one of its entries; every headline and post title pulse.py writes
 // carries a lang tag (source metadata, else "und") and none is translated; the method copies METHODOLOGY.md and METHODOLOGY.pt.md
@@ -651,6 +710,7 @@ let i18nNote = 'no strings file';
     try { if (readFileSync(join(web, '..', f), 'utf8') !== md[lang]) fail.push(`web/${f} differs from the root ${f} (the root file is the source: copy it)`); } catch { }
   }
   const doc = { en: md.en != null && methodDoc(md.en, false), pt: md.pt != null && methodDoc(md.pt, true) };
+  for (const [lang, f] of [['en', 'METHODOLOGY.md'], ['pt', 'METHODOLOGY.pt.md']]) if (md[lang] != null) licenceRules(f, lang, md[lang]);
   if (doc.en && doc.pt) {
     const a = doc.en.heads.map(h => h.join(' ')).join('|'), b = doc.pt.heads.map(h => h.join(' ')).join('|');
     if (a !== b) finding('METHODOLOGY.pt.md', 'headings do not match METHODOLOGY.md: same headings, levels and order, each under <a id="<the English anchor>"></a>',
@@ -761,6 +821,7 @@ let pageNote = 'no dehype pages';
   if (!js.includes(`const TABLE = { en: '${TABLES.en}', pt: '${TABLES.pt}' };`) || !/\bload\(TABLE\[/.test(js))
     finding('dehype.js', `does not load its language's page table (const TABLE = { en: '${TABLES.en}', pt: '${TABLES.pt}' }; load(TABLE[lang]))`, 'TABLE');
   // the one script loaded from elsewhere: transformers.js for the search by meaning, exact-pinned, imported only from its literal URL
+  // (vendoring it under web/ is deferred: GitHub push protection flags a pattern in the minified bundle; needs an owner decision)
   const TF = js.match(/\bconst TF_URL = '(https:\/\/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@\d+\.\d+\.\d+)';/);
   if (!TF || (js.match(/\bimport\s*\(/g) || []).length !== 1 || !/\bimport\(TF_URL\)/.test(js))
     finding('dehype.js', 'imports code other than the exact-pinned transformers.js TF_URL (one import(TF_URL), TF_URL a literal https://cdn.jsdelivr.net/npm/@huggingface/transformers@<x.y.z>)', 'import(');
@@ -858,4 +919,4 @@ function foldRules(js, S, keys) {
 for (const [rule, at] of Object.entries(found)) fail.push(`${rule} at ${at.length} place${at.length > 1 ? 's' : ''}, e.g. ${at.slice(0, 3).join(', ')}`);
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
-console.log(`page check ok: dehype.js parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${feedNote}; ${ledgerNote}; ${removalNote}; ${i18nNote}; ${pageNote}`);
+console.log(`page check ok: dehype.js parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${feedNote}; ${ledgerNote}; ${removalNote}; ${i18nNote}; ${pageNote}; ${releaseNote}`);

@@ -1,7 +1,8 @@
 'use strict';
 // All source-derived content is rendered as text. This is a local design study,
 // not a production Scene adapter, financial model, or publication workflow.
-const ROOT = '/investigations/frontier-economics/';
+// relative to this page, so the local preview (preview.py) works under any path prefix; investigations/ is not deployed to Pages
+const ROOT = new URL('../../investigations/frontier-economics/', location.href).pathname;
 const PINS = {
   'evidence.json': 'e452bf54e446ccda30602ca0d2b21188571c78f79bbe4ed7d72d08b9e2d2be93',
   'assessment.md': '1868924ae64190276b8fef2f4b356f64fa01b426bfb3ca0bf71df3e7d13fbeaa'
