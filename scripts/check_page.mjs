@@ -6,7 +6,7 @@
 // No post that removals.json (owner-reviewed) or checks/dossier-gone.json (bot-written) names by URL hash is still published.
 // The four feeds and the two page tables (scripts/dehype/compose.mjs) keep the same rules, and the pages load their language's table.
 // Our own text has en and pt (i18n/strings.json); headlines carry lang and are never translated; the method copies share anchors.
-// The dehype pages (the briefing in index.html, stories, output, hype, method, audit) load the shared dehype.css and dehype.js, name their
+// The dehype pages (the briefing in index.html, stories, output, hype, method, audit, status) load the shared dehype.css and dehype.js, name their
 // data files and keep the same rules; i18n/dossier.pt.json entries keep their form; every console URL and tab anchor folds to its page.
 // The ledger (ledger/index.json, its day files and the story-id archive) names only Release assets that hash to its manifest SHA256,
 // every day's OpenTimestamps proof commits to its manifest, no proof is edited after a ledger entry records it anchored, and a stale
@@ -627,7 +627,7 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 // is not a cache. A producer is named by its command, so the ledger is required once the manifest step runs (the E1/E2 wiring).
 // CHECK_PAGE_REFRESH_YML points the rule at a fixture workflow (tests only).
 const OWNER_REVIEWED = ['web/verdicts.json', 'web/corrections.json', 'web/removals.json', 'web/i18n/dossier.pt.json', 'web/i18n/dossier-x-figures.json',
-  'web/i18n/dossier-sources.json', 'web/i18n/strings.json', 'web/i18n/x-org-accounts.json', 'web/POLICY.md', 'web/POLICY.pt.md'];
+  'web/i18n/dossier-sources.json', 'web/i18n/strings.json', 'web/i18n/x-org-accounts.json', 'web/i18n/sources-plan.json', 'web/POLICY.md', 'web/POLICY.pt.md'];
 const PRODUCERS = [['python run.py', ['web/data.json']], ['node scripts/embed/embed.mjs web', ['web/search-index.json', 'web/search-vectors.bin']],
   ['run: python pulse.py\n', ['web/pulse.json', 'web/briefing.json', 'web/story-aliases.json', 'web/checks/dossier-gone.json']],
   ['node scripts/check_mastodon_links.mjs', ['web/checks/mastodon-links.json']], ['python hype_build.py --scrub web/hype.json', ['web/hype.json']],
@@ -802,7 +802,8 @@ const PAGES = { 'index.html': ['briefing.json', 'pulse.json', 'verdicts.json', '
   'output.html': ['briefing.json', 'data.json', ...SEARCH],
   'hype.html': ['hype.json', 'removals.json', 'checks/dossier-gone.json', 'i18n/dossier.pt.json', 'i18n/dossier-x-figures.json', ...SEARCH],
   'method.html': ['METHODOLOGY.md', 'METHODOLOGY.pt.md', 'POLICY.md', 'POLICY.pt.md'],
-  'audit.html': ['briefing.json', 'verdicts.json', 'corrections.json', 'removals.json', 'ledger/index.json'] };
+  'audit.html': ['briefing.json', 'verdicts.json', 'corrections.json', 'removals.json', 'ledger/index.json'],
+  'status.html': ['briefing.json', 'pulse.json', 'data.json', 'ledger/index.json', 'i18n/sources-plan.json'] };
 const HYPE_WORDS = { 'hype.cut': ['research dossier, content cut', 'not in the daily refresh'], 'hype.gap.note': ['heuristic only, not validation'],
   'hype.skeptic.note': ['sampled criticism, not checked against a primary source'] };
 const PT_NOTICE = 'Texto do dossiê em inglês; a versão em português aguarda revisão', PT_KEYS = new Set(['slug', 'field', 'sha256', 'pt', 'reviewed_in']);
@@ -814,7 +815,7 @@ let pageNote = 'no dehype pages';
   try { js = readFileSync(join(web, 'dehype.js'), 'utf8'); new Function(js); }
   catch (e) { fail.push(e.code === 'ENOENT' ? 'dehype.js missing (the dehype pages share it)' : `dehype.js does not parse: ${e.message}`); }
   try { readFileSync(join(web, 'dehype.css')); } catch { fail.push('dehype.css missing (the dehype pages share it)'); }
-  const keys = new Set([...js.matchAll(/'((?:ui|nav|kind|label|stories|output|hype|dossier|state|seen|sample|x_route|n|index|brief|soai|stale|method|audit|gauge|panel|reading)\.[\w.]+)'/g)].map(m => m[1]).filter(k => !/\.(json|html|md|css|js)$/.test(k) && !fieldNames.has(k)));
+  const keys = new Set([...js.matchAll(/'((?:ui|nav|kind|label|stories|output|hype|dossier|state|seen|sample|x_route|n|index|brief|soai|stale|method|audit|status|gauge|panel|reading)\.[\w.]+)'/g)].map(m => m[1]).filter(k => !/\.(json|html|md|css|js)$/.test(k) && !fieldNames.has(k)));
   const loads = [...js.matchAll(/\b(?:load|opt)\('([^']+)'[,)]/g)].map(m => m[1]), ok = new Set([...Object.values(TABLES), ...Object.values(PAGES).flat()]);
   for (const f of loads) if (!ok.has(f)) finding('dehype.js', 'loads a file no dehype page names in data-src', f);
   if ((js.match(/\bfetch\(/g) || []).length !== 1) finding('dehype.js', 'fetches outside its one loader (load)', 'fetch(');
@@ -873,7 +874,42 @@ let pageNote = 'no dehype pages';
   }
   if (stale) warn.push(`${F}: ${stale} entries no longer match the current English; the Hype page shows that English under the Portuguese notice`);
   pageNote = `pages ${Object.keys(PAGES).join(', ')} with ${keys.size} string keys; dossier.pt.json ${match} matching entries${stale ? `, ${stale} stale` : ''}`;
-  pageNote += '; ' + foldRules(js, S, keys);
+  pageNote += '; ' + foldRules(js, S, keys) + '; ' + planRules(js);
+}
+// The Sources page (status.html): its live rows come from the data files' sources blocks at runtime; the rest and the roadmap from the
+// owner-reviewed i18n/sources-plan.json, whose rows carry their en and pt text, a known group, gauge and state, and nothing else (no status,
+// detail or count is written into the plan); the plan keeps the public-data rules, and dehype.js knows every gauge id the plan may name.
+function planRules(js) {                                         // called from the pages block above, so its constants live here
+  const PLAN = 'i18n/sources-plan.json', PLAN_GROUPS = ['ready', 'pending', 'held', 'free'], PLAN_STATES = ['built', 'next', 'planned'];
+  const PLAN_FEEDS = ['output_by_area', 'hype_vs_substance', 'daily_movers', 'risk', 'jobs', 'awareness'];
+  const PLAN_ROW = new Set(['id', 'group', 'live', 'feeds', 'en', 'pt']), PLAN_STEP = new Set(['id', 'state', 'en', 'pt']);
+  const P = readJSON(PLAN, `${PLAN} missing (the Sources page plan, owner-reviewed; status.html reads it)`);
+  if (!P) return 'no sources plan';
+  publicRules(PLAN, P);
+  const both = (e, ks, at) => { for (const l of ['en', 'pt']) for (const k of ks) if (!text(e?.[l]?.[k])) finding(PLAN, 'row lacks its en or pt text (our own text has en and pt)', `${at}.${l}.${k}`); };
+  const shape = (e, keys, at) => { for (const k of Object.keys(e || {})) if (!keys.has(k)) finding(PLAN, 'row carries a field outside its shape (live status, detail and counts are read at runtime)', `${at}.${k}`); };
+  const list = k => Array.isArray(P[k]) ? P[k] : (fail.push(`${PLAN} lacks its ${k} list`), []);
+  const S = list('sources'), R = list('roadmap'), seen = new Set();
+  S.forEach((e, i) => {
+    const at = `sources[${i}]`;
+    shape(e, PLAN_ROW, at);
+    if (!text(e?.id) || seen.has(e.id)) finding(PLAN, 'source row without a unique id', at); seen.add(e?.id);
+    if (!PLAN_GROUPS.includes(e?.group)) finding(PLAN, `source row in an unknown group (${PLAN_GROUPS.join(', ')})`, `${at}.group`);
+    if (!Array.isArray(e?.feeds) || !e.feeds.length || e.feeds.some(f => !PLAN_FEEDS.includes(f))) finding(PLAN, `source row feeds no known gauge (${PLAN_FEEDS.join(', ')})`, `${at}.feeds`);
+    if (e && 'live' in e && !text(e.live)) finding(PLAN, 'source row live is not a source name', `${at}.live`);
+    both(e, ['name', 'what', 'terms'], at);
+  });
+  R.forEach((r, i) => {
+    const at = `roadmap[${i}]`;
+    shape(r, PLAN_STEP, at);
+    if (!text(r?.id) || seen.has(r.id)) finding(PLAN, 'roadmap step without a unique id', at); seen.add(r?.id);
+    if (!PLAN_STATES.includes(r?.state)) finding(PLAN, `roadmap step in an unknown state (${PLAN_STATES.join(', ')})`, `${at}.state`);
+    both(r, ['name', 'what'], at);
+  });
+  need(R.some(r => r?.id === 'S1'), `${PLAN} roadmap lacks its S1 step (the Sources page shows the 14-day clock on it)`);
+  const F = (js.match(/\bconst FEEDS = \{([^}]*)\}/) || [])[1];
+  need(F && PLAN_FEEDS.every(f => new RegExp(`\\b${f}: '`).test(F)), `dehype.js FEEDS does not name every gauge id the plan may use (${PLAN_FEEDS.join(', ')})`);
+  return `sources plan ${S.length} rows in ${new Set(S.map(e => e?.group)).size} groups, ${R.length} roadmap steps`;
 }
 // The fold (design row 11, C21; group C3): tests/fixtures/console_anchors.json lists every console URL form and tab anchor in use at 2bc0ace
 // with the dehype URL it must reach and the wordings the folded pages keep. dehype.js's fold() (between its fold:start and fold:end lines,

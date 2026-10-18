@@ -1,5 +1,5 @@
 // dehype shell (design rows 9-11, 13; D5 amended: static pages, one stylesheet, one script, no build): the briefing (index.html), all
-// stories, output, Hype, method and audit pages; index.html also folds the console's old URLs (fold below). Each page names the data
+// stories, output, Hype, method, audit and Sources (status.html) pages; index.html also folds the console's old URLs (fold below). Each page names the data
 // files it reads in <body data-src>; our own text comes from i18n/strings.json in en and pt, through the page language's table
 // (i18n/table.en.json or i18n/table.pt.json, written by scripts/dehype/plugins/frontend.mjs, Decision 9); headlines and titles stay as posted with
 // their lang tag. The data files carry our own text in English: tr() maps such a value back to its strings.json entry with the
@@ -12,7 +12,7 @@ const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [..
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const REPO = 'https://github.com/namastex888/dehype/blob/dev/';            // repository files the method text links (code, config)
 const ATTEST_REPO = REPO.split('/').slice(3, 5).join('/');                 // owner/name, for gh attestation verify --repo
-const NAV = [['index', 'nav.briefing'], ['stories', 'nav.stories'], ['output', 'nav.output'], ['hype', 'nav.hype'], ['method', 'nav.method'], ['audit', 'nav.audit']];
+const NAV = [['index', 'nav.briefing'], ['stories', 'nav.stories'], ['output', 'nav.output'], ['hype', 'nav.hype'], ['method', 'nav.method'], ['audit', 'nav.audit'], ['status', 'nav.status']];
 const COUNT_ONLY = new Set(['Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mastodon']);
 const NOT_FETCHED = 'not fetched', DAY = 864e5;
 const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { } } };
@@ -105,8 +105,8 @@ function sources(S, compact) {                                   // coverage: a 
 <ul>${E.map(([n, s]) => `<li class="st ${cls[st(s)] || 'nf'}"><b aria-hidden="true">${ico[st(s)] || '○'}</b> ${esc(nm(n))} <span class="mono">${esc(tr(st(s)))}</span>${s.detail ? ` <span class="dim">· ${esc(tr(s.detail))}</span>` : ''}</li>`).join('')}</ul></details>`;
 }
 function table(o) {
-  return `<table class="t">${o.caption ? `<caption>${esc(o.caption)}</caption>` : ''}<thead><tr>${o.cols.map(([l, c]) => `<th scope="col"${c ? ` class="${c}"` : ''}>${esc(l)}</th>`).join('')}</tr></thead>
-<tbody>${o.rows.map(r => `<tr${r.attr || ''}>${r.cells.map((c, i) => `<td${o.cols[i][1] ? ` class="${o.cols[i][1]}"` : ''}>${c}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${o.cols.length}" class="dim">${esc(t('ui.none'))}</td></tr>`}</tbody></table>`;
+  return `<table class="t${o.stack ? ' stack' : ''}">${o.caption ? `<caption>${esc(o.caption)}</caption>` : ''}<thead><tr>${o.cols.map(([l, c]) => `<th scope="col"${c ? ` class="${c}"` : ''}>${esc(l)}</th>`).join('')}</tr></thead>
+<tbody>${o.rows.map(r => `<tr${r.attr || ''}>${r.cells.map((c, i) => `<td${o.cols[i][1] ? ` class="${o.cols[i][1]}"` : ''}${o.stack ? ` data-l="${esc(o.cols[i][0])}"` : ''}>${c}</td>`).join('')}</tr>`).join('') || `<tr><td colspan="${o.cols.length}" class="dim">${esc(t('ui.none'))}</td></tr>`}</tbody></table>`;
 }
 const cards = [];
 function card(el, o) {                                           // a chart with its legend and its table-view twin
@@ -617,6 +617,54 @@ ${S.has(proven.date) ? '' : `<p class="dim">${esc(t('audit.ots.pending'))}</p>`}
   };
   render();
 }
+// ------------------------------------------------------------------ status: the Sources page. Live rows come from the sources blocks of
+// briefing.json, pulse.json and data.json at runtime (a name in more than one file shows once, briefing first); the other groups and the
+// roadmap come from the owner-reviewed i18n/sources-plan.json (en and pt text, terms, the gauges a source would feed). A plan row whose
+// `live` name a data file reports "not connected" carries that runtime status and leaves the Live group. The record line reads the
+// ledger as the audit page does: days = briefing.json ledger_days (the count every page shows), the latest Release, its attestation
+// and the latest proof state from ledger/index.json.
+const FEEDS = { output_by_area: 'gauge.output_by_area', hype_vs_substance: 'gauge.hype_vs_substance', daily_movers: 'gauge.daily_movers', risk: 'panel.risk', jobs: 'panel.jobs', awareness: 'status.feeds.awareness' };
+const GROUPS = { ready: 'status.group.ready', pending: 'status.group.pending', held: 'status.group.held', free: 'status.group.free' };
+const STATES = { built: 'status.state.built', next: 'status.state.next', planned: 'status.state.planned' };
+const SEV = { failed: 0, partial: 1, 'not connected': 2, ok: 4 };
+const stCell = s => `<span class="st ${{ ok: 'ok', partial: 'partial', failed: 'bad' }[s] || 'nf'}"><b aria-hidden="true">${{ ok: '●', partial: '◐', failed: '✕' }[s] || '○'}</b> ${esc(tr(s ?? 'unknown'))}</span>`;
+async function status() {
+  const [P, L, B, U, D] = await Promise.all([load('i18n/sources-plan.json'), opt('ledger/index.json', null), opt('briefing.json', null), opt('pulse.json', null), opt('data.json', null)]);
+  const read = [['briefing.json', B], ['pulse.json', U], ['data.json', D]], live = new Map();
+  for (const [f, d] of read) for (const [n, s] of Object.entries(d?.sources || {})) {
+    if (live.has(n)) { live.get(n).files.push([f, d.generated_at]); continue; }
+    live.set(n, { status: typeof s === 'string' ? s : s?.status, detail: s?.detail, files: [[f, d.generated_at]] });
+  }
+  const plan = (P.sources || []).filter(e => e.group in GROUPS), claimed = new Set(plan.filter(e => live.get(e.live)?.status === 'not connected').map(e => e.live));
+  const rows = [...live].filter(([n]) => !claimed.has(n)).sort((a, b) => (SEV[a[1].status] ?? 3) - (SEV[b[1].status] ?? 3));
+  const E = Array.isArray(L) ? L : L?.entries || [], last = E.at(-1), S = proofStates(E), proven = [...E].reverse().find(e => S.has(e.date)) || last, days = B?.ledger_days ?? 0;
+  const none = `<span class="pill">${esc(t('audit.pending'))}</span>`, txt = e => e[lang] || e.en || {};
+  const feeds = e => (e.feeds || []).filter(f => f in FEEDS).map(f => esc(t(FEEDS[f]))).join(' · ') || '—';
+  render = () => {
+    const now = Date.now(), ok = rows.filter(([, s]) => s.status === 'ok').length, by = g => plan.filter(e => e.group === g);
+    const rec = [[t('audit.days'), esc(t('audit.days.n', { n: nf(days) }))],
+      [t('status.release'), last?.release?.sha256 ? `${link(last.release.url, `<span class="mono">${esc(last.release.tag || last.date)}</span>`)} <span class="pill">${esc(t(last.release.sha256 === last.manifest_sha256 ? 'status.release.match' : 'status.release.mismatch'))}</span>` : none],
+      [t('audit.attest'), last?.release?.url ? `<span class="mono">${esc(t('status.attest.check'))}</span>` : none],
+      [t('audit.ots'), proven?.ots?.file ? `<span class="mono">${esc(proven.date)}</span> ${esc(S.has(proven.date) ? t('audit.anchored', { n: S.get(proven.date).block }) : t('audit.pending_proof'))}` : none]];
+    const head = (k, n, sub) => `<div class="sec-h"><h3>${esc(t(k))} <span class="pill">${esc(tn('status.n', n))}</span></h3><p>${esc(t(sub))}</p></div>`;
+    const liveT = table({ stack: true, cols: [[t('status.col.source')], [t('status.col.status'), 'nw'], [t('status.col.detail')], [t('status.col.file'), 'nw']],
+      rows: rows.map(([n, s]) => ({ cells: [esc(nm(n)), stCell(s.status), s.detail ? esc(tr(s.detail)) : '—', `${s.files.map(([f]) => `<code class="mono">${esc(f)}</code>`).join(', ')}<br><span class="dim">${esc(ago(s.files[0][1], now))}</span>`] })) });
+    const planT = list => table({ stack: true, cols: [[t('status.col.source')], [t('status.col.what')], [t('status.col.terms')], [t('status.col.feeds')]],
+      rows: list.map(e => { const x = txt(e), r = claimed.has(e.live) && live.get(e.live);
+        return { cells: [`<b>${esc(x.name)}</b>${r ? `<br><span class="dim">${esc(t('status.reported'))}</span> ${stCell(r.status)}${r.detail ? ` <span class="dim">· ${esc(tr(r.detail))}</span>` : ''}` : ''}`, esc(x.what), `<span class="dim">${esc(x.terms)}</span>`, feeds(e)] }; }) });
+    $('#body').innerHTML = `${B ? staleBanner(B) : ''}${read.filter(([, d]) => !d).map(([f]) => `<p class="notice">${esc(t('status.unread', { file: f }))}</p>`).join('')}
+${kpis([[t('status.group.live'), nf(rows.length), esc(t('ui.sources_ok', { n: ok, total: rows.length }))], ...Object.entries(GROUPS).map(([g, k]) => [t(k), nf(by(g).length)])]).replace('class="kpis"', 'class="kpis k5"')}
+<section class="card aline" id="record" aria-label="${esc(t('status.record'))}">${rec.map(([k, v]) => `<p><span class="lbl">${esc(k)}</span> ${v}</p>`).join('')}<p class="go"><a href="${href('audit')}">${esc(t('status.audit.more'))}</a></p></section>
+<section class="card" id="sources"><div class="card-h"><div><h2>${esc(t('status.sources'))}</h2><p>${esc(t('status.sources.sub'))}</p></div></div>
+<div class="grp" id="g-live">${head('status.group.live', rows.length, 'status.group.live.sub')}<div class="tw">${liveT}</div></div>
+${Object.entries(GROUPS).map(([g, k]) => `<div class="grp plan" id="g-${g}">${head(k, by(g).length, k + '.sub')}<div class="tw">${planT(by(g))}</div></div>`).join('')}</section>
+<section class="card" id="roadmap"><div class="card-h"><div><h2>${esc(t('status.roadmap'))}</h2><p>${esc(t('status.roadmap.sub'))}</p></div></div>
+<ol class="rm">${(P.roadmap || []).map(r => { const x = txt(r), st = r.state in STATES ? r.state : 'planned';
+  return `<li class="rm-${st}"><span class="mono id" aria-hidden="${/^[SG]\d$/.test(r.id) ? 'false' : 'true'}">${esc(/^[SG]\d$/.test(r.id) ? r.id : '→')}</span><div><h3>${esc(x.name)} <span class="pill${st === 'next' ? ' v' : ''}">${esc(t(STATES[st]))}</span></h3><p>${esc(x.what)}</p>${r.id === 'S1'
+    ? `<div class="clock" aria-hidden="true">${Array.from({ length: 14 }, (_, i) => `<i${i < days ? ' class="on"' : ''}></i>`).join('')}</div><p class="dim mono">${esc(t('status.clock', { n: nf(days) }))}</p>` : ''}</div></li>`; }).join('')}</ol></section>`;
+  };
+  render();
+}
 // ------------------------------------------------------------------ start
 const oops = e => { document.documentElement.classList.add('ready'); $('#body').innerHTML = `<div class="err">${esc(t('ui.error'))} <span class="mono">${esc(e.message)}</span></div>`; };
 async function start() {
@@ -629,7 +677,7 @@ async function start() {
     DATA_KEYS = [...new Set(Object.values(I.fields || {}).flatMap(p => Object.values(p).flatMap(s => Array.isArray(s) ? s : s.keys || [])))];
     shell();
     $('#main').classList.add('loading');
-    await ({ index, stories, output, hype, method, audit })[page]();
+    await ({ index, stories, output, hype, method, audit, status })[page]();
   } catch (e) { oops(e); }
   $('#main').classList.remove('loading');
 }

@@ -36,7 +36,7 @@ class PagesTest(unittest.TestCase):
         self.assertEqual(json.loads(read(os.path.join(WEB, PT)))['entries'], [])
         r = check_page()
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn('pages index.html, stories.html, output.html, hype.html, method.html, audit.html', r.stdout)
+        self.assertIn('pages index.html, stories.html, output.html, hype.html, method.html, audit.html, status.html', r.stdout)
         self.assertIn('dossier.pt.json 0 matching entries', r.stdout)
 
     def test_dossier_fields_name_every_prose_field_with_its_hash(self):
@@ -192,7 +192,8 @@ class FoldTest(unittest.TestCase):
 REFRESH = os.path.join(ROOT, '.github', 'workflows', 'refresh.yml')
 SC22_STAGED = {'web/data.json', 'web/search-index.json', 'web/search-vectors.bin', 'web/pulse.json', 'web/briefing.json', 'web/checks/mastodon-links.json',
                'web/story-aliases.json', 'web/hype.json', 'web/checks/dossier-gone.json', 'web/feed.xml', 'web/feed.json', 'web/feed.pt.xml', 'web/feed.pt.json', 'web/ledger'}
-OWNER_LISTS = ('web/verdicts.json', 'web/corrections.json', 'web/removals.json', 'web/i18n/dossier.pt.json', 'web/i18n/dossier-x-figures.json', 'web/i18n/dossier-sources.json')
+OWNER_LISTS = ('web/verdicts.json', 'web/corrections.json', 'web/removals.json', 'web/i18n/dossier.pt.json', 'web/i18n/dossier-x-figures.json', 'web/i18n/dossier-sources.json',
+               'web/i18n/sources-plan.json')
 
 
 def staged(wf):
