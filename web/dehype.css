@@ -153,6 +153,10 @@ body[data-page="index"] .scope{font-size:14.5px;max-width:none;margin-bottom:2px
 .g .none{color:var(--ink-2);font-size:14px;margin:6px 0}
 .panels{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 28px;align-items:baseline;border:1px solid var(--rule);border-radius:8px;padding:6px 14px;background:var(--panel)}
 .pn{margin:0;font-size:13px;color:var(--ink-2)}.pn .lbl{display:inline;margin-right:6px}.pn .none{color:var(--ink)}
+.ctxs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:10px;margin-top:10px}.ctxs .cn{grid-column:1/-1;margin:0;font-size:12.5px}
+.cx{border:1px solid var(--rule);border-radius:8px;padding:10px 14px;background:var(--panel);min-width:0}.cx h3{margin:0 0 6px}.cx>p{margin:4px 0;font-size:12.5px}
+.cl{list-style:none;margin:0;padding:0;font-size:13px;color:var(--ink-2)}.cl li{padding:2px 0;border-bottom:1px dotted var(--rule)}.cl li:last-child{border-bottom:0}.cl b{color:var(--ink)}
+.cx footer{display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;margin-top:8px;font-size:12px}
 .sec-h{display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;margin:16px 0 0;padding-bottom:8px;border-bottom:1px solid var(--rule-2)}
 .sec-h h2{font-size:20px;margin:0;font-weight:600}.sec-h p{margin:0;color:var(--muted);font-size:13px;flex:1;min-width:260px}.sec-h .go{font-size:13px}.sec-h .go::after{content:" \2192"}
 .brief .story{padding:14px 0}.brief .story h3{font-size:18px}

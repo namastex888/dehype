@@ -1,0 +1,197 @@
+{
+  "note": "Fixed, reviewed inputs of the context panels (pulse.py, indicators.py): changed only by a reviewed PR, and hashed into the briefing's config_hash. Each source's terms were read on the date given (terms_read) before use; terms_evidence quotes the clauses relied on, verbatim, with the URL, the retrieval date and how the page was read. METHODOLOGY.md (Context panels) cites them. Names here are our own text: each has its en and pt entry in web/i18n/strings.json.",
+  "bls": {
+    "endpoint": "https://api.bls.gov/publicAPI/v1/timeseries/data/",
+    "terms": [
+      "https://www.bls.gov/opub/copyright-information.htm",
+      "https://www.bls.gov/developers/termsOfService.htm",
+      "https://www.bls.gov/developers/api_faqs.htm"
+    ],
+    "terms_read": "2026-10-18",
+    "why": "US industries whose work is itself the kind AI tools now do or assist (writing software, IT services, data processing and hosting, business support including call centres), beside the all-industry baseline (total nonfarm jobs, the unemployment rate). Seasonally adjusted, monthly, national. General labour context: none of these series attributes a change to AI.",
+    "series": [
+      {
+        "id": "CES0000000001",
+        "name": "Total nonfarm jobs (baseline)",
+        "unit": "thousands of jobs"
+      },
+      {
+        "id": "CES5051320001",
+        "name": "Software publishers",
+        "unit": "thousands of jobs"
+      },
+      {
+        "id": "CES6054150001",
+        "name": "Computer systems design and related services",
+        "unit": "thousands of jobs"
+      },
+      {
+        "id": "CES5051800001",
+        "name": "Computing infrastructure, data processing and web hosting",
+        "unit": "thousands of jobs"
+      },
+      {
+        "id": "CES6056140001",
+        "name": "Business support services (incl. call centres)",
+        "unit": "thousands of jobs"
+      },
+      {
+        "id": "LNS14000000",
+        "name": "Unemployment rate (baseline)",
+        "unit": "percent"
+      }
+    ],
+    "terms_evidence": [
+      {
+        "url": "https://www.bls.gov/opub/copyright-information.htm",
+        "quote": "everything that we publish, both in hard copy and electronically, is in the public domain",
+        "retrieved": "2026-10-18",
+        "read_with": "WebFetch (curl is refused by the BLS bot block: \"Access Denied\"); quote as WebFetch returned it, not checked byte for byte"
+      },
+      {
+        "url": "https://www.bls.gov/opub/copyright-information.htm",
+        "quote": "we do ask that you cite the Bureau of Labor Statistics as the source",
+        "retrieved": "2026-10-18",
+        "read_with": "WebFetch (curl is refused by the BLS bot block: \"Access Denied\"); quote as WebFetch returned it, not checked byte for byte"
+      },
+      {
+        "url": "https://www.bls.gov/developers/termsOfService.htm",
+        "quote": "Users of the public API should cite the date that data were accessed or retrieved using the API.",
+        "retrieved": "2026-10-18",
+        "read_with": "curl"
+      },
+      {
+        "url": "https://www.bls.gov/developers/termsOfService.htm",
+        "quote": "Users must clearly state that “BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov.”",
+        "retrieved": "2026-10-18",
+        "read_with": "curl"
+      },
+      {
+        "url": "https://www.bls.gov/developers/termsOfService.htm",
+        "quote": "Users may not modify or falsely represent content accessed through BLS.gov and still cite the source as BLS.gov.",
+        "retrieved": "2026-10-18",
+        "read_with": "curl"
+      },
+      {
+        "url": "https://www.bls.gov/developers/api_faqs.htm",
+        "quote": "Unregistered users may request up to 25 queries daily.",
+        "retrieved": "2026-10-18",
+        "read_with": "WebFetch (curl is refused by the BLS bot block: \"Access Denied\"); quote as WebFetch returned it, not checked byte for byte"
+      },
+      {
+        "url": "https://www.bls.gov/developers/api_faqs.htm",
+        "quote": "Unregistered users may request up to 25 series per query.",
+        "retrieved": "2026-10-18",
+        "read_with": "WebFetch (curl is refused by the BLS bot block: \"Access Denied\"); quote as WebFetch returned it, not checked byte for byte"
+      }
+    ]
+  },
+  "hn_hiring": {
+    "endpoint": "https://hn.algolia.com/api/v1/",
+    "terms": [
+      "https://github.com/HackerNews/API",
+      "https://www.ycombinator.com/legal/",
+      "https://hn.algolia.com/api"
+    ],
+    "terms_read": "2026-10-18",
+    "thread_title": "Ask HN: Who is hiring?",
+    "months": 2,
+    "terms_cs": "\\b(AI|A\\.I\\.|ML|LLMs?|GenAI|MLOps|NLP)\\b",
+    "terms_ci": "machine learning|artificial intelligence|deep learning|large language models?|generative ai|computer vision|reinforcement learning|\\bagentic\\b",
+    "terms_evidence": [
+      {
+        "url": "https://github.com/HackerNews/API",
+        "quote": "In partnership with [Firebase](https://firebase.google.com/), we're making the public Hacker News data available in near real time.",
+        "retrieved": "2026-10-18",
+        "read_with": "curl (README.md)"
+      },
+      {
+        "url": "https://github.com/HackerNews/API",
+        "quote": "There is currently no rate limit.",
+        "retrieved": "2026-10-18",
+        "read_with": "curl (README.md)"
+      },
+      {
+        "url": "https://www.ycombinator.com/legal/",
+        "quote": "Except as expressly authorized by Y Combinator, you agree not to modify, copy, frame, scrape, rent, lease, loan, sell, distribute or create derivative works based on the Site or the Site Content",
+        "retrieved": "2026-10-18",
+        "read_with": "curl"
+      },
+      {
+        "url": "https://www.ycombinator.com/legal/",
+        "quote": "In connection with your use of the Site you will not engage in or use any data mining, robots, scraping or similar data gathering or extraction methods.",
+        "retrieved": "2026-10-18",
+        "read_with": "curl"
+      },
+      {
+        "url": "https://hn.algolia.com/api",
+        "quote": "no terms readable: the page renders only with JavaScript (its HTML holds the title \"Hacker News Search powered by Algolia\")",
+        "retrieved": "2026-10-18",
+        "read_with": "curl and WebFetch"
+      }
+    ]
+  },
+  "wikipedia": {
+    "endpoint": "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/",
+    "terms": [
+      "https://doc.wikimedia.org/generated-data-platform/aqs/analytics-api/documentation/access-policy.html",
+      "https://foundation.wikimedia.org/wiki/Policy:Wikimedia_Foundation_User-Agent_Policy"
+    ],
+    "terms_read": "2026-10-18",
+    "why": "Articles about AI as a subject, no company or product page, so one vendor's news does not move the total. Each Portuguese article is the English one's interlanguage link (checked 2026-10-18). Views by users (agent user: crawlers and automated agents excluded), all access methods.",
+    "access": "all-access",
+    "agent": "user",
+    "projects": {
+      "en.wikipedia": [
+        "AI_safety",
+        "Artificial_general_intelligence",
+        "Artificial_intelligence",
+        "Deep_learning",
+        "Generative_AI",
+        "Large_language_model",
+        "Machine_learning"
+      ],
+      "pt.wikipedia": [
+        "Aprendizado_de_máquina",
+        "Aprendizagem_profunda",
+        "Inteligência_artificial",
+        "Inteligência_artificial_generativa",
+        "Inteligência_artificial_geral",
+        "Modelos_de_linguagem_em_grande_escala",
+        "Segurança_da_inteligência_artificial"
+      ]
+    },
+    "terms_evidence": [
+      {
+        "url": "https://doc.wikimedia.org/generated-data-platform/aqs/analytics-api/documentation/access-policy.html",
+        "quote": "Data provided by the API is available under the CC0 1.0 license",
+        "retrieved": "2026-10-18",
+        "read_with": "curl"
+      },
+      {
+        "url": "https://doc.wikimedia.org/generated-data-platform/aqs/analytics-api/documentation/access-policy.html",
+        "quote": "The API requires an HTTP User-Agent header for all requests.",
+        "retrieved": "2026-10-18",
+        "read_with": "curl"
+      },
+      {
+        "url": "https://doc.wikimedia.org/generated-data-platform/aqs/analytics-api/documentation/access-policy.html",
+        "quote": "To stay within a safe request rate, wait for each request to finish before sending another request.",
+        "retrieved": "2026-10-18",
+        "read_with": "curl"
+      },
+      {
+        "url": "https://doc.wikimedia.org/generated-data-platform/aqs/analytics-api/documentation/access-policy.html",
+        "quote": "By using the API, you agree to Wikimedia's terms of use and privacy policy",
+        "retrieved": "2026-10-18",
+        "read_with": "curl"
+      },
+      {
+        "url": "https://foundation.wikimedia.org/wiki/Policy:Wikimedia_Foundation_User-Agent_Policy",
+        "quote": "supplying some way of contacting you, the operator",
+        "retrieved": "2026-10-18",
+        "read_with": "curl"
+      }
+    ]
+  }
+}

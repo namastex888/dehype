@@ -509,6 +509,22 @@ const GAUGE = {
 <div class="mv"><p class="mini-t">${esc(t('brief.mv.up'))}</p><ul>${(v.up || []).slice(0, 2).map(li).join('')}</ul><p class="mini-t">${esc(t('brief.mv.down'))}</p><ul>${(v.down || []).slice(0, 2).map(li).join('')}</ul></div></div>`;
   }
 };
+// Context panels (indicators.py): the Jobs context (BLS series, HN "Who is hiring?" counts) and "Page views on Wikipedia", each a card
+// with its preview status, coverage and retrieval date; a null reading shows its reason. Values side by side, no arrow, no ratio.
+const pct = x => typeof x === 'number' ? (x * 100).toLocaleString(loc(), { maximumFractionDigits: 0 }) + '%' : '—';
+const CTX = {
+  bls: v => `<ul class="cl">${(v.series || []).map(r => `<li><span>${esc(tr(r.name))}</span> ${r.value == null ? `<span class="dim">${esc(tr(r.reason))}</span>`
+    : `<b class="mono">${nf(r.value)}</b> <span class="dim">${esc(tr(r.unit))} · <span class="nw">${esc(r.period)}</span>${r.preliminary ? ' ' + esc(t('brief.ind.prelim')) : ''}${r.year_earlier?.value != null ? ' · ' + esc(t('brief.ind.year_earlier', { v: nf(r.year_earlier.value), period: r.year_earlier.period })) : ''}</span>`}</li>`).join('')}</ul>`,
+  hn_hiring: v => `<ul class="cl">${(v.months || []).map(m => `<li>${link(m.thread, esc(t('brief.hn.row', { month: m.month, ai: nf(m.ai_posts), n: nf(m.posts), share: pct(m.share) })))}</li>`).join('')}</ul>`,
+  pageviews: v => `<ul class="cl">${(v.projects || []).map(r => `<li>${r.views_7d == null ? `<span>${esc(r.project)}</span> <span class="dim">${esc(tr(r.reason))}</span>`
+    : esc(t('brief.wiki.row', { project: r.project, v: nf(r.views_7d), start: r.window.start, end: r.window.end, p: nf(r.views_prior_7d) }))}</li>`).join('')}</ul><p class="dim">${esc(t('brief.wiki.note'))}</p>`
+};
+const ctxCard = x => `<section class="cx" id="c-${esc(x.id)}"><h3 class="lbl">${esc(tr(x.name))}</h3>${x.value == null ? `<p class="none">${esc(tr(x.reason) || '—')}</p>` : CTX[x.id]?.(x.value) || ''}
+${x.value != null && x.notice ? `<p class="dim">${esc(tr(x.notice))}</p>` : ''}<footer><span class="pill">${esc(tr(x.status))}</span>${sources(x.coverage?.sources, true)}${x.retrieved ? ` <span class="dim mono">${esc(t('brief.ind.retrieved', { date: x.retrieved }))}</span>` : ''}</footer></section>`;
+function contextCards(P) {
+  const J = P.find(p => p.id === 'jobs'), cards = [...(Array.isArray(J?.context) ? J.context : []), ...P.filter(p => 'value' in p)];
+  return cards.length ? `<div class="ctxs">${J?.context_note ? `<p class="dim cn">${esc(tr(J.name))}: ${esc(tr(J.context_note))}</p>` : ''}${cards.map(ctxCard).join('')}</div>` : '';
+}
 function aliases(A) {                                            // story-aliases.json: an earlier id to the story that took its posts (check_page.mjs resolve)
   const M = A?.aliases || {};
   return id => { const seen = [id]; while (M[seen.at(-1)]?.to && !seen.includes(M[seen.at(-1)].to)) seen.push(M[seen.at(-1)].to); return seen.at(-1); };
@@ -523,7 +539,7 @@ async function index() {
     $('#stale').innerHTML = staleBanner(B);
     $('#body').innerHTML = `<section class="soai" aria-labelledby="soai-h"><div class="soai-h"><h2 id="soai-h">${esc(t('soai.title'))}</h2><span class="mono">${esc(t('soai.line', { days: nf(B.ledger_days ?? 0) }))}</span></div>
 <div class="gauges">${G.map(g => gauge(g, GAUGE[g.id] && g.value != null ? GAUGE[g.id](g.value) : '')).join('')}
-<div class="panels">${(B.panels || []).map(p => `<p class="pn"><span class="lbl">${esc(tr(p.name))}</span> <span class="none">${(p.events || []).length ? p.events.map(e => `<span class="mono">${esc(e.date || '')}</span> ${link(e.url, esc(e.text || e.title || ''))}`).join(' · ') : esc(tr(p.reading))}</span>${p.form && p.form !== 'panel' ? ` <span class="dim">· ${esc(tr(p.form))}</span>` : ''}</p>`).join('')}</div></div><div class="dots" aria-hidden="true">${[...G, 0].map((_, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</div></section>
+<div class="panels">${(B.panels || []).filter(p => !('value' in p)).map(p => `<p class="pn"><span class="lbl">${esc(tr(p.name))}</span> <span class="none">${(p.events || []).length ? p.events.map(e => `<span class="mono">${esc(e.date || '')}</span> ${link(e.url, esc(e.text || e.title || ''))}`).join(' · ') : esc(tr(p.reading))}${p.id === 'jobs' ? ` <span class="dim">${esc(t('brief.jobs.scope'))}</span>` : ''}</span>${p.form && p.form !== 'panel' ? ` <span class="dim">· ${esc(tr(p.form))}</span>` : ''}</p>`).join('')}</div></div><div class="dots" aria-hidden="true">${[...G, 0].map((_, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</div>${contextCards(B.panels || [])}</section>
 <section class="top" aria-labelledby="top-h"><div class="sec-h"><h2 id="top-h">${esc(t('brief.top.title'))}</h2><p>${esc(t('brief.top.rule'))} <a href="${METHOD()}#${esc(anchor)}">${esc(t('ui.method'))}</a></p><a class="go" href="${href('stories')}">${esc(t('brief.top.all', { n: nf(recs.size) }))}</a></div>
 <ol class="stories brief">${(B.top10 || []).map(x => recs.get(x.id)).filter(Boolean).map((r, i) => evidence(r, by.get(r.id), ver.get(r.id), i, now, true)).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ol></section>`;
     const strip = $('.gauges'), dots = $$('.dots i');                // narrow screens: the gauge strip scrolls; the dots show which card is in view
@@ -627,6 +643,9 @@ const FEEDS = { output_by_area: 'gauge.output_by_area', hype_vs_substance: 'gaug
 const GROUPS = { ready: 'status.group.ready', pending: 'status.group.pending', held: 'status.group.held', free: 'status.group.free' };
 const STATES = { built: 'status.state.built', next: 'status.state.next', planned: 'status.state.planned' };
 const SEV = { failed: 0, partial: 1, 'not connected': 2, ok: 4 };
+// context sources (indicators.py): each card of the briefing's Jobs context and page-view panel, with the terms it was read under (the
+// urls and the date read come from briefing.json; the summary of those terms is our own text) and the panel it feeds
+const CTX_SRC = { bls: ['status.ind.terms.bls', 'panel.jobs'], hn_hiring: ['status.ind.terms.hn_hiring', 'panel.jobs'], pageviews: ['status.ind.terms.wikipedia', 'panel.pageviews.feeds'] };
 const stCell = s => `<span class="st ${{ ok: 'ok', partial: 'partial', failed: 'bad' }[s] || 'nf'}"><b aria-hidden="true">${{ ok: '●', partial: '◐', failed: '✕' }[s] || '○'}</b> ${esc(tr(s ?? 'unknown'))}</span>`;
 async function status() {
   const [P, L, B, U, D] = await Promise.all([load('i18n/sources-plan.json'), opt('ledger/index.json', null), opt('briefing.json', null), opt('pulse.json', null), opt('data.json', null)]);
@@ -640,6 +659,7 @@ async function status() {
   const E = Array.isArray(L) ? L : L?.entries || [], last = E.at(-1), S = proofStates(E), proven = [...E].reverse().find(e => S.has(e.date)) || last, days = B?.ledger_days ?? 0;
   const none = `<span class="pill">${esc(t('audit.pending'))}</span>`, txt = e => e[lang] || e.en || {};
   const feeds = e => (e.feeds || []).filter(f => f in FEEDS).map(f => esc(t(FEEDS[f]))).join(' · ') || '—';
+  const BP = B?.panels || [], ctx = [...(BP.find(p => p.id === 'jobs')?.context || []), ...BP.filter(p => 'value' in p)].filter(x => x.id in CTX_SRC);
   render = () => {
     const now = Date.now(), ok = rows.filter(([, s]) => s.status === 'ok').length, by = g => plan.filter(e => e.group === g);
     const rec = [[t('audit.days'), esc(t('audit.days.n', { n: nf(days) }))],
@@ -657,6 +677,9 @@ ${kpis([[t('status.group.live'), nf(rows.length), esc(t('ui.sources_ok', { n: ok
 <section class="card aline" id="record" aria-label="${esc(t('status.record'))}">${rec.map(([k, v]) => `<p><span class="lbl">${esc(k)}</span> ${v}</p>`).join('')}<p class="go"><a href="${href('audit')}">${esc(t('status.audit.more'))}</a></p></section>
 <section class="card" id="sources"><div class="card-h"><div><h2>${esc(t('status.sources'))}</h2><p>${esc(t('status.sources.sub'))}</p></div></div>
 <div class="grp" id="g-live">${head('status.group.live', rows.length, 'status.group.live.sub')}<div class="tw">${liveT}</div></div>
+${ctx.length ? `<div class="grp" id="g-context">${head('status.ind', ctx.length, 'status.ind.sub')}<div class="tw">${table({ stack: true, cols: [[t('status.col.source')], [t('status.col.status'), 'nw'], [t('status.col.terms')], [t('status.ind.feeds')]],
+  rows: ctx.map(x => { const n = Object.keys(x.coverage?.sources || {})[0] || '', st = live.get(n)?.status ?? x.coverage?.sources?.[n];
+    return { cells: [`<b>${esc(nm(n))}</b>`, stCell(st), `${esc(t(CTX_SRC[x.id][0]))}<br>${(x.terms?.urls || []).map(u => link(u, `<span class="mono">${esc(u.replace(/^https:\/\//, '').replace(/\/$/, ''))}</span>`)).join('<br>')}${x.terms?.read ? `<br><span class="dim">${esc(t('status.ind.read', { date: x.terms.read }))}</span>` : ''}`, esc(t(CTX_SRC[x.id][1]))] }; }) })}</div></div>` : ''}
 ${Object.entries(GROUPS).map(([g, k]) => `<div class="grp plan" id="g-${g}">${head(k, by(g).length, k + '.sub')}<div class="tw">${planT(by(g))}</div></div>`).join('')}</section>
 <section class="card" id="roadmap"><div class="card-h"><div><h2>${esc(t('status.roadmap'))}</h2><p>${esc(t('status.roadmap.sub'))}</p></div></div>
 <ol class="rm">${(P.roadmap || []).map(r => { const x = txt(r), st = r.state in STATES ? r.state : 'planned';

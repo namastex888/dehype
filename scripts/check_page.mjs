@@ -249,6 +249,68 @@ const NET_ADAPTERS = { HN: ['Hacker News (Algolia)'], Lobsters: ['Lobsters (ai t
   Reddit: ['Reddit (arctic-shift archive)', 'Reddit (official API)'], Bluesky: ['Bluesky (app password)'], Newsletter: ['Newsletters (RSS)'],
   Official: ['Official feeds (RSS)'] };
 const TREND_KEY = /^(trend|trends|arrow|arrows|delta|day_over_day)$/;
+// Context panels (indicators.py; council conditions on gauges applied to them too): the Jobs panel keeps "no qualified source" for any
+// change in jobs attributed to AI and carries context labelled "context, not a forecast"; "Page views on Wikipedia" is named for what it
+// measures, never "awareness". Each reading is a preview with its coverage and the source terms it was read under (urls and the date read);
+// a value only from a source fetched in this run, with its retrieval date, else null with an "insufficient data" reason (never 0); a BLS
+// value carries the BLS notice; counts are whole and consistent; no trend or arrow before 14 ledger days; no dial; no AI-caused claim.
+const PANEL_IDS = new Set(['risk', 'jobs', 'pageviews']), DAY_RX = /^\d{4}-\d{2}-\d{2}$/;
+const BLS_NOTICE = 'BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov.';
+const CAUSAL = /\b(caused by|due to|because of|driven by|blamed on) (AI|artificial intelligence)\b|\bAI (caused|took|cost|destroyed|replaced)\b/i;
+function contextRules(F, B, panel, d) {
+  const count = (v, at, what) => { if (!(Number.isInteger(v) && v >= 0)) finding(F, `context ${what} is not a whole count`, at); };
+  const item = (x, at) => {
+    if (x?.status !== PREVIEW) finding(F, `context reading status is not "${PREVIEW}"`, `${at}.status`);
+    const S = x?.coverage?.sources;
+    if (!S || typeof S !== 'object' || !Object.keys(S).length) finding(F, 'context reading without coverage', `${at}.coverage`);
+    const T = x?.terms;
+    if (!T || !Array.isArray(T.urls) || !T.urls.length || !T.urls.every(u => /^https:\/\//.test(u)) || !DAY_RX.test(T.read || ''))
+      finding(F, 'context reading without the source terms it was read under (urls and the date read)', `${at}.terms`);
+    if (x?.value == null) { if (!/^insufficient data: /.test(x?.reason || '')) finding(F, 'null context reading without an "insufficient data" reason', `${at}.reason`); }
+    else {
+      if (!Object.values(S || {}).some(s => s === 'ok' || s === 'partial')) finding(F, 'context value from a source not fetched in this run (must be null with its reason)', `${at}.value`);
+      if (!DAY_RX.test(x.retrieved || '')) finding(F, 'context value without its retrieval date', `${at}.retrieved`);
+    }
+    if (d < TREND_DAYS) walk(x, at, (v, p) => { if (v && typeof v === 'object') for (const [k, y] of Object.entries(v)) if (TREND_KEY.test(k) && y != null) finding(F, `trend or arrow before ${TREND_DAYS} ledger days`, `${p}.${k}`); });
+  };
+  (B.panels || []).forEach((p, i) => {
+    if (!PANEL_IDS.has(p?.id)) finding(F, 'panel not in the header (risk, jobs, pageviews)', `panels[${i}].id`);
+    if (p && typeof p === 'object' && 'dial' in p) finding(F, 'panel carries a dial', `panels[${i}].dial`);
+    walk(p, `panels[${i}]`, (v, at) => { if (typeof v === 'string' && CAUSAL.test(v)) finding(F, 'panel attributes a change to AI', at); });
+  });
+  const J = panel('jobs');
+  if (J && 'context' in J) {
+    if (!/not a forecast/.test(J.context_note || '')) finding(F, 'Jobs context is not labelled "context, not a forecast"', 'panels.jobs.context_note');
+    if (!Array.isArray(J.context)) finding(F, 'Jobs context is not a list', 'panels.jobs.context');
+    (Array.isArray(J.context) ? J.context : []).forEach((x, i) => {
+      const at = `panels.jobs.context[${i}]`;
+      item(x, at);
+      if (x?.id === 'bls' && x.value != null) {
+        if (x.notice !== BLS_NOTICE) finding(F, `BLS reading without the BLS notice ("${BLS_NOTICE}")`, `${at}.notice`);
+        (x.value.series || []).forEach((r, j) => {
+          if (r.value == null ? !/^insufficient data: /.test(r.reason || '') : !(Number.isFinite(r.value) && /^\d{4}-\d{2}$/.test(r.period || '')))
+            finding(F, 'BLS series without its value and month, or null without an "insufficient data" reason', `${at}.value.series[${j}]`);
+        });
+      }
+      if (x?.id === 'hn_hiring' && x.value != null) (x.value.months || []).forEach((m, j) => {
+        const mp = `${at}.value.months[${j}]`;
+        count(m.posts, `${mp}.posts`, 'post count'); count(m.ai_posts, `${mp}.ai_posts`, 'post count');
+        if (!(m.posts > 0) || m.ai_posts > m.posts || !(Math.abs(m.share - m.ai_posts / m.posts) <= 0.0005 + 1e-9)) finding(F, 'hiring-thread share does not match its counts', mp);
+      });
+    });
+  }
+  const V = panel('pageviews');
+  if (V) {
+    if (/awareness/i.test(V.name || '') || !/Wikipedia/.test(V.name || '')) finding(F, 'page-view panel not named for what it measures ("Page views on Wikipedia", not awareness)', 'panels.pageviews.name');
+    item(V, 'panels.pageviews');
+    if (V.value != null) (V.value.projects || []).forEach((r, j) => {
+      const at = `panels.pageviews.value.projects[${j}]`;
+      if (r.views_7d == null || r.views_prior_7d == null) { if (!/^insufficient data: /.test(r.reason || '')) finding(F, 'null page-view total without an "insufficient data" reason', at); }
+      else { count(r.views_7d, `${at}.views_7d`, 'view count'); count(r.views_prior_7d, `${at}.views_prior_7d`, 'view count');
+        if (!DAY_RX.test(r.window?.end || '') || !DAY_RX.test(r.prior_window?.end || '')) finding(F, 'page-view total without its date windows', at); }
+    });
+  }
+}
 function ledgerCount() {                                         // web/ledger/index.json from group E1 on; 0 without it
   try { const L = JSON.parse(readFileSync(join(web, 'ledger', 'index.json'), 'utf8')); const e = Array.isArray(L) ? L : L?.entries; return Array.isArray(e) ? e.length : 0; }
   catch (e) { if (e.code !== 'ENOENT') fail.push(`ledger/index.json unreadable: ${e.message}`); return 0; }
@@ -321,6 +383,7 @@ function briefingRules(B) {
   need(panel('jobs')?.reading === NO_SOURCE, 'briefing.json Jobs panel does not read "no qualified source"');
   need(panel('risk') && Array.isArray(panel('risk').events) && (panel('risk').events.length > 0 || panel('risk').reading === NO_SOURCE) && !('dial' in panel('risk')),
     'briefing.json Risk panel is not a dated event log reading "no qualified source" (no dial)');
+  contextRules(F, B, panel, Math.min(days, ledger));
   return `briefing ${recs.length} records, Top 10 of ${top.length}, ${gauges.length} gauges, ${days} ledger days`;
 }
 let briefNote = 'no briefing';
@@ -590,7 +653,8 @@ let ledgerNote = 'no ledger', proofNote = '';
     const S = B.stale;
     need(S.since === today && text(S.reason) && Date.parse(S.at) >= g,
       'stale briefing.json does not name its date (the São Paulo date of generated_at), its reason and the time of the failed run');
-    if ((B.records || []).length || (B.top10 || []).length || (B.gauges || []).some(x => x.value != null))
+    if ((B.records || []).length || (B.top10 || []).length || (B.gauges || []).some(x => x.value != null)
+      || (B.panels || []).some(p => p.value != null || (Array.isArray(p.context) && p.context.some(x => x.value != null))))
       finding('briefing.json', 'stale briefing carries a value over (records, Top 10 and gauge values stay empty)', 'stale');
     for (const f of ['feed.json', 'feed.pt.json'])
       if (FEED[f] && (FEED[f]._dehype?.stale?.since !== S.since || (FEED[f].items || []).some(x => SID.test(x.id || ''))))
@@ -711,6 +775,7 @@ let i18nNote = 'no strings file';
   }
   const doc = { en: md.en != null && methodDoc(md.en, false), pt: md.pt != null && methodDoc(md.pt, true) };
   for (const [lang, f] of [['en', 'METHODOLOGY.md'], ['pt', 'METHODOLOGY.pt.md']]) if (md[lang] != null) licenceRules(f, lang, md[lang]);
+  for (const f of ['METHODOLOGY.md', 'METHODOLOGY.pt.md']) if (md[f.includes('.pt.') ? 'pt' : 'en'] != null && !md[f.includes('.pt.') ? 'pt' : 'en'].includes(BLS_NOTICE)) finding(f, 'the method page lacks the full BLS statement', 'Context panels');
   if (doc.en && doc.pt) {
     const a = doc.en.heads.map(h => h.join(' ')).join('|'), b = doc.pt.heads.map(h => h.join(' ')).join('|');
     if (a !== b) finding('METHODOLOGY.pt.md', 'headings do not match METHODOLOGY.md: same headings, levels and order, each under <a id="<the English anchor>"></a>',
@@ -768,6 +833,10 @@ let i18nNote = 'no strings file';
       if (md[lang] != null && !(text(entry[k]?.[lang]) && flat(md[lang]).includes(flat(entry[k][lang])))) finding(f, `lacks the ${k} text in ${lang} (i18n/strings.json)`, k);
     if (!/posts in our sample/.test(entry['x_route.disclosure']?.en || '') || !/posts na nossa amostra/.test(entry['x_route.disclosure']?.pt || ''))
       finding(F, 'x_route.disclosure does not read "posts in our sample" in both languages', 'strings.x_route.disclosure');
+    // the BLS API terms require the full statement wherever we show BLS data: the panel's notice and the Sources page's terms, both languages
+    for (const k of ['ind.bls.notice', 'status.ind.terms.bls']) for (const l of ['en', 'pt'])
+      if (!String(entry[k]?.[l] || '').includes(BLS_NOTICE)) finding(F, `${k} lacks the full BLS statement ("${BLS_NOTICE}")`, `strings.${k}.${l}`);
+    if (entry['ind.bls.notice']?.en !== BLS_NOTICE) finding(F, 'ind.bls.notice en is not exactly the BLS statement', 'strings.ind.bls.notice.en');
     // headlines and post titles stay as posted (no translated field), each with a lang tag; our fixed headline line reads "en"
     const fixed = entry['headline.count_only'] && tpl('headline.count_only');
     let titles = 0;

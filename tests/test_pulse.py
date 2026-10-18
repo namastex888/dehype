@@ -786,8 +786,13 @@ class BriefingRulesTest(unittest.TestCase):
         self.assertEqual(B['gauges'][0]['value']['areas'], [{'area': 'agents', 'papers': 1, 'repos': 1}, {'area': 'other', 'papers': 1, 'repos': 0}])
         self.assertEqual(B['gauges'][2]['value']['up'][0]['topic'], 't1'); self.assertEqual(B['gauges'][2]['value']['down'][0]['topic'], 't2')
         self.assertEqual(B['gauges'][2]['coverage']['topics_with_reading'], 2)
-        self.assertEqual([(p['name'], p['reading']) for p in B['panels']], [('Risk', 'no qualified source'), ('Jobs', 'no qualified source')])
+        self.assertEqual([(p['name'], p.get('reading')) for p in B['panels']],
+                         [('Risk', 'no qualified source'), ('Jobs', 'no qualified source'), ('Page views on Wikipedia (AI articles)', None)])
         self.assertEqual(B['panels'][0]['events'], [])
+        # no indicator input in this run: every context and page-view value is null with its reason, never 0 (indicators.py)
+        for x in B['panels'][1]['context'] + [B['panels'][2]]:
+            self.assertIsNone(x['value']); self.assertEqual(x['reason'], 'insufficient data: not fetched in this run')
+            self.assertEqual(set(x['coverage']['sources'].values()), {'not fetched'}); self.assertEqual(x['status'], 'preview, not yet reproducible')
         self.assertFalse([k for k in B if 'score' in k])
         # below the floor: null with the reason, never a value carried over
         stale = dict(D, generated_at='2026-10-15T07:00:00Z')
@@ -955,7 +960,13 @@ class BriefingFixtureTest(unittest.TestCase):
              'shipped_gauge': 'briefing.json: gauge marked shipped (no gauge ships in S1)',
              'unfetched_false': 'briefing.json: Official not fully fetched but a count reads false (must read "not fetched")',
              'combined_score': 'briefing.json: gauge not named by the council (no combined score)',
-             'reddit_leak': 'briefing.json: Reddit link (Reddit is counts only)'}
+             'reddit_leak': 'briefing.json: Reddit link (Reddit is counts only)',
+             # context panels (indicators.py), each overlay of the clean briefing with its recorded 2026-10-18 indicator input
+             'context_unfetched_value': 'briefing.json: context value from a source not fetched in this run (must be null with its reason)',
+             'pageviews_awareness': 'briefing.json: page-view panel not named for what it measures ("Page views on Wikipedia", not awareness)',
+             'bls_no_notice': 'briefing.json: BLS reading without the BLS notice',
+             'context_trend': 'briefing.json: trend or arrow before 14 ledger days at 1 place, e.g. panels.pageviews.value.projects[0].delta',
+             'context_no_label': 'briefing.json: Jobs context is not labelled "context, not a forecast"'}
     CLEAN = ['clean_briefing']
     def check(self, name):
         with tempfile.TemporaryDirectory() as d:
@@ -1271,7 +1282,7 @@ def pulse_run(d, argv=(), posts=(), hype=None, removals=(), passes=(), answers=N
         with open(os.path.join(web, 'checks', 'mastodon-links.json'), 'w') as f:
             json.dump({'statuses': {i: {'result': 'pass', 'checked_at': '2026-10-16T08:00:00Z', 'passed_at': '2026-10-16T08:00:00Z', 'api_status': 200}
                                     for i in passes}}, f)
-    keep = {k: getattr(pulse, k) for k in ('WEB', 'HIST', 'DB', 'CANDIDATES', 'NOW', 'GET') + FETCHERS}
+    keep = {k: getattr(pulse, k) for k in ('WEB', 'HIST', 'DB', 'CANDIDATES', 'NOW', 'GET', 'FETCH_INDICATORS') + FETCHERS}
     argv0, sources, stub, log = sys.argv, dict(pulse.SOURCES), Lookups(answers), io.StringIO()
     try:
         pulse.WEB, pulse.HIST, pulse.DB = web, hist, os.path.join(hist, 'signals.sqlite')
@@ -1279,6 +1290,7 @@ def pulse_run(d, argv=(), posts=(), hype=None, removals=(), passes=(), answers=N
         pulse.NOW = datetime.fromisoformat((now or RM['now']).replace('Z', '+00:00'))
         pulse.GET = stub
         for n in FETCHERS: setattr(pulse, n, lambda: [])
+        pulse.FETCH_INDICATORS = lambda now: {'fetched_at': pulse.iso(now), 'inputs': {}, 'errors': {}}     # no network in tests
         pulse.SOURCES.clear()
         if posts:
             con = pulse.db()

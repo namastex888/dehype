@@ -2,7 +2,7 @@
 
 Plain map of what exists, what runs where, and how the roadmap attaches to it. Updated 2026-10-17 for dehype S1 (wish [dehype-s1](../.genie/wishes/dehype-s1/WISH.md)): several static pages, GitHub Pages only, the ledger on Pages and the inputs on dated Releases, no Cloudflare and no object storage.
 
-Legend used below: `[LIVE]` runs today · `[S1]` added by dehype S1 · `[PENDING]` written, waiting on the owner's approval of a workflow change · `[PLANNED]` designed, not built.
+Legend used below: `[LIVE]` runs today · `[S1]` added by dehype S1 · `[src1]` added by sources slice 1 (context panels) · `[PENDING]` written, waiting on the owner's approval of a workflow change · `[PLANNED]` designed, not built.
 
 ## 1. Data flow, end to end
 
@@ -10,6 +10,7 @@ Legend used below: `[LIVE]` runs today · `[S1]` added by dehype S1 · `[PENDING
  ┌──────────────────────── PUBLIC SOURCES (free, no paid keys) ─────────────────────────┐
  │  arXiv · Hugging Face papers · GitHub · Hacker News · Reddit (arctic-shift, counts)  │
  │  Mastodon · Lobsters · newsletters and official feeds (RSS) · [Bluesky*]             │
+ │  context panels: BLS public API v1 · Wikipedia page views · HN "Who is hiring?"      │
  └──────────────────────────────────────────┬───────────────────────────────────────────┘
                                             │  once a day, 04:45 São Paulo [PENDING]
                                             ▼  (06:17 until the workflow change lands)
@@ -19,6 +20,8 @@ Legend used below: `[LIVE]` runs today · `[S1]` added by dehype S1 · `[PENDING
  │   pulse.py ──► web/pulse.json, web/briefing.json, web/story-aliases.json             │
  │      (deleted-post recheck, removals.json applied; Reddit, X, LinkedIn, YouTube,     │
  │       Telegram as counts only; no person handle)                              [S1]   │
+ │      + indicators.py: Jobs context and Wikipedia page views, no key, one 45 s        │
+ │        budget, input in history/indicators.json (relink reuses it)         [src1]    │
  │   check_mastodon_links.mjs ──► web/checks/mastodon-links.json (render check)  [S1]   │
  │   hype_build.py --scrub ──► web/hype.json (deletion only)                     [S1]   │
  │   compose.mjs (Cordis 4.0.4) ──► web/feed{,.pt}.{xml,json}                    [S1]   │
@@ -88,7 +91,9 @@ GitHub limits: with only the job token the GitHub API allows about 1,000 request
 
 **Retire the old refresher.** Until 2026-10-16 the daily data commits came from a job outside this repository that pushes to `main`. The default branch is now `dev`, so that job would create a new `main` that nothing deploys. Disable it; `refresh.yml` replaces it.
 
-The Sources page (`status.html`, nav "Sources") reads each live source's status from the `sources` blocks of `briefing.json`, `pulse.json` and `data.json` at load time; the sources not yet live (credentials ready, pending approval, held or paid, free) and the roadmap rows come from the owner-reviewed `web/i18n/sources-plan.json`, which `check_page.mjs` holds to its shape (en and pt text, known groups, gauges and states, no status or count written in) and to the public-data rules.
+The context panels (`indicators.py`, inputs fixed in `indicators.json`) are read inside the live `pulse.py` run, in a background thread alongside the feed collectors, under one 45-second budget: no request starts once it is spent, each network read times out after the time left (at most 15 s), nothing is retried, so the step ends within about 60 s at worst and the run waits for it only if the feeds finish first. The sources are BLS public API v1 (no key; one query a day of the 25 allowed), the newest two Hacker News "Who is hiring?" threads through Algolia (counts only), and Wikimedia page views for a fixed list of en and pt articles (sequential, as Wikimedia asks). The input is stored in `history/indicators.json` (Actions cache, never committed); `--relink` reuses it only when its `fetched_at` is the same run's, `--offline` shows the panels as not fetched. No workflow change and no secret.
+
+The Sources page (`status.html`, nav "Sources") reads each live source's status from the `sources` blocks of `briefing.json`, `pulse.json` and `data.json` at load time; a "Context sources" table lists each context panel's source with the terms it was read under (URLs and the date read, from `briefing.json`); the sources not yet live (credentials ready, pending approval, held or paid, free) and the roadmap rows come from the owner-reviewed `web/i18n/sources-plan.json`, which `check_page.mjs` holds to its shape (en and pt text, known groups, gauges and states, no status or count written in) and to the public-data rules.
 
 ## 3. Publishing
 
