@@ -25,6 +25,8 @@ FALSE só é atribuído pelo responsável, à mão, a uma alegação nomeada, co
 
 Uma linha nomeia uma história pelo seu id (`s:` e 12 hexadecimais). O id de uma história pode mudar quando chega um post mais antigo; a atualização registra então a mudança em `web/story-aliases.json` (id antigo para id novo), e a linha a acompanha. Os ids publicados em cada dia passam a ficar num arquivo de ids (`web/ledger/ids/AAAA-MM-DD.json`, escrito quando o registro diário estiver em funcionamento), para que uma linha confirmada continue válida depois que a história sai da janela de 7 dias. A CI falha uma linha cujo id não se resolve por nenhum desses caminhos. Enquanto esse arquivo de ids não existir, nenhuma linha com rótulo REAL, OVERHYPED, FALSE ou PUSHED é adicionada, porque uma linha cuja história saísse da janela de 7 dias não teria a que se resolver.
 
+Os quatro feeds (`web/feed.xml`, `web/feed.json`, `web/feed.pt.xml`, `web/feed.pt.json`) mostram o rótulo de cada linha, e as páginas leem o nosso próprio texto de duas tabelas geradas a partir de `web/i18n/strings.json` (`web/i18n/table.en.json`, `web/i18n/table.pt.json`). Por isso, um pull request que altera `web/verdicts.json` ou `web/i18n/strings.json` roda `npm ci --prefix scripts/dehype --ignore-scripts && node scripts/dehype/compose.mjs` e inclui os quatro feeds e as duas tabelas no mesmo commit; caso contrário a CI falha (`tests/test_feed.py`). A atualização diária gera os feeds de novo depois de reaplicar o seu commit sobre `dev`.
+
 <a id="reply"></a>
 ## Direito de resposta
 

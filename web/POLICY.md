@@ -25,6 +25,8 @@ FALSE is set only by the owner, by hand, on a named claim, with a cited primary 
 
 A row names a story by its id (`s:` and 12 hex). A story's id can move when an earlier post arrives; the refresh then writes the move to `web/story-aliases.json` (old id to new id), and the row follows it. Each day's published story ids are to be kept in a story-id archive (`web/ledger/ids/YYYY-MM-DD.json`, written once the daily ledger is in place), so that a confirmed row stays valid after its story leaves the 7-day story window. CI fails a row whose id resolves to none of these. Until that archive is in place, no upgraded row (REAL, OVERHYPED, FALSE or PUSHED) is added, because a row whose story leaves the 7-day window would have nothing to resolve to.
 
+The four feeds (`web/feed.xml`, `web/feed.json`, `web/feed.pt.xml`, `web/feed.pt.json`) show each row's label, and the pages read our own text from two tables built from `web/i18n/strings.json` (`web/i18n/table.en.json`, `web/i18n/table.pt.json`). A pull request that changes `web/verdicts.json` or `web/i18n/strings.json` therefore runs `npm ci --prefix scripts/dehype --ignore-scripts && node scripts/dehype/compose.mjs` and commits the four feeds and the two tables with it; CI fails it otherwise (`tests/test_feed.py`).
+
 <a id="reply"></a>
 ## Right of reply
 

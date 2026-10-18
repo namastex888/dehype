@@ -1,0 +1,58 @@
+{
+  "audit": "licence closure of the installed scripts/dehype tree (design row 16; C14)",
+  "date": "2026-10-17",
+  "tree": "npm ci --prefix scripts/dehype --ignore-scripts from package-lock.json (lockfileVersion 3), npm 11.8.0, node 24.13.1",
+  "method": "every package the lockfile installs, with its lockfile licence, its LICENSE file, and its copyright line; the source and built files grepped for other licence, copyright or SPDX headers (none) and for native or wasm binaries (none); tests/test_feed.py re-derives the package list from package-lock.json and the installed LICENSE files",
+  "packages": [
+    {
+      "name": "@deepseek-ai/cordis",
+      "version": "4.0.4",
+      "license": "MIT",
+      "integrity": "sha512-obgyxqWAmFn3Re8kvsuUnyW+ihrz6eJCnJO4fh1cQzDtmPYz/zzVeUkH9R94I0OwSVOocK67Kgakm04j/oQXzg==",
+      "licence_file": "LICENSE",
+      "licence_file_sha256": "034fb52b1d57360ecbae6cb1632a88f86fd7c3d3f5631a5f082710203dda0be7",
+      "copyright": "Copyright (c) 2021-present Shigma",
+      "install_scripts": false,
+      "in_notice": true
+    },
+    {
+      "name": "@deepseek-ai/cosmokit",
+      "version": "1.8.6",
+      "license": "MIT",
+      "integrity": "sha512-ZSD/fN52L498LBIOYwjIOlaLv5veY6ZEwI2yzvZUKQtctn0QAPqu8tKdJ+OF5+Tv6NBq1U+wJWH+QI6OGy5EvQ==",
+      "licence_file": "LICENSE",
+      "licence_file_sha256": "034fb52b1d57360ecbae6cb1632a88f86fd7c3d3f5631a5f082710203dda0be7",
+      "copyright": "Copyright (c) 2021-present Shigma",
+      "install_scripts": false,
+      "in_notice": true
+    },
+    {
+      "name": "@standard-schema/spec",
+      "version": "1.1.0",
+      "license": "MIT",
+      "integrity": "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==",
+      "licence_file": "LICENSE",
+      "licence_file_sha256": "653b779005a3a4d64a7288c940f7b9a0e8f0b1e0375f6aa6af9473caf131e564",
+      "copyright": "Copyright (c) 2024 Colin McDonnell",
+      "install_scripts": false,
+      "in_notice": true
+    }
+  ],
+  "not_installed": [
+    {
+      "name": "@deepseek-ai/cordis-plugin-loader",
+      "range": "~1.0.5",
+      "why": "optional peer dependency (peerDependenciesMeta optional); only cordis bin.js imports it, and compose.mjs never runs bin.js"
+    },
+    {
+      "name": "@deepseek-ai/cordis-plugin-include",
+      "range": "~1.0.9",
+      "why": "optional peer dependency (peerDependenciesMeta optional); not imported by lib/index.js"
+    }
+  ],
+  "imports": "lib/index.js imports only @deepseek-ai/cosmokit; cosmokit and @standard-schema/spec import nothing; no node: built-in, process, network or file-system use in the installed tree",
+  "licences": [
+    "MIT"
+  ],
+  "result": "closed: 3 packages, all MIT; each MIT copyright and permission notice is reproduced in scripts/dehype/NOTICE; MIT permits this use beside the repository code under its current LICENSE and under AGPL-3.0 (design row 22)"
+}

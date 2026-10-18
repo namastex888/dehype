@@ -9,6 +9,8 @@ name: refresh
 # Reddit) and every dossier HN post; a post found gone leaves the history DB, a post not reached shows as a count.
 # Mastodon posts link to mastodon.social/statuses/<id> only after a logged-out render check passed (cached in
 # web/checks/mastodon-links.json); the check is time-capped and fail-closed, so a failure leaves every unchecked post a count.
+# The feeds (web/feed{,.pt}.{xml,json}) come from one Cordis step after pulse.py: @deepseek-ai/cordis pinned to 4.0.4 by its lockfile,
+# installed with --ignore-scripts in a step with no secret and no id-token (this job has neither), time-capped; it opens no server or socket.
 on:
   schedule:
     - cron: '17 9 * * *'   # 06:17 America/Sao_Paulo
@@ -101,6 +103,17 @@ jobs:
       - name: Drop removed and deleted dossier posts from hype.json (removals.json, checks/dossier-gone.json; deletion-only)
         # runs whatever Pulse did: an owner-accepted removal applies even on a day the recheck failed; idempotent, a no-op without a listed post
         run: python hype_build.py --scrub web/hype.json
+      - name: Compose the feeds and page tables (one-shot Cordis 4.0.4 from its lockfile; no secret in this step; time cap 2 min)
+        # node scripts/dehype/compose.mjs: a Cordis context loads the feed and frontend plugins, which write web/feed.xml, web/feed.json,
+        # web/feed.pt.xml, web/feed.pt.json and web/i18n/table.{en,pt}.json from the day's briefing.json, pulse.json, verdicts.json,
+        # story-aliases.json and i18n/strings.json, then disposes. A failure fails the run, so feeds out of step with briefing.json are never committed.
+        timeout-minutes: 2
+        run: |
+          start=$SECONDS
+          npm ci --prefix scripts/dehype --ignore-scripts --no-audit --no-fund
+          npm ls @deepseek-ai/cordis --prefix scripts/dehype | grep -q '@deepseek-ai/cordis@4.0.4'
+          node scripts/dehype/compose.mjs
+          echo "cordis step: $((SECONDS - start))s (npm ci and compose) of its 120s time cap"
       - name: Build semantic search index
         run: npm ci --prefix scripts/embed --ignore-scripts --no-audit --no-fund && node scripts/embed/embed.mjs web
       - name: Gate
@@ -111,7 +124,7 @@ jobs:
         run: |
           git config user.name "trend-observatory-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json web/briefing.json web/checks/mastodon-links.json web/story-aliases.json web/hype.json web/checks/dossier-gone.json
+          git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json web/briefing.json web/checks/mastodon-links.json web/story-aliases.json web/hype.json web/checks/dossier-gone.json web/feed.xml web/feed.json web/feed.pt.xml web/feed.pt.json
           if git diff --cached --quiet; then echo "no data change"; exit 0; fi
           git commit -m "data: daily refresh $(date -u +%Y-%m-%d)"
           # this push uses github.token, so it triggers no ci.yml run: the bot checks its own commit before pushing (no push on a failure)

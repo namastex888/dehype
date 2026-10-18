@@ -1,6 +1,7 @@
 // dehype shell (design rows 9-11, 13; D5 amended: static pages, one stylesheet, one script, no build): the briefing (index.html), all
 // stories, output, Hype, method and audit pages; index.html also folds the console's old URLs (fold below). Each page names the data
-// files it reads in <body data-src>; our own text comes from i18n/strings.json in en and pt; headlines and titles stay as posted with
+// files it reads in <body data-src>; our own text comes from i18n/strings.json in en and pt, through the page language's table
+// (i18n/table.en.json or i18n/table.pt.json, written by scripts/dehype/plugins/frontend.mjs, Decision 9); headlines and titles stay as posted with
 // their lang tag. The data files carry our own text in English: tr() maps such a value back to its strings.json entry with the
 // templates scripts/check_page.mjs uses (ours) and renders the page language. English method paragraphs are never shown: pages link
 // the method anchors (strings.json methods). Dossier prose shows in Portuguese only from a reviewed i18n/dossier.pt.json entry whose
@@ -15,14 +16,15 @@ const COUNT_ONLY = new Set(['Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'D
 const NOT_FETCHED = 'not fetched', DAY = 864e5;
 const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch { } } };
 const page = document.body.dataset.page, files = (document.body.dataset.src || '').split(/\s+/).filter(Boolean);
-let I = { strings: {}, fields: {} }, REF = {}, lang = 'en', theme = 'dark', DATA_KEYS = [], render = () => { };
+let I = { strings: {}, fields: {} }, lang = 'en', theme = 'dark', DATA_KEYS = [], render = () => { };
 const cache = {};
+const TABLE = { en: 'i18n/table.en.json', pt: 'i18n/table.pt.json' };   // strings.json per language, refs resolved (frontend.mjs)
 // ------------------------------------------------------------------ data and strings
 function load(f) {                                              // the one loader: JSON, the method sources as text, the search vectors as bytes
   return cache[f] ||= fetch(f, { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`); return /\.md$/.test(f) ? r.text() : /\.bin$/.test(f) ? r.arrayBuffer() : r.json(); });
 }
 const opt = (f, empty) => load(f).catch(() => empty);
-const entry = k => { const e = I.strings[k]; return e && e.ref ? REF[k] : e; };
+const entry = k => I.strings[k];
 function t(k, v = {}) { const e = entry(k), s = e ? (e[lang] || e.en) : k; return s.replace(/\{(\w+)\}/g, (m, x) => x in v ? v[x] : m); }
 const RX = {}, TR = new Map();
 const rx = k => RX[k] ||= new RegExp('^' + String(entry(k)?.en ?? '\u0000').replace(/[.*+?^$()|[\]\\]/g, '\\$&').replace(/\\?\{(\w+)\\?\}/g, '(?<$1>[\\s\\S]+?)') + '$');
@@ -64,7 +66,7 @@ function shell() {
 <div class="tools"><div class="seg" role="group" aria-label="${esc(t('ui.language'))}"><button data-lang="en" lang="en" aria-pressed="${lang === 'en'}">EN</button><button data-lang="pt" lang="pt" aria-pressed="${lang === 'pt'}">PT</button></div>
 <button class="btn" id="theme">${esc(t(theme === 'dark' ? 'ui.theme.light' : 'ui.theme.dark'))}</button></div></div>`;
   const nav = $('#top nav'), cur = $('[aria-current]', nav); if (cur && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = cur.offsetLeft - 16;
-  $$('[data-lang]').forEach(b => b.onclick = () => setLang(b.dataset.lang));
+  $$('[data-lang]').forEach(b => b.onclick = () => setLang(b.dataset.lang).catch(oops));
   $('#theme').onclick = () => { theme = theme === 'dark' ? 'light' : 'dark'; store.set('dehype.theme', theme); shell(); redraw(); };
   $$('[data-k]').forEach(el => el.textContent = t(el.dataset.k));
   document.documentElement.classList.add('ready');
@@ -73,7 +75,8 @@ function shell() {
   $('#foot').innerHTML = `<div class="wrap"><p>${esc(t('ui.foot.data'))} ${files.map(f => `<a href="${esc(f)}"><code class="mono">${esc(f)}</code></a>`).join(' · ')}</p>
 <p><a href="${METHOD()}">${esc(t('ui.method'))}</a> · <a href="${POLICY()}#corrections">${esc(t('ui.corrections'))}</a> · ${esc(t('ui.foot.counts'))}</p></div>`;
 }
-function setLang(l) {
+async function setLang(l) {
+  I = await load(TABLE[l]);
   lang = l; store.set('dehype.lang', l); TR.clear(); NAMES = null;
   const u = new URL(location.href); if (l === 'pt') u.searchParams.set('lang', 'pt'); else u.searchParams.delete('lang'); history.replaceState(null, '', u);
   shell(); render();
@@ -595,19 +598,19 @@ ${E.length ? `<div class="tw">${table({ cols: [[t('audit.col.date')], [t('audit.
   render();
 }
 // ------------------------------------------------------------------ start
+const oops = e => { document.documentElement.classList.add('ready'); $('#body').innerHTML = `<div class="err">${esc(t('ui.error'))} <span class="mono">${esc(e.message)}</span></div>`; };
 async function start() {
   if (page === 'index') { const to = fold(location.hash, location.search); if (to?.startsWith('index.html')) history.replaceState(null, '', to); else if (to) return location.replace(to); }
   const u = new URLSearchParams(location.search);
   lang = ['en', 'pt'].includes(u.get('lang')) ? u.get('lang') : store.get('dehype.lang') === 'pt' ? 'pt' : 'en';
   theme = store.get('dehype.theme') === 'light' ? 'light' : 'dark';
   try {
-    I = await load('i18n/strings.json');
-    for (const [k, v] of Object.entries(I.strings)) if (v.ref) { const [f, key] = v.ref.split('#'); REF[k] = at(await load('i18n/' + f), key); }
+    I = await load(TABLE[lang]);
     DATA_KEYS = [...new Set(Object.values(I.fields || {}).flatMap(p => Object.values(p).flatMap(s => Array.isArray(s) ? s : s.keys || [])))];
     shell();
     $('#main').classList.add('loading');
     await ({ index, stories, output, hype, method, audit })[page]();
-  } catch (e) { document.documentElement.classList.add('ready'); $('#body').innerHTML = `<div class="err">${esc(t('ui.error'))} <span class="mono">${esc(e.message)}</span></div>`; }
+  } catch (e) { oops(e); }
   $('#main').classList.remove('loading');
 }
 start();
