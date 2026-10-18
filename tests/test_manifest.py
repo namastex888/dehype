@@ -140,6 +140,35 @@ class ManifestTest(unittest.TestCase):
             self.assertFalse(os.path.exists(os.path.join(d, 'web', 'ledger', 'index.json')) and json.loads(read(os.path.join(d, 'web', 'ledger', 'index.json'))))
 
 
+OTS_MAGIC = bytes.fromhex('004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e89294')     # opentimestamps 0.4.9's detached-proof header
+
+
+def varuint(n):
+    out = b''
+    while n > 127: out += bytes([n & 127 | 128]); n >>= 7
+    return out + bytes([n])
+
+
+def ots_proof(digest, *attestations, nonce=b'\x00' * 16):
+    """A version-1 OpenTimestamps proof of a SHA256 digest, built by hand: append a nonce, SHA256, then each attestation (('pending',
+    uri) or ('bitcoin', height)) on that message. The shape of a real proof (tests/fixtures/ots/live-stamp.ots), with no calendar."""
+    tags = {'pending': '83dfe30d2ef90c8e', 'bitcoin': '0588960d73d71901'}
+    att = [b'\x00' + bytes.fromhex(tags[k]) + (lambda p: varuint(len(p)) + p)(varuint(len(v)) + v.encode() if k == 'pending' else varuint(v))
+           for k, v in attestations or [('pending', 'https://alice.btc.calendar.opentimestamps.org')]]
+    tree = b''.join(b'\xff' + a for a in att[:-1]) + att[-1]
+    return OTS_MAGIC + b'\x01\x08' + bytes.fromhex(digest) + b'\xf0' + varuint(len(nonce)) + nonce + b'\x08' + tree
+
+
+def stamped(web, date, proof=None):
+    """What scripts/ots.mjs stamp leaves (group E2), without a calendar: ledger/ots/<date>.ots and the entry's ots field."""
+    L = os.path.join(web, 'ledger', 'index.json'); E = json.loads(read(L)); e = next(x for x in E if x['date'] == date)
+    b = proof or ots_proof(e['manifest_sha256'])
+    os.makedirs(os.path.join(web, 'ledger', 'ots'), exist_ok=True)
+    with open(os.path.join(web, 'ledger', 'ots', f'{date}.ots'), 'wb') as f: f.write(b)
+    e['ots'] = {'file': f'ots/{date}.ots', 'sha256': hashlib.sha256(b).hexdigest()}
+    put(L, json.dumps(E, ensure_ascii=False, separators=(',', ':')))
+
+
 class LedgerTest(unittest.TestCase):
     """The ledger part of SC-18 (C3) and the story-id archive (C32, Decision 13): the ledger's SHA256 equals the Release asset's."""
     def test_ledger_entry_day_file_archive_and_the_release_asset_hash(self):
@@ -149,7 +178,8 @@ class LedgerTest(unittest.TestCase):
             B, P = (json.loads(read(os.path.join(web, f))) for f in ('briefing.json', 'pulse.json'))
             date = manifest.sp_date(B['generated_at'])
             [e] = json.loads(read(os.path.join(web, 'ledger', 'index.json')))
-            self.assertEqual((e['date'], e['asset'], e['release'], e['block']), (date, f'manifest-{date}.json.gz', None, None))
+            self.assertEqual((e['date'], e['asset'], e['release']), (date, f'manifest-{date}.json.gz', None))
+            self.assertFalse({'ots', 'anchored', 'block'} & set(e))                          # the proof fields are scripts/ots.mjs's (E2)
             self.assertEqual(e['ledger_sha256'], hashlib.sha256(read(os.path.join(web, 'ledger', f'{date}.json'))).hexdigest())
             day = json.loads(read(os.path.join(web, 'ledger', f'{date}.json')))
             self.assertEqual(day['manifest']['sha256'], e['manifest_sha256']); self.assertEqual([g['id'] for g in day['gauges']], [g['id'] for g in B['gauges']])
@@ -161,6 +191,7 @@ class LedgerTest(unittest.TestCase):
             [e] = json.loads(read(os.path.join(web, 'ledger', 'index.json')))
             self.assertEqual(e['release']['sha256'], hashlib.sha256(read(asset)).hexdigest())
             self.assertEqual(e['release']['sha256'], e['manifest_sha256'])
+            stamped(web, date)                                                             # the day's proof (E2) before the gate
             g = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
             self.assertEqual(g.returncode, 0, g.stderr); self.assertIn('ledger 1 days', g.stdout)
             with open(asset, 'ab') as f: f.write(b'\0')                                       # a Release asset that is not the manifest
@@ -209,6 +240,7 @@ class LedgerGateTest(unittest.TestCase):
         cls.date = manifest.sp_date(B['generated_at'])
         assert published(d, cls.date)[1].returncode == 0
         cls.web = os.path.join(d, 'web')
+        stamped(cls.web, cls.date)
 
     @classmethod
     def tearDownClass(cls): cls.tmp.cleanup()
@@ -252,6 +284,7 @@ class LedgerGateTest(unittest.TestCase):
     def test_the_archive_is_covered_even_when_the_index_has_no_entry_for_its_date(self):
         def change(L):
             put(os.path.join(L, 'index.json'), '[]'); os.remove(os.path.join(L, f'{self.date}.json'))      # the Release failed: no entry
+            os.remove(os.path.join(L, 'ots', f'{self.date}.ots'))                                     # and no proof (refresh.yml's drop step)
             self.edit(f'ids/{self.date}.json', lambda A: A.update(ids=A['ids'][1:]))(L)
         self.assert_only(self.overlay(change), f"ledger/ids/{self.date}.json: the day's archive file lacks a story id its pulse.json or briefing.json publishes")
 

@@ -389,6 +389,18 @@ Quando um item de newsletter é processado, os links do seu HTML são lidos ante
 
 `pulse.json` traz `projects`: para cada id de projeto HYPE, as vozes, os posts e as redes em 7 e em 30 dias entre os posts **ao vivo** amostrados (HN, Reddit, Mastodon, Lobsters, newsletters; nunca o rastreador nem o dossiê de pesquisa estático) que casam com o nome ou os aliases do projeto; feeds oficiais de fornecedores nunca contam. Um valor 0 significa nenhum post correspondente nos nossos feeds amostrados, não atenção zero; um traço significa que o arquivo do Pulse está indisponível. As colunas do dossiê de pesquisa na aba Hype continuam sendo uma amostra estática na data de corte de conteúdo do dossiê.
 
+<a id="timestamp-proof"></a>
+## Prova de carimbo de tempo
+
+O manifesto de entrada de cada dia (o arquivo na sua Release datada do GitHub, cujo SHA256 o registro anota) recebe uma prova [OpenTimestamps](https://opentimestamps.org), `web/ledger/ots/YYYY-MM-DD.ots`, feita pelo cliente JavaScript `opentimestamps` fixado exatamente na 0.4.9 (LGPL-3.0, instalado sem modificação a partir de `scripts/checks/package-lock.json`). A atualização envia só o SHA256 do manifesto aos calendários públicos do OpenTimestamps, então a prova é registrada **pendente**: os calendários se comprometem a colocá-la em uma transação de Bitcoin. Cada atualização seguinte roda o `upgrade` do cliente em toda prova que nenhuma entrada do registro anota como ancorada, registra o arquivo atualizado no mesmo lugar e confere cada prova completa com `verify --ignore-bitcoin-node`. A data e a altura do bloco de Bitcoin de cada prova aceita vão para a entrada **da própria execução** (`anchored`); entradas anteriores nunca são editadas, e uma prova nunca muda depois que uma entrada do registro anota o seu bloco. A página de auditoria só mostra "ancorada" para uma data quando uma entrada do registro anota o seu bloco; antes disso, "pendente".
+
+**Em que a atualização confia.** A atualização não roda um nó de Bitcoin. `verify --ignore-bitcoin-node` pega o cabeçalho do bloco no explorador público Esplora em `https://blockstream.info/api` e **assume que o bloco desse explorador é válido**; um explorador errado poderia fazer uma prova falsa parecer ancorada. Quem tem um nó de Bitcoin pode dispensar essa confiança: baixe o manifesto da sua Release e a prova do site e rode `ots verify`, que confere o cabeçalho no próprio nó (o primeiro comando abaixo; o segundo é a rota da atualização pelo explorador). Uma prova diz só que o manifesto existia até o horário daquele bloco; ela não diz que algum veredito está certo.
+
+```
+ots verify -f manifest-YYYY-MM-DD.json.gz YYYY-MM-DD.ots
+npx -p opentimestamps@0.4.9 ots-cli.js verify --ignore-bitcoin-node -f manifest-YYYY-MM-DD.json.gz YYYY-MM-DD.ots
+```
+
 <a id="known-biases"></a>
 ## Vieses conhecidos
 
