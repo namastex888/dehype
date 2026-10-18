@@ -1103,6 +1103,8 @@ class VerdictFixtureTest(unittest.TestCase):
             with open(os.path.join(web, 'story-aliases.json'), 'w') as f: json.dump({'aliases': {}}, f)   # the committed map moves daily
             shutil.rmtree(os.path.join(web, 'ledger'), ignore_errors=True); os.makedirs(os.path.join(web, 'ledger'))   # so does the ledger
             with open(os.path.join(web, 'ledger', 'index.json'), 'w') as f: f.write('[]')
+            _B = os.path.join(web, 'briefing.json'); _b = json.loads(open(_B).read()); _b['ledger_days'] = 0
+            with open(_B, 'w') as _f: json.dump(_b, _f, separators=(',', ':'), ensure_ascii=False)   # its briefing counts the same day-0 ledger
             if tree: shutil.copytree(tree, web, dirs_exist_ok=True)
             for rel, body in (files or {}).items():
                 if body is None: os.remove(os.path.join(web, rel)); continue

@@ -38,6 +38,8 @@ def scratch(d):
     shutil.copytree(WEB, web); os.makedirs(hist)
     shutil.rmtree(os.path.join(web, 'ledger'), ignore_errors=True); os.makedirs(os.path.join(web, 'ledger'))
     put(os.path.join(web, 'ledger', 'index.json'), '[]')              # the committed ledger grows daily: these cases start from day 0
+    _B = os.path.join(web, 'briefing.json'); _b = json.loads(open(_B).read()); _b['ledger_days'] = 0
+    with open(_B, 'w') as _f: json.dump(_b, _f, separators=(',', ':'), ensure_ascii=False)   # its briefing counts the same day-0 ledger
     gen = pulse.parse_dt(json.loads(read(os.path.join(web, 'briefing.json')))['generated_at'])
     rows = {}
     con = sqlite3.connect(os.path.join(hist, 'signals.sqlite'))
