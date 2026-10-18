@@ -15,11 +15,11 @@ authors:
   - name: Namastex
 repository-code: "https://github.com/namastex888/dehype"
 url: "https://namastex888.github.io/dehype/"
-# Code is AGPL-3.0-only from the commit that replaced the MIT LICENSE; the data (web/*.json, feeds, ledger) are CC BY-SA 4.0 for our
+# Code is AGPL-3.0-or-later from the commit that replaced the MIT LICENSE; the data (web/*.json, feeds, ledger) are CC BY-SA 4.0 for our
 # selection, arrangement and computed fields only. Earlier commits and the 2.0 release (2026-10-07, the last one under MIT and CC BY 4.0)
 # keep MIT and CC BY 4.0; no version is named here until the next release is cut.
 license:
-  - AGPL-3.0-only
+  - AGPL-3.0-or-later
   - CC-BY-SA-4.0
 keywords:
   - AI agents

@@ -408,7 +408,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for data sources, seed lists and the neve
 
 From the commit that adds this section and replaces the MIT `LICENSE` file (`git log --follow -- LICENSE` names it), dehype is licensed as follows:
 
-- **Code** (everything in this repository that is not data): [AGPL-3.0](LICENSE), the GNU Affero General Public License, version 3 only. Whoever runs a modified copy as a network service offers its users the source of that version.
+- **Code** (everything in this repository that is not data): [AGPL-3.0](LICENSE), the GNU Affero General Public License, version 3 or (at your option) any later version. Whoever runs a modified copy as a network service offers its users the source of that version.
 - **Data** (`web/*.json`, the four feeds, `web/ledger/` and the assets of the dated Releases): [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), covering only our selection, arrangement and computed fields: scores, counts, coverage, story ids, gauge values, evidence states and our own text. It does not relicense what we did not make: post titles, headlines, names, links and other third-party text keep their owners' terms, and each source keeps its own (arXiv metadata is CC0).
 - **Earlier releases keep their licence.** Every commit and release before that commit, the 2.0 release of 2026-10-07 included, stays available under MIT for code and CC BY 4.0 for data; this change withdraws neither grant.
 - Third-party code keeps its own licence and notice: Cordis (MIT) in `scripts/dehype/NOTICE`, and the OpenTimestamps client (LGPL-3.0) in `scripts/checks/NOTICE`; the search by meaning loads transformers.js (Apache-2.0) and onnxruntime-web (MIT) from their own packages.

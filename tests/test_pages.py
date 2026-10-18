@@ -273,7 +273,7 @@ class ReleaseTest(unittest.TestCase):
         with open(os.path.join(ROOT, 'LICENSE'), 'rb') as f: lic = f.read()
         self.assertEqual(hashlib.sha256(lic).hexdigest(), '0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0')   # the GNU text, verbatim
         cff = read(os.path.join(ROOT, 'CITATION.cff'))
-        self.assertIn('  - AGPL-3.0-only\n  - CC-BY-SA-4.0', cff); self.assertNotIn('\nversion:', cff)
+        self.assertIn('  - AGPL-3.0-or-later\n  - CC-BY-SA-4.0', cff); self.assertNotIn('\nversion:', cff)
         for f in ('README.md', 'CONTRIBUTING.md'):
             t = read(os.path.join(ROOT, f))
             for w in ('AGPL-3.0', 'CC BY-SA 4.0', 'MIT', 'CC BY 4.0'): self.assertIn(w, t, f)
