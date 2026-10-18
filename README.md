@@ -7,7 +7,7 @@
 
 ![dehype: the daily AI reality briefing](web/og.png)
 
-How it fits together, in plain diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Current sequencing and decisions: [docs/ROADMAP.md](docs/ROADMAP.md). Launch plan (2026-10-16; its Cloudflare and licence lines are superseded, see [ROADMAP.md](docs/ROADMAP.md#superseded-statements)): [docs/PUBLISHING.md](docs/PUBLISHING.md).
+How it fits together, in plain diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Current sequencing and decisions: [docs/ROADMAP.md](docs/ROADMAP.md). Launch plan and talk track (rewritten 2026-10-18): [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Research and roadmap state
 

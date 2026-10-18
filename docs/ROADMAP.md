@@ -51,7 +51,7 @@ S1, the daily briefing, is wish [dehype-s1](../.genie/wishes/dehype-s1/WISH.md).
 
 ## Superseded statements
 
-Two older documents are kept as written on their dates; where they disagree with this roadmap, this roadmap holds.
+Older documents are kept as written on their dates unless noted; where they disagree with this roadmap, this roadmap holds.
 
-- [PUBLISHING.md](PUBLISHING.md) (launch plan, 2026-10-16): its Cloudflare lines (the Cloudflare URL, "Cloudflare becomes the primary", step L2) are superseded by D2, GitHub Pages only. Its "Code (MIT), data snapshots (CC BY 4.0)" reads, from the licence change forward, code AGPL-3.0 and data CC BY-SA 4.0 for our selection, arrangement and computed fields; earlier releases keep MIT and CC BY 4.0.
+- [PUBLISHING.md](PUBLISHING.md): the 2026-10-16 launch plan's Cloudflare and MIT / CC BY 4.0 lines were superseded by D2 and the licence change; the file was rewritten on 2026-10-18 and is current.
 - [SIGNALS_PLAN.md](SIGNALS_PLAN.md), the TrendRadar row: "GPL into MIT" no longer applies, because this code is now AGPL-3.0 and GPL-3.0 code can be combined with it (section 13 of both licences); the verdict stands for its other reason, the goodwill server that relays cookie-scraped data.
