@@ -264,7 +264,7 @@
   "status.feeds.awareness": {"en": "Awareness map", "pt": "Mapa de consciência"},
   "status.roadmap": {"en": "Roadmap", "pt": "Roteiro"},
   "status.roadmap.sub": {"en": "What each step delivers, in order. Every step after S1 is its own wish.", "pt": "O que cada etapa entrega, em ordem. Cada etapa depois do S1 é um wish próprio."},
-  "status.state.done": {"en": "built", "pt": "construído"},
+  "status.state.built": {"en": "built", "pt": "construído"},
   "status.state.next": {"en": "next", "pt": "próximo"},
   "status.state.planned": {"en": "planned", "pt": "planejado"},
   "status.release.match": {"en": "manifest hashes equal", "pt": "hashes do manifesto iguais"},

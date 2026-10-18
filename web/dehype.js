@@ -621,10 +621,11 @@ ${S.has(proven.date) ? '' : `<p class="dim">${esc(t('audit.ots.pending'))}</p>`}
 // briefing.json, pulse.json and data.json at runtime (a name in more than one file shows once, briefing first); the other groups and the
 // roadmap come from the owner-reviewed i18n/sources-plan.json (en and pt text, terms, the gauges a source would feed). A plan row whose
 // `live` name a data file reports "not connected" carries that runtime status and leaves the Live group. The record line reads the
-// ledger as the audit page does: days = ledger/index.json entries, the latest Release, its attestation and the latest proof state.
+// ledger as the audit page does: days = briefing.json ledger_days (the count every page shows), the latest Release, its attestation
+// and the latest proof state from ledger/index.json.
 const FEEDS = { output_by_area: 'gauge.output_by_area', hype_vs_substance: 'gauge.hype_vs_substance', daily_movers: 'gauge.daily_movers', risk: 'panel.risk', jobs: 'panel.jobs', awareness: 'status.feeds.awareness' };
 const GROUPS = { ready: 'status.group.ready', pending: 'status.group.pending', held: 'status.group.held', free: 'status.group.free' };
-const STATES = { done: 'status.state.done', next: 'status.state.next', planned: 'status.state.planned' };
+const STATES = { built: 'status.state.built', next: 'status.state.next', planned: 'status.state.planned' };
 const SEV = { failed: 0, partial: 1, 'not connected': 2, ok: 4 };
 const stCell = s => `<span class="st ${{ ok: 'ok', partial: 'partial', failed: 'bad' }[s] || 'nf'}"><b aria-hidden="true">${{ ok: '●', partial: '◐', failed: '✕' }[s] || '○'}</b> ${esc(tr(s ?? 'unknown'))}</span>`;
 async function status() {
@@ -636,7 +637,7 @@ async function status() {
   }
   const plan = (P.sources || []).filter(e => e.group in GROUPS), claimed = new Set(plan.filter(e => live.get(e.live)?.status === 'not connected').map(e => e.live));
   const rows = [...live].filter(([n]) => !claimed.has(n)).sort((a, b) => (SEV[a[1].status] ?? 3) - (SEV[b[1].status] ?? 3));
-  const E = Array.isArray(L) ? L : L?.entries || [], last = E.at(-1), S = proofStates(E), proven = [...E].reverse().find(e => S.has(e.date)) || last, days = E.length;
+  const E = Array.isArray(L) ? L : L?.entries || [], last = E.at(-1), S = proofStates(E), proven = [...E].reverse().find(e => S.has(e.date)) || last, days = B?.ledger_days ?? 0;
   const none = `<span class="pill">${esc(t('audit.pending'))}</span>`, txt = e => e[lang] || e.en || {};
   const feeds = e => (e.feeds || []).filter(f => f in FEEDS).map(f => esc(t(FEEDS[f]))).join(' · ') || '—';
   render = () => {

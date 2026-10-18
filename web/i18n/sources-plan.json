@@ -1,5 +1,5 @@
 {
-  "note": "Owner-reviewed (scripts/check_owner_files.py OWNER_FILES): the sources that are not live yet and the roadmap, as the Sources page (status.html) shows them. Live sources are not listed here: the page reads them from the sources block of briefing.json, pulse.json and data.json at runtime. groups: ready (credentials ready, not wired), pending (waiting on the provider), held (held or paid), free (free, not wired yet). live: the name a data file's sources block uses for this source, when it already reports one; the page then shows that runtime status on this row. feeds: the gauges or panels it would feed (output_by_area, hype_vs_substance, daily_movers, risk, jobs, awareness). roadmap state: done, next or planned. No counts here and no link to a count-only network (scripts/check_page.mjs).",
+  "note": "Owner-reviewed (scripts/check_owner_files.py OWNER_FILES): the sources that are not live yet and the roadmap, as the Sources page (status.html) shows them. Live sources are not listed here: the page reads them from the sources block of briefing.json, pulse.json and data.json at runtime. groups: ready (credentials ready, not wired), pending (waiting on the provider), held (held or paid), free (free, not wired yet). live: the name a data file's sources block uses for this source, when it already reports one; the page then shows that runtime status on this row. feeds: the gauges or panels it would feed (output_by_area, hype_vs_substance, daily_movers, risk, jobs, awareness). roadmap state: built, next or planned. No counts here and no link to a count-only network (scripts/check_page.mjs).",
   "sources": [
     {"id": "youtube", "group": "ready", "feeds": ["hype_vs_substance", "daily_movers"],
      "en": {"name": "YouTube Data API", "what": "Video counts and view counts per story, from a free API key.", "terms": "YouTube API terms; YouTube stays counts only on our pages: no titles, links or channel names."},
@@ -11,8 +11,8 @@
      "en": {"name": "BLS (US Bureau of Labor Statistics)", "what": "Official US employment series for general labour context on the Jobs panel.", "terms": "US government data, public domain; the API asks for a registered key, which is ready."},
      "pt": {"name": "BLS (Bureau of Labor Statistics dos EUA)", "what": "Séries oficiais de emprego dos EUA, como contexto geral do mercado de trabalho no painel de Empregos.", "terms": "Dados do governo dos EUA, em domínio público; a API pede uma chave registrada, que já está pronta."}},
     {"id": "producthunt", "group": "ready", "feeds": ["hype_vs_substance", "daily_movers"],
-     "en": {"name": "Product Hunt", "what": "AI product launches and their upvote counts, a launch signal next to papers and repositories.", "terms": "Product Hunt API with a developer token; its terms limit commercial use, to be read before wiring."},
-     "pt": {"name": "Product Hunt", "what": "Lançamentos de produtos de IA e seus votos, um sinal de lançamento ao lado de artigos e repositórios.", "terms": "API do Product Hunt com um token de desenvolvedor; os termos limitam o uso comercial e serão lidos antes da integração."}},
+     "en": {"name": "Product Hunt", "what": "AI product launches and their upvote counts, a launch signal next to papers and repositories.", "terms": "Product Hunt API with a developer token; its terms appear to limit commercial use; to be confirmed before wiring."},
+     "pt": {"name": "Product Hunt", "what": "Lançamentos de produtos de IA e seus votos, um sinal de lançamento ao lado de artigos e repositórios.", "terms": "API do Product Hunt com um token de desenvolvedor; os termos parecem limitar o uso comercial; a confirmar antes da integração."}},
     {"id": "onet_bulk", "group": "ready", "feeds": ["jobs"],
      "en": {"name": "O*NET bulk database (CSV)", "what": "Occupations, their tasks and skills, so the Jobs panel can say which kinds of work a story touches.", "terms": "CC BY 4.0, attribution required; the files are downloaded with a checksum manifest."},
      "pt": {"name": "Banco de dados O*NET em lote (CSV)", "what": "Ocupações, suas tarefas e habilidades, para o painel de Empregos dizer que tipos de trabalho uma história toca.", "terms": "CC BY 4.0, com atribuição obrigatória; os arquivos já estão baixados com um manifesto de checksums."}},
@@ -56,11 +56,11 @@
      "en": {"name": "Federal Register and EUR-Lex", "what": "US and EU rules and notices about AI, as dated, sourced events.", "terms": "Official public records; the Federal Register is public domain and EUR-Lex allows reuse with attribution."},
      "pt": {"name": "Federal Register e EUR-Lex", "what": "Regras e avisos dos EUA e da UE sobre IA, como eventos datados e com fonte.", "terms": "Registros públicos oficiais; o Federal Register é domínio público e o EUR-Lex permite reuso com atribuição."}},
     {"id": "oecd_incidents", "group": "free", "feeds": ["risk"],
-     "en": {"name": "OECD AI Incidents Monitor", "what": "Reported AI incidents, the first candidate for the risk event log.", "terms": "OECD terms allow reuse with attribution; checked before wiring."},
-     "pt": {"name": "Monitor de Incidentes de IA da OCDE", "what": "Incidentes de IA relatados, o primeiro candidato para o registro de riscos.", "terms": "Os termos da OCDE permitem reuso com atribuição; conferidos antes da integração."}}
+     "en": {"name": "OECD AI Incidents Monitor", "what": "Reported AI incidents, the first candidate for the risk event log.", "terms": "OECD terms appear to allow reuse with attribution; to be confirmed before wiring."},
+     "pt": {"name": "Monitor de Incidentes de IA da OCDE", "what": "Incidentes de IA relatados, o primeiro candidato para o registro de riscos.", "terms": "Os termos da OCDE parecem permitir reuso com atribuição; a confirmar antes da integração."}}
   ],
   "roadmap": [
-    {"id": "S1", "state": "done",
+    {"id": "S1", "state": "built",
      "en": {"name": "Daily briefing", "what": "The daily briefing, its stories, the ledger, the Release, the attestation and the timestamp proof are built; S1 passes after 14 dated briefings and the owner's confirm."},
      "pt": {"name": "Briefing diário", "what": "O briefing diário, suas histórias, o registro diário, a Release, o atestado e a prova de carimbo de tempo estão prontos; o S1 passa depois de 14 briefings datados e da confirmação do dono."}},
     {"id": "sources", "state": "next",

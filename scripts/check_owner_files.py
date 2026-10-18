@@ -1,6 +1,7 @@
 """Owner-reviewed files in git (design row 7, C11, C40; row 19, C44), run by ci.yml against the base commit of the change:
 web/corrections.json is appended to, never edited over (every entry at the base commit is still there, unchanged and in its place), and no
-commit by the refresh bot touches web/verdicts.json, web/corrections.json or web/removals.json (they enter only by a merged pull request).
+commit by the refresh bot touches an owner-reviewed file: web/verdicts.json, web/corrections.json, web/removals.json, web/i18n/x-org-accounts.json
+or web/i18n/sources-plan.json (OWNER_FILES; they enter only by a merged pull request).
 Standard library only. Usage: python3 scripts/check_owner_files.py [--repo DIR] [--head REF] BASE
 BASE is the pull request's base sha or the push's `before` sha; an empty or all-zero BASE (a new branch) is checked against HEAD~1."""
 import argparse, json, subprocess, sys

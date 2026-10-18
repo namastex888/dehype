@@ -880,7 +880,7 @@ let pageNote = 'no dehype pages';
 // owner-reviewed i18n/sources-plan.json, whose rows carry their en and pt text, a known group, gauge and state, and nothing else (no status,
 // detail or count is written into the plan); the plan keeps the public-data rules, and dehype.js knows every gauge id the plan may name.
 function planRules(js) {                                         // called from the pages block above, so its constants live here
-  const PLAN = 'i18n/sources-plan.json', PLAN_GROUPS = ['ready', 'pending', 'held', 'free'], PLAN_STATES = ['done', 'next', 'planned'];
+  const PLAN = 'i18n/sources-plan.json', PLAN_GROUPS = ['ready', 'pending', 'held', 'free'], PLAN_STATES = ['built', 'next', 'planned'];
   const PLAN_FEEDS = ['output_by_area', 'hype_vs_substance', 'daily_movers', 'risk', 'jobs', 'awareness'];
   const PLAN_ROW = new Set(['id', 'group', 'live', 'feeds', 'en', 'pt']), PLAN_STEP = new Set(['id', 'state', 'en', 'pt']);
   const P = readJSON(PLAN, `${PLAN} missing (the Sources page plan, owner-reviewed; status.html reads it)`);
