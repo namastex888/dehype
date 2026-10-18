@@ -17,8 +17,8 @@ name: refresh
 # Ledger (design row 17; C3, C16, C32): scripts/manifest.py builds the day's input manifest (dist/, never committed; Reddit and Bluesky
 # records only as SHA256 of their stored rows, no handle), writes web/ledger/<date>.json, its web/ledger/index.json entry and the story-id
 # archive web/ledger/ids/<date>.json; the manifest goes on the dated Release ledger-<date> (a draft until the data commit is pushed, then
-# published on that commit, never replaced, made with --latest=false; GitHub still badges it Latest while no other full Release exists,
-# because the latest release is the newest non-draft, non-prerelease one) and, downloaded back, must hash to the ledger's manifest_sha256 before
+# published on that commit, never replaced, made with --latest=false; GitHub still badges a ledger Release Latest because no other full
+# Release exists to take the badge) and, downloaded back, must hash to the ledger's manifest_sha256 before
 # anything is committed. The Sigstore attestation of the manifest is made by the separate attest job (C42).
 # OpenTimestamps (design row 18; C4, C38): scripts/ots.mjs, with opentimestamps pinned to 0.4.9 by scripts/checks/package-lock.json (LGPL-3.0,
 # scripts/checks/NOTICE), stamps the day's manifest SHA256 into web/ledger/ots/<date>.ots before the Release step (no calendar answer: no

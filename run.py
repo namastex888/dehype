@@ -118,7 +118,7 @@ def http_get(url, headers=None, timeout=40):
         body = (e.read()[:300] if hasattr(e, 'read') else b'').decode('utf-8', 'replace')
         hd = dict(e.headers or {})
         rem = hd.get('X-RateLimit-Remaining') or hd.get('x-ratelimit-remaining')
-        limited = e.code == 429 or rem == '0' or 'rate limit' in body.lower()   # callers stop on 'rate limit' in str(e)
+        limited = e.code == 429 or (e.code == 403 and (rem == '0' or 'rate limit' in body.lower()))   # callers stop on 'rate limit' in str(e)
         raise HTTPErr(e.code, 'rate limit' if limited else http.client.responses.get(e.code, 'error'), hd, body)
 
 # ---------------------------------------------------------------- rate limiters

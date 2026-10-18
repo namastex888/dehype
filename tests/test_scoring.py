@@ -344,6 +344,9 @@ class TestSourceNotes(unittest.TestCase):
                 with self.assertRaises(run.HTTPErr) as cm: run.http_get('https://api.github.com/x')
                 self.assertEqual(str(cm.exception), 'HTTP 403: rate limit')
                 self.assertEqual(cm.exception.body, body.decode())
+        with patch.object(run.urllib.request, 'urlopen', side_effect=self.http_error(404, b'{}', X_RateLimit_Remaining='0')):
+            with self.assertRaises(run.HTTPErr) as cm: run.http_get('https://api.github.com/x')
+            self.assertEqual(str(cm.exception), 'HTTP 404: Not Found')   # the last call of the budget is not a rate-limit answer
 
 
 class TestMovement(unittest.TestCase):
