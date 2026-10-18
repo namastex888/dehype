@@ -487,8 +487,9 @@ let feedNote = 'no feeds';
 // briefing (same generated_at as briefing.json and pulse.json) holds every story id they publish. A stale briefing (compose.mjs after a failed Pulse step) names its date
 // (the São Paulo date of generated_at), its reason and the failed run's time, carries no value over, and the JSON feeds read it too.
 // OpenTimestamps (design row 18, proof part; C4, C38; group E2; scripts/ots.mjs): every entry names its proof ots/<date>.ots, which is
-// present and commits (its SHA256 file digest) to the entry's manifest_sha256. A later run that finds a proof anchored records it in its
-// own entry's `anchored` list as {date, block, time, ots_sha256}: the date names an entry before the recording one and is recorded
+// present and commits (its SHA256 file digest) to the entry's manifest_sha256; the entry's ots.sha256 is the proof's SHA256 at stamp time
+// (the pending file as first published: an upgrade later rewrites the file in place, so it is not compared with the file). A later run
+// that finds a proof anchored records it in its own entry's `anchored` list as {date, block, time, ots_sha256}: the date names an entry before the recording one and is recorded
 // once, the block is a Bitcoin block height the proof attests, and the proof file still hashes to ots_sha256 (no proof is edited after
 // anchoring). No proof file is left without its entry. The proof is read in the detached format of the pinned opentimestamps 0.4.9 client.
 const OTS_MAGIC = Buffer.from('004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e89294', 'hex');

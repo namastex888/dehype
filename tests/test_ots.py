@@ -5,7 +5,7 @@ own finding, or passing) use hand-built proofs (test_manifest.ots_proof) and the
 (tests/fixtures/ots/live-stamp.ots). The client cases run scripts/ots.mjs with the pinned opentimestamps 0.4.9 against a local server
 that answers as a calendar and as the Esplora explorer, replaying recorded responses (tests/fixtures/ots/esplora-358391.json); they skip
 when scripts/checks is not installed (npm ci --prefix scripts/checks --ignore-scripts)."""
-import hashlib, json, os, re, shutil, subprocess, sys, tempfile, threading, unittest
+import hashlib, json, os, re, shutil, subprocess, sys, tempfile, threading, time, unittest
 from datetime import date as Date, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -186,6 +186,7 @@ class Server:
     explorer (GET /block-height/<h>, /block/<hash>) whose block's merkle root ends that path, or the recorded responses of block 358391."""
     def __init__(self):
         self.mode, self.esplora, self.log, self.heights, self.roots = 'pending', 'up', [], {}, {}
+        self.release = threading.Event()          # 'hang': accept and never answer (until close); 'anchor-first': hang after one anchor
         self.recorded = json.loads(read(os.path.join(FIX, 'esplora-358391.json')))
         srv = self
 
@@ -196,6 +197,7 @@ class Server:
                 self.end_headers(); self.wfile.write(body)
             def do_POST(self):
                 self.rfile.read(int(self.headers.get('Content-Length') or 0)); srv.log.append(('POST', self.path))
+                if srv.mode == 'hang': return srv.release.wait(30)
                 if srv.mode == 'down': return self.send(503, b'down')
                 uri = srv.url.encode()
                 payload = varuint(len(uri)) + uri
@@ -203,7 +205,8 @@ class Server:
             def do_GET(self):
                 p = self.path.strip('/'); srv.log.append(('GET', p))
                 if p.startswith('timestamp/'):
-                    if srv.mode != 'anchored': return self.send(404, b'Pending confirmation in Bitcoin blockchain', 'text/plain')
+                    if srv.mode == 'hang' or (srv.mode == 'anchor-first' and srv.heights and p.split('/')[1] not in srv.heights): return srv.release.wait(30)
+                    if srv.mode not in ('anchored', 'anchor-first'): return self.send(404, b'Pending confirmation in Bitcoin blockchain', 'text/plain')
                     c = p.split('/')[1]; h = srv.heights.setdefault(c, 868000 + len(srv.heights)); v = varuint(h)
                     srv.roots[h] = hashlib.sha256(bytes.fromhex(c) + PATH).digest()[::-1].hex()      # the path a calendar answers: append, sha256
                     return self.send(200, b'\xf0' + varuint(len(PATH)) + PATH + b'\x08\x00' + bytes.fromhex('0588960d73d71901') + varuint(len(v)) + v)
@@ -218,7 +221,7 @@ class Server:
         self.url = f'http://127.0.0.1:{self.httpd.server_address[1]}'
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
 
-    def close(self): self.httpd.shutdown(); self.httpd.server_close()
+    def close(self): self.release.set(); self.httpd.shutdown(); self.httpd.server_close()
 
 
 @unittest.skipUnless(HAVE_CLIENT, 'opentimestamps 0.4.9 not installed (npm ci --prefix scripts/checks --ignore-scripts)')
@@ -250,6 +253,38 @@ class ClientTest(unittest.TestCase):
         web, [d1] = ledger_web(self.tmp.name); self.srv.mode = 'down'
         r = self.stamp(web, d1); self.assertEqual(r.returncode, 1); self.assertIn('no calendar answered', r.stderr)
         self.assertFalse(os.path.exists(proof_path(web, d1))); self.assertNotIn('ots', ledger(web)[0])
+
+    def test_a_calendar_that_never_answers_hits_its_deadline_and_the_stamp_exits_1_cleanly(self):
+        web, [d1] = ledger_web(self.tmp.name); self.srv.mode = 'hang'
+        t = time.monotonic(); r = self.ots('stamp', '--web', web, '--date', d1, '--calendar', self.srv.url, '--deadline', '1')
+        self.assertLess(time.monotonic() - t, 15); self.assertEqual(r.returncode, 1)
+        self.assertIn(f'calendar {self.srv.url}: no answer within 1 s', r.stdout); self.assertIn('no calendar answered', r.stderr)
+        self.assertFalse(os.path.exists(proof_path(web, d1))); self.assertNotIn('ots', ledger(web)[0])
+
+    def test_one_dead_calendar_does_not_cost_the_proof(self):
+        web, [d1] = ledger_web(self.tmp.name); dead = Server(); dead.mode = 'hang'
+        try: r = self.ots('stamp', '--web', web, '--date', d1, '--calendar', dead.url, '--calendar', self.srv.url, '--deadline', '1')
+        finally: dead.close()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(self.ots('info', proof_path(web, d1)).stdout)['pending'], [self.srv.url])
+
+    def test_the_budget_stops_the_loop_and_keeps_the_records_gathered(self):
+        web, dates = ledger_web(self.tmp.name, 4)
+        for x in dates[:3]: self.assertEqual(self.stamp(web, x).returncode, 0)
+        self.assertEqual(self.stamp(web, dates[3]).returncode, 0); self.srv.mode = 'anchor-first'   # the first proof anchors, the next hangs
+        t = time.monotonic()
+        r = self.ots('upgrade', '--web', web, '--date', dates[3], '--calendar', self.srv.url, '--esplora', self.srv.url, '--deadline', '5', '--budget', '1')
+        self.assertLess(time.monotonic() - t, 15); self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn('the 1 s budget is spent; 1 proofs wait for the next run', r.stdout)
+        self.assertEqual([a['date'] for a in ledger(web)[3]['anchored']], [dates[0]])
+        self.assertEqual(gate(web).returncode, 0)
+
+    def test_a_leftover_tmp_is_removed_at_startup(self):
+        web, [d1] = ledger_web(self.tmp.name); self.assertEqual(self.stamp(web, d1).returncode, 0)
+        with open(proof_path(web, d1) + '.tmp', 'wb') as f: f.write(b'cut short')
+        self.assertEqual(gate(web).returncode, 1)                                  # a stray file fails the gate
+        r = self.stamp(web, d1); self.assertEqual(r.returncode, 0, r.stderr); self.assertIn(f'removed the leftover ledger/ots/{d1}.ots.tmp', r.stdout)
+        self.assertFalse(os.path.exists(proof_path(web, d1) + '.tmp')); self.assertEqual(gate(web).returncode, 0)
 
     def test_a_proof_recorded_anchored_is_never_stamped_again(self):
         web, [d1, d2] = ledger_web(self.tmp.name, 2)
@@ -327,6 +362,9 @@ class LicenceTest(unittest.TestCase):
         self.assertEqual(A['direct'], P['dependencies']); self.assertIn('LGPL-3.0', A['licences'])
         self.assertTrue(A['result'].startswith(f'closed: {len(lock)} packages, all permissive'))
         self.assertEqual(sorted({p.get('used_under') or p['license'] for p in A['packages']}), A['licences'])
+        flagged = ' '.join(x['package'] for x in A['advisories']['findings'])                   # npm audit, recorded with its scoping
+        for n in ('request@', 'form-data@', 'qs@', 'tough-cookie@', 'uuid@', 'bn.js@', 'elliptic@'): self.assertIn(n, flagged)
+        self.assertIn('no secret or token', A['advisories']['scope'])
         self.assertIn('opentimestamps@0.4.9 (LGPL-3.0)', N); self.assertIn('GNU LESSER GENERAL PUBLIC LICENSE', N)
         for p in A['packages']:
             d = os.path.join(CHECKS, p.get('path') or f'node_modules/{p["name"]}')

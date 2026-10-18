@@ -9,15 +9,19 @@
 //          Release asset) into web/ledger/ots/<date>.ots and records it as that entry's `ots`. A same-date rerun keeps a proof that
 //          already commits to the same manifest (no calendar call); a proof that commits to another manifest is replaced only while no
 //          ledger entry records it anchored. Exit 1 when no calendar answers: the day then gets no ledger entry (refresh.yml drops it).
-//        node scripts/ots.mjs upgrade [--web web] [--date D] [--calendar URL ...] [--esplora URL] [--timeout MS]
+//        node scripts/ots.mjs upgrade [--web web] [--date D] [--budget SECONDS] [--calendar URL ...] [--esplora URL] [--timeout MS]
 //          refresh.yml step "OpenTimestamps upgrade and verify", after the Release step: runs `upgrade` on every proof of an earlier date
 //          that no ledger entry records anchored yet, commits the upgraded file in place, and for each complete one runs `verify --ignore-bitcoin-node` (the
 //          block header from the public Esplora explorer, https://blockstream.info/api by default, assumed valid); each proof it accepts
 //          is recorded in the <date> entry's `anchored` list as {date, block, time, ots_sha256}. Earlier entries are never edited, and a
 //          proof recorded anchored is never touched again. A calendar or explorer that does not answer leaves the proof pending (exit 0).
+//          --budget stops the loop once that many seconds have passed and saves the records gathered so far; the rest wait for the next run.
 //        node scripts/ots.mjs info <file.ots>      the proof's digest, pending calendars and Bitcoin block heights (no network)
-// <date> defaults to the last ledger entry's. --calendar replaces the calendars (the client's -c), --esplora the explorer.
-import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync } from 'node:fs';
+// <date> defaults to the last ledger entry's. --calendar replaces the calendars (the client's -c), --esplora the explorer. Every client
+// call (one calendar submission, one proof's upgrade, one verify) races a deadline (--deadline, 45 s): the 0.4.9 client sets no timeout
+// on calendar requests, so a calendar that accepts and never answers would otherwise hold the step until its cap. A leftover *.tmp in
+// web/ledger/ots/ (a write cut short) is removed first.
+import { readFileSync, writeFileSync, renameSync, mkdirSync, existsSync, readdirSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
@@ -35,15 +39,24 @@ function client() {                                              // scripts/chec
 }
 
 function args(argv) {
-  const o = { web: 'web', date: null, calendar: [], esplora: null, timeout: 15000, _: [] };
+  const o = { web: 'web', date: null, calendar: [], esplora: null, timeout: 15000, deadline: 45, budget: Infinity, _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--calendar') o.calendar.push(argv[++i]);
-    else if (['--web', '--date', '--esplora', '--timeout'].includes(a)) o[a.slice(2)] = argv[++i];
+    else if (['--web', '--date', '--esplora', '--timeout', '--deadline', '--budget'].includes(a)) o[a.slice(2)] = argv[++i];
     else o._.push(a);
   }
-  o.timeout = Number(o.timeout);
+  for (const k of ['timeout', 'deadline', 'budget']) { o[k] = Number(o[k]); if (!(o[k] >= 0)) throw new Error(`--${k} is not a number of ${k === 'timeout' ? 'ms' : 'seconds'}`); }
   return o;
+}
+function within(promise, seconds, what) {                        // the call's result, or a rejection once its deadline passes
+  let timer;
+  return Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${what}: no answer within ${seconds} s`)), seconds * 1000); })])
+    .finally(() => clearTimeout(timer));
+}
+function sweep(web) {                                            // a *.tmp left in web/ledger/ots/ by a write cut short
+  const dir = join(web, 'ledger', 'ots');
+  for (const f of existsSync(dir) ? readdirSync(dir) : []) if (f.endsWith('.tmp')) { rmSync(join(dir, f)); console.log(`ots: removed the leftover ledger/ots/${f}`); }
 }
 
 function ledger(web) {
@@ -75,14 +88,18 @@ async function stamp(o) {
   if (existsSync(file)) {
     const p = info(readFileSync(file));
     if (p.digest === e.manifest_sha256) {
-      e.ots = { file: `ots/${date}.ots`, sha256: sha(readFileSync(file)) }; save();
+      if (e.ots?.file !== `ots/${date}.ots`) { e.ots = { file: `ots/${date}.ots`, sha256: sha(readFileSync(file)) }; save(); }   // ots.sha256: at stamp time
       return console.log(`ots ${date}: kept web/ledger/ots/${date}.ots, it already commits to manifest ${e.manifest_sha256} (no calendar call)`);
     }
     if (anchoredDates(E).has(date)) throw new Error(`web/ledger/ots/${date}.ots is recorded anchored for manifest ${p.digest}; it is never replaced`);
     console.log(`ots ${date}: the proof commits to ${p.digest}, not this run's manifest ${e.manifest_sha256}; stamping again (unpublished Release)`);
   }
+  // OpenTimestamps.stamp (makeMerkleTree, then createTimestamp) with a deadline per calendar: it would wait for every calendar at once
   const C = client(), d = C.DetachedTimestampFile.fromHash(new C.Ops.OpSHA256(), C.Utils.hexToBytes(e.manifest_sha256));
-  await C.stamp(d, o.calendar.length ? { calendars: o.calendar } : {});     // the client's default aggregators unless --calendar
+  const tip = C.makeMerkleTree([d]), calendars = o.calendar.length ? o.calendar : C.Calendar.DEFAULT_AGGREGATORS;  // default aggregators unless --calendar
+  const answers = await Promise.all(calendars.map(url => { console.log(`Submitting to remote calendar ${url}`);
+    return within(new C.Calendar.RemoteCalendar(url).submit(tip.msg), o.deadline, url).catch(err => { console.log(`ots: calendar ${err.message}`); return null; }); }));
+  for (const t of answers) if (t) tip.merge(t);
   if (!describe(d).pending.length) throw new Error('no calendar answered: no OpenTimestamps proof today');
   const b = bytesOf(d), p = info(b);
   put(file, b);
@@ -95,19 +112,23 @@ async function upgrade(o) {
   if (!e) throw new Error(`no ledger entry for ${date}`);
   const done = anchoredDates(E), opts = { ...(o.calendar.length ? { calendars: o.calendar } : {}) }, records = [];
   const todo = E.filter(x => x.date < date && x.ots && !done.has(x.date));   // a later run upgrades: never the day it stamps
+  const start = Date.now(), left = () => o.budget - (Date.now() - start) / 1000;
+  let checked = 0;
   for (const x of todo) {
-    const file = join(o.web, 'ledger', 'ots', `${x.date}.ots`);
+    if (left() <= 0) { console.log(`ots upgrade: the ${o.budget} s budget is spent; ${todo.length - checked} proofs wait for the next run`); break; }
+    checked++;
+    const file = join(o.web, 'ledger', 'ots', `${x.date}.ots`), cap = () => Math.max(0.001, Math.min(o.deadline, left()));
     try {
       const before = readFileSync(file), p = info(before);
       if (p.digest !== x.manifest_sha256) { console.log(`::warning::ots ${x.date}: the proof commits to ${p.digest}, not the entry's manifest; left as it is`); continue; }
-      await C.upgrade(p.d, opts);                                // `upgrade`: asks each pending calendar for its Bitcoin path
+      await within(C.upgrade(p.d, opts), cap(), `upgrade of ${x.date}`);    // `upgrade`: asks each pending calendar for its Bitcoin path
       let b = bytesOf(p.d);
       if (!p.d.timestamp.isTimestampComplete()) {
         if (!b.equals(before)) put(file, b);
         console.log(`ots ${x.date}: pending (${info(b).pending.join(', ')})`); continue;
       }
       const original = C.DetachedTimestampFile.fromHash(new C.Ops.OpSHA256(), C.Utils.hexToBytes(x.manifest_sha256));
-      const r = await C.verify(p.d, original, { ...opts, ignoreBitcoinNode: true, timeout: o.timeout, ...(o.esplora ? { url: o.esplora } : {}) });
+      const r = await within(C.verify(p.d, original, { ...opts, ignoreBitcoinNode: true, timeout: o.timeout, ...(o.esplora ? { url: o.esplora } : {}) }), cap(), `verify of ${x.date}`);
       b = bytesOf(p.d);                                          // verify upgrades again before it checks: keep what it checked
       if (!b.equals(before)) put(file, b);
       const btc = r?.bitcoin;
@@ -117,13 +138,15 @@ async function upgrade(o) {
     } catch (err) { console.log(`::warning::ots ${x.date}: ${err.message}; left pending`); }
   }
   if (records.length) { e.anchored = [...(e.anchored || []), ...records].sort((a, b) => a.date.localeCompare(b.date)); save(); }
-  console.log(`ots upgrade: ${todo.length} pending proofs checked, ${records.length} anchored and recorded in the ${date} entry, ${done.size} recorded before`);
+  console.log(`ots upgrade: ${checked} pending proofs checked, ${records.length} anchored and recorded in the ${date} entry, ${done.size} recorded before`);
 }
 
-const o = args(process.argv.slice(2)), cmd = o._.shift();
 try {
+  const o = args(process.argv.slice(2)), cmd = o._.shift();
+  if (cmd === 'stamp' || cmd === 'upgrade') sweep(o.web);
   if (cmd === 'stamp') await stamp(o);
   else if (cmd === 'upgrade') await upgrade(o);
   else if (cmd === 'info' && o._[0]) { const { d, ...p } = info(readFileSync(o._[0])); console.log(JSON.stringify(p)); }
-  else { console.error('usage: node scripts/ots.mjs stamp|upgrade [--web web] [--date D] [--calendar URL ...] [--esplora URL] [--timeout MS] | info <file.ots>'); process.exit(2); }
+  else { console.error('usage: node scripts/ots.mjs stamp|upgrade [--web web] [--date D] [--budget S] [--deadline S] [--calendar URL ...] [--esplora URL] [--timeout MS] | info <file.ots>'); process.exit(2); }
 } catch (err) { console.error(`ots: ${err.message}`); process.exit(1); }
+process.exit(0);                                                 // a request past its deadline must not keep the step open

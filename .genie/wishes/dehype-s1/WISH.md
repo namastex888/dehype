@@ -542,6 +542,8 @@ node scripts/check_page.mjs
 
 - E1 known gap (deferred to the owner): the audit page's "equal" mark compares the Release asset SHA256 that the refresh runner recorded after downloading the asset back (`scripts/manifest.py release`), not a hash the browser reads from GitHub; a browser check against the GitHub Releases API would add an external fetch to `web/dehype.js` (one loader, named files only) and is left for the owner to decide.
 
+- E1 wiring note (from the E2 review): E1's workflow wiring (`e1-workflow.proposed.diff`) must never be applied without E2's. From E2 on, `check_page.mjs` fails a ledger entry without its OpenTimestamps proof, so E1's manifest step alone would make the refresh Gate fail before "Commit snapshot" and stop every data commit, the briefing included. The two land as one combined workflow change.
+
 **depends-on:** D, B3, C3
 
 ---
@@ -577,6 +579,8 @@ node scripts/check_page.mjs
 cmp METHODOLOGY.md web/METHODOLOGY.md
 cmp METHODOLOGY.pt.md web/METHODOLOGY.pt.md
 ```
+
+- E2 risk note: `npm audit` on `scripts/checks` (2026-10-18) flags 11 packages, all through `opentimestamps` 0.4.9: `request` (SSRF) and `form-data` critical; `qs`, `tough-cookie`, `uuid`, `bn.js` moderate; `elliptic` low. No fix exists but a downgrade, so the pin stands; the scoping (runner only, allow-listed calendars and explorer, per-call deadlines, no cookies, no secret in the steps) is recorded in `scripts/checks/licence-closure.json` and in the risk table.
 
 **depends-on:** E1
 
@@ -648,6 +652,7 @@ _What must be verified on dev after merge. The QA agent tests each criterion._
 | Insertion estimates are judgement, not measurement (C2 nearest the band, about 1,800) | Medium | Admission re-estimates each group; a group over 25 files or 2,000 insertions becomes a sibling group (for C2, `web/hype.html` plus row 13 move to their own group) |
 | Admission may not accept Decision 19's exclusion of regenerated data files and lockfiles (E2's lockfile is 875 lines) | Medium | Each PR lists the excluded files with their line counts; even counted, E2 holds little else and stays under 2,000 |
 | Design Risks 1-13 (DESIGN.md lines 133-145): UNVERIFIED-heavy days, public history keeps old handles, Mastodon ids resolve to authors, the X collection route, FALSE/PUSHED legal exposure, missing 06:00, Cordis receipts and licences, render-check flakes, moving story ids, offline `official` false, the fold's size, Reddit/Telegram terms, the unmaintained `opentimestamps` client | per design | Mitigations as written in the design; legal exposure (Risk 5, High) is held by B2 publishing the reply and corrections path before any FALSE row |
+| (E2) The pinned `opentimestamps` 0.4.9 tree carries npm advisories: `request` SSRF and `form-data` critical, `qs`, `tough-cookie`, `uuid`, `bn.js` moderate, `elliptic` low; npm offers no fix but a downgrade | Medium | Runs only on the runner in two time-capped refresh steps with no secret or token in their environment; contacts only the default aggregators, whitelisted calendars and `https://blockstream.info/api`, each call under a 45 s deadline and the upgrade loop under a 150 s budget; no multipart body, cookie jar or caller-buffer uuid is used, and the bitcore/bn.js/elliptic code is reached only by the client's printable tree, never called; recorded in `scripts/checks/licence-closure.json`; a replacement no-fee client under A7 if one is needed (design Risk 13) |
 | Most groups share `check_page.mjs`, `pulse.py`, `strings.json` and the workflows | Medium | Strictly sequential execution (Decision 2); each worker branches from the previous group's merge on `dev` |
 | The rebuild data can be stale: the only successful refresh artifact is still run 38948143514 (2026-10-16) and `pulse.py` uses wall-clock `NOW`, so a rebuild days later can leave the 24h window thin in the committed `pulse.json` | Low | The next scheduled refresh replaces it; each group's PR states the artifact run id it rebuilt from |
 | `web/index.html` stays the console until C3; a long gap between C2 and C3 leaves new pages unlinked | Low | C2's pages are reachable by URL; C3 follows directly |
