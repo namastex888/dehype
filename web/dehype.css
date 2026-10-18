@@ -205,8 +205,8 @@ body[data-page="index"] .scope{font-size:14.5px;max-width:none;margin-bottom:2px
   .story{grid-template-columns:30px minmax(0,1fr);gap:0 8px}.card{padding:14px 12px}
   input[type=search]{width:100%}.bar-row .count{margin-left:0;width:100%}
   .comp{grid-template-columns:repeat(2,minmax(0,1fr))}.panel{padding:18px 16px 40px}
-  .top .wrap{min-height:0}.top nav{flex-wrap:nowrap}body[data-page="index"] .head{padding-top:12px}body[data-page="index"] h1{font-size:22px}body[data-page="index"] .scope{font-size:13.5px;line-height:1.45}
-  .top nav{-webkit-mask-image:linear-gradient(to right,#000 82%,transparent);mask-image:linear-gradient(to right,#000 82%,transparent)}.dots{display:flex}
+  .top .wrap{min-height:0}.top nav{flex-wrap:wrap;overflow-x:visible;row-gap:2px}body[data-page="index"] .head{padding-top:12px}body[data-page="index"] h1{font-size:22px}body[data-page="index"] .scope{font-size:13.5px;line-height:1.45}
+  .dots{display:flex}
   .gauges{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:6px;scrollbar-width:thin}.g,.panels{flex:0 0 84vw;scroll-snap-align:start}
   .panels{flex-direction:column;justify-content:center;gap:10px}.gb{grid-template-columns:minmax(0,1fr) minmax(0,1.1fr)}
   .sec-h h2{font-size:18px}.sec-h p{font-size:12px}.read.b{grid-template-columns:auto minmax(0,1fr) auto;gap:6px 18px}.read.b>div:nth-child(2){grid-column:auto}.read.b .sp{grid-column:1/-1}

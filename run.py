@@ -21,7 +21,7 @@ HYPE tab: if hype/hype_research.json exists, hype_build.build() turns it into we
 HYPE ranks in the same history DB (tab 'hype').
 """
 import os, sys, re, json, time, math, sqlite3, fcntl, threading, traceback, gzip, bisect
-import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.parse, urllib.error, http.client
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta, date
 from zoneinfo import ZoneInfo
@@ -102,8 +102,9 @@ def save_json(path, obj, indent=None):
 def cpath(name): return os.path.join(CACHE, re.sub(r'[^A-Za-z0-9_.-]+', '_', name)[:150] + '.json')
 
 class HTTPErr(Exception):
-    def __init__(self, code, msg, headers=None):
-        super().__init__(f'HTTP {code}: {msg}'); self.code = code; self.headers = headers or {}
+    """str() goes into published source notes, so it is the status and our own words only; the response body stays on .body for the log."""
+    def __init__(self, code, msg, headers=None, body=''):
+        super().__init__(f'HTTP {code}: {msg}'); self.code = code; self.headers = headers or {}; self.body = body
 
 def http_get(url, headers=None, timeout=40):
     if OFFLINE: raise HTTPErr(0, 'offline mode (no network)')
@@ -114,8 +115,11 @@ def http_get(url, headers=None, timeout=40):
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return r.status, dict(r.headers), r.read()
     except urllib.error.HTTPError as e:
-        body = e.read()[:300] if hasattr(e, 'read') else b''
-        raise HTTPErr(e.code, body.decode('utf-8', 'replace'), dict(e.headers or {}))
+        body = (e.read()[:300] if hasattr(e, 'read') else b'').decode('utf-8', 'replace')
+        hd = dict(e.headers or {})
+        rem = hd.get('X-RateLimit-Remaining') or hd.get('x-ratelimit-remaining')
+        limited = e.code == 429 or (e.code == 403 and (rem == '0' or 'rate limit' in body.lower()))   # callers stop on 'rate limit' in str(e)
+        raise HTTPErr(e.code, 'rate limit' if limited else http.client.responses.get(e.code, 'error'), hd, body)
 
 # ---------------------------------------------------------------- rate limiters
 class Interval:
@@ -433,7 +437,7 @@ def fetch_stargazers(repos, order):
                 d, _ = gh_get(f'/repos/{fn}/stargazers?per_page=100&page={page}', accept='application/vnd.github.star+json')
                 used += 1
             except Exception as e:
-                used += 1; times = None; consec_fail += 1; last_err = str(e)[:100]; break
+                used += 1; times = None; consec_fail += 1; last_err = str(e)[:100]; log(f'stargazers {fn}: {e} {getattr(e, "body", "")[:200]}'); break
             consec_fail = 0
             times += [x['starred_at'] for x in d if x.get('starred_at')]
             if page == 1: complete = True; break
