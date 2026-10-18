@@ -37,7 +37,7 @@ Legend used below: `[LIVE]` runs today · `[S1]` added by dehype S1 · `[PENDING
  └─────────────────────────────────────┬───────────┘
                                        ▼
  ┌──── GitHub Pages [LIVE] namastex888.github.io/dehype ────────────────────────────────┐
- │  index.html (briefing) · stories · output · hype · method · audit (en and pt)        │
+ │  index.html (briefing) · stories · output · hype · method · audit · status (en, pt)  │
  │  dehype.css · dehype.js · i18n/ tables · data files · feeds · ledger/                │
  └─────────────────────────────────────┬────────────────────────────────────────────────┘
                                        ▼
@@ -62,7 +62,7 @@ What each piece guarantees:
 | `scoring.py` | unknown stays `null`; coverage is completeness, not confidence; thin evidence shrinks toward the prior | unit tests, `eval.py`, METHODOLOGY.md |
 | `pulse.py` | no person handle; counts-only networks; evidence records `state: proposed`, no label word; Top 10 recomputable | unit tests, `check_page.mjs` |
 | `check_page.mjs` | the pages and data keep the public-data rules; both method sources carry the licence; the one imported script is the exact-pinned transformers.js; the refresh stages exactly the bot-written files and never an owner-reviewed one | `ci.yml`, `refresh.yml`, `deploy.yml` |
-| `check_owner_files.py` | `verdicts.json`, `corrections.json` and `removals.json` change only by a person's merged PR; corrections are appended, never edited | `ci.yml`, `refresh.yml`, `deploy.yml` |
+| `check_owner_files.py` | `verdicts.json`, `corrections.json`, `removals.json`, `i18n/x-org-accounts.json` and `i18n/sources-plan.json` change only by a person's merged PR; corrections are appended, never edited | `ci.yml`, `refresh.yml`, `deploy.yml` |
 
 \* Bluesky needs an app password secret (`BSKY_HANDLE`, `BSKY_APP_PASSWORD`). The official Reddit API is optional (`REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`); without it Reddit comes from the arctic-shift public archive. X is not collected: there is no free route that stays within X's terms.
 
@@ -87,6 +87,8 @@ GitHub limits: with only the job token the GitHub API allows about 1,000 request
 **Protect `dev` (owner setting).** The deploy refuses a push in which a bot commit touches an owner-reviewed file or a corrections entry is edited or removed, but the refresh's own deploy (a `workflow_call`, with no `before` commit) checks only the bot's data commit. A direct push the deploy refused would therefore be published by the next refresh. A branch ruleset on `dev` that requires a pull request and the `ci` check for people, with the refresh's bot push as the only bypass, closes that path.
 
 **Retire the old refresher.** Until 2026-10-16 the daily data commits came from a job outside this repository that pushes to `main`. The default branch is now `dev`, so that job would create a new `main` that nothing deploys. Disable it; `refresh.yml` replaces it.
+
+The Sources page (`status.html`, nav "Sources") reads each live source's status from the `sources` blocks of `briefing.json`, `pulse.json` and `data.json` at load time; the sources not yet live (credentials ready, pending approval, held or paid, free) and the roadmap rows come from the owner-reviewed `web/i18n/sources-plan.json`, which `check_page.mjs` holds to its shape (en and pt text, known groups, gauges and states, no status or count written in) and to the public-data rules.
 
 ## 3. Publishing
 

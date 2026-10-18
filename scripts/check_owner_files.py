@@ -6,7 +6,7 @@ BASE is the pull request's base sha or the push's `before` sha; an empty or all-
 import argparse, json, subprocess, sys
 
 CORRECTIONS = 'web/corrections.json'
-OWNER_FILES = ('web/verdicts.json', 'web/corrections.json', 'web/removals.json', 'web/i18n/x-org-accounts.json')
+OWNER_FILES = ('web/verdicts.json', 'web/corrections.json', 'web/removals.json', 'web/i18n/x-org-accounts.json', 'web/i18n/sources-plan.json')
 BOT = {'trend-observatory-bot', 'github-actions[bot]', '41898282+github-actions[bot]@users.noreply.github.com'}   # refresh.yml's identity
 
 
