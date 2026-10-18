@@ -8,7 +8,8 @@
 // Our own text has en and pt (i18n/strings.json); headlines carry lang and are never translated; the method copies share anchors.
 // The dehype pages (the briefing in index.html, stories, output, hype, method, audit) load the shared dehype.css and dehype.js, name their
 // data files and keep the same rules; i18n/dossier.pt.json entries keep their form; every console URL and tab anchor folds to its page.
-// Node standard library only. Usage: node scripts/check_page.mjs [webDir]
+// The ledger (ledger/index.json, its day files and the story-id archive) names only Release assets that hash to its manifest SHA256,
+// and a stale briefing carries no value over. Node standard library only. Usage: node scripts/check_page.mjs [webDir]
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -478,6 +479,61 @@ let feedNote = 'no feeds';
   }
   feedNote = `feeds ${Object.keys(FEED).length} of ${FEEDS.length} (${items} items), page tables ${Object.keys(TABLES).join(' and ')}`;
 }
+// Ledger, story-id archive and stale since (design rows 17, 18; C3, C5, C32, C37; group E1). scripts/manifest.py writes ledger/index.json
+// (one entry per day, dates increasing), ledger/<date>.json (the day's gauge and verdict ledger: the entry's ledger_sha256 is its SHA256,
+// and it names the entry's manifest asset and SHA256) and ledger/ids/<date>.json. An entry's release (the dated Release asset, downloaded
+// back) hashes to its manifest_sha256: the ledger never names a Release asset it does not equal. On the briefing's own date the archive
+// file holds every story id pulse.json and briefing.json publish. A stale briefing (compose.mjs after a failed Pulse step) names its date
+// (the São Paulo date of generated_at), its reason and the failed run's time, carries no value over, and the JSON feeds read it too.
+const spDay = ms => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(ms);
+let ledgerNote = 'no ledger';
+{
+  const F = 'ledger/index.json', L = readJSON(F), B = readJSON('briefing.json') || {}, P = readJSON('pulse.json') || {};
+  const E = L === null ? [] : Array.isArray(L) ? L : L?.entries, g = Date.parse(B.generated_at), today = Number.isFinite(g) ? spDay(g) : null;
+  if (!Array.isArray(E)) fail.push(`${F} is not a list of day entries (or {"entries": [...]})`);
+  else {
+    if (L) publicRules(F, L);
+    let prev = '';
+    E.forEach((e, i) => {
+      const at = `[${i}]`;
+      if (!e || typeof e !== 'object' || !DAY.test(e.date || '')) return finding(F, 'entry without its date (YYYY-MM-DD)', at);
+      if (e.date <= prev) finding(F, 'entry dates not increasing (one entry per day)', `${at}.date`);
+      prev = e.date;
+      if (!HEX64.test(e.manifest_sha256 || '')) finding(F, 'entry without its manifest_sha256', `${at}.manifest_sha256`);
+      if (e.release?.sha256 !== e.manifest_sha256 || !text(e.release?.tag) || !/^https:\/\/\S+$/.test(e.release?.url || ''))
+        finding(F, 'entry whose dated Release asset is missing or does not hash to its manifest_sha256', `${at}.release`);
+      if (e.block != null && !(Number.isInteger(e.block) && e.block > 0)) finding(F, 'entry block is not a Bitcoin block height', `${at}.block`);
+      let raw = null, D = null;
+      try { raw = readFileSync(join(web, 'ledger', `${e.date}.json`), 'utf8'); D = JSON.parse(raw); }
+      catch { if (raw === null) finding(F, 'entry without its ledger/<date>.json day file', `${at}.date`); }
+      if (raw !== null && sha(raw) !== e.ledger_sha256) finding(F, 'entry ledger_sha256 is not the SHA256 of its day file', `${at}.ledger_sha256`);
+      if (raw !== null && !(D && D.date === e.date && D.manifest?.sha256 === e.manifest_sha256 && D.manifest?.asset === e.asset))
+        finding(`ledger/${e.date}.json`, "day file does not carry its entry's date, manifest asset and SHA256", 'manifest');
+      else if (D) publicRules(`ledger/${e.date}.json`, D);
+      try { readFileSync(join(web, 'ledger', 'ids', `${e.date}.json`)); } catch { finding(F, 'entry without its ledger/ids/<date>.json archive file', `${at}.date`); }
+    });
+    let days = [];
+    try { days = readdirSync(join(web, 'ledger')).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)); } catch { }
+    const dates = new Set(E.map(e => e?.date));
+    for (const f of days) if (!dates.has(f.slice(0, 10))) finding(F, 'ledger day file with no index entry', f);
+    if (today && E.at(-1)?.date === today && !B.stale) {
+      const have = new Set(readJSON(`ledger/ids/${today}.json`)?.ids || []);
+      const miss = [...(P.stories || []).map(s => s.id), ...(B.records || []).map(r => r.id)].filter(id => !have.has(id));
+      if (miss.length) finding(`ledger/ids/${today}.json`, "the day's archive file lacks a story id its pulse.json or briefing.json publishes", miss.slice(0, 3).join(', '));
+    }
+  }
+  if (B.stale != null) {
+    const S = B.stale;
+    need(S.since === today && text(S.reason) && Date.parse(S.at) >= g,
+      'stale briefing.json does not name its date (the São Paulo date of generated_at), its reason and the time of the failed run');
+    if ((B.records || []).length || (B.top10 || []).length || (B.gauges || []).some(x => x.value != null))
+      finding('briefing.json', 'stale briefing carries a value over (records, Top 10 and gauge values stay empty)', 'stale');
+    for (const f of ['feed.json', 'feed.pt.json'])
+      if (FEED[f] && (FEED[f]._dehype?.stale?.since !== S.since || (FEED[f].items || []).some(x => SID.test(x.id || ''))))
+        finding(f, 'the feed of a stale briefing does not read stale since its date, or still carries a story', '_dehype.stale');
+  }
+  ledgerNote = `ledger ${Array.isArray(E) ? E.length : 0} days${B.stale ? `, briefing stale since ${B.stale.since}` : ''}`;
+}
 let removalNote = 'no removals';
 {
   const R = hashList('removals.json', 'entries', 'date', 'removals.json missing (owner-reviewed; {"entries": []} when it holds no request)');
@@ -738,4 +794,4 @@ function foldRules(js, S, keys) {
 for (const [rule, at] of Object.entries(found)) fail.push(`${rule} at ${at.length} place${at.length > 1 ? 's' : ''}, e.g. ${at.slice(0, 3).join(', ')}`);
 for (const w of warn) console.warn('warning: ' + w);
 if (fail.length) { console.error('page check FAILED\n- ' + fail.join('\n- ')); process.exit(1); }
-console.log(`page check ok: dehype.js parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${feedNote}; ${removalNote}; ${i18nNote}; ${pageNote}`);
+console.log(`page check ok: dehype.js parses; ${Object.keys(D.papers.items).length} papers, ${Object.keys(D.repos.items).length} repos, ${Object.keys(H.items).length} hype projects; ${semNote}; ${pulseNote}; ${briefNote}; ${verdictNote}; ${feedNote}; ${ledgerNote}; ${removalNote}; ${i18nNote}; ${pageNote}`);

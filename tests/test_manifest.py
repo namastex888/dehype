@@ -1,0 +1,288 @@
+"""Daily input manifest, ledger, story-id archive and stale since (design rows 17, 18; C3, C5, C15, C16, C25, C32, C37; SC-4, the
+manifest part of SC-5, the ledger part of SC-18, the failed-Pulse part of SC-19; group E1). scripts/manifest.py runs on a scratch copy
+of the committed web/ with a scratch history DB built from tests/fixtures/manifest/signals.json; the dated Release asset is simulated by
+a local copy of the manifest file (no network, no Release). The check_page.mjs cases follow Decision 14 (an overlay of the committed
+web/, failing with that rule's own finding, or passing)."""
+import gzip, hashlib, json, os, shutil, sqlite3, subprocess, sys, tempfile, unittest
+from datetime import timedelta
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+from test_i18n import check_page, findings
+from test_feed import compose, need_cordis
+import pulse
+
+WEB, FIX = os.path.join(ROOT, 'web'), os.path.join(ROOT, 'tests', 'fixtures', 'manifest')
+MANIFEST = os.path.join(ROOT, 'scripts', 'manifest.py')
+sys.path.insert(0, os.path.join(ROOT, 'scripts'))
+import manifest
+
+
+def read(path):
+    with open(path, 'rb') as f: return f.read()
+
+
+def put(path, text):
+    with open(path, 'w', encoding='utf-8') as f: f.write(text)
+
+
+def run(*args):
+    return subprocess.run([sys.executable, MANIFEST, *args], capture_output=True, text=True)
+
+
+def scratch(d):
+    """d/web (a copy of the committed web/, one removal request added) and d/history (signals.sqlite from the fixture rows, one post
+    the recheck found gone) -> {fixture key: stored row}."""
+    web, hist = os.path.join(d, 'web'), os.path.join(d, 'history')
+    shutil.copytree(WEB, web); os.makedirs(hist)
+    gen = pulse.parse_dt(json.loads(read(os.path.join(web, 'briefing.json')))['generated_at'])
+    rows = {}
+    con = sqlite3.connect(os.path.join(hist, 'signals.sqlite'))
+    con.execute('''CREATE TABLE signals(net TEXT, pid TEXT, url TEXT, title TEXT, author TEXT, created TEXT, score INT, comments INT,
+                   source TEXT, fetched TEXT, extra TEXT, PRIMARY KEY(net, pid))''')                    # pulse.db()'s table
+    for r in json.loads(read(os.path.join(FIX, 'signals.json')))['rows']:
+        row = {k: r[k] for k in manifest.COLUMNS if k in r}
+        row['created'], row['fetched'] = pulse.iso(gen - timedelta(hours=r['hours_ago'])), pulse.iso(gen - timedelta(minutes=5))
+        con.execute(f'INSERT INTO signals({",".join(manifest.COLUMNS)}) VALUES({",".join("?" * len(manifest.COLUMNS))})', [row[k] for k in manifest.COLUMNS])
+        rows[r['key']] = row
+    con.commit(); con.close()
+    with open(os.path.join(hist, 'recheck.json'), 'w') as f: json.dump({'gone': {'HN:50000002': '2026-10-17'}}, f)
+    with open(os.path.join(web, 'removals.json'), 'w') as f:
+        json.dump({'entries': [{'sha256': pulse.url_hash(rows['removed']['url']), 'date': '2026-10-01'}]}, f)
+    return rows
+
+
+def daily(d):
+    return run('daily', '--web', os.path.join(d, 'web'), '--history', os.path.join(d, 'history'), '--out', os.path.join(d, 'dist'))
+
+
+def published(d, date):
+    """The dated Release, simulated: the manifest copied to a download folder, read back by `manifest.py release`."""
+    asset = os.path.join(d, 'release', f'manifest-{date}.json.gz')
+    os.makedirs(os.path.dirname(asset), exist_ok=True)
+    shutil.copy(os.path.join(d, 'dist', os.path.basename(asset)), asset)
+    return asset, run('release', asset, '--tag', f'ledger-{date}', '--url', f'https://github.com/owner/repo/releases/download/ledger-{date}/{os.path.basename(asset)}',
+                      '--web', os.path.join(d, 'web'))
+
+
+class ManifestTest(unittest.TestCase):
+    """SC-4 and the manifest part of SC-5: the manifest check, its Reddit fixture, and the hash an outsider recomputes."""
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(); d = cls.d = cls.tmp.name
+        cls.rows = scratch(d)
+        cls.r = daily(d)
+        B = json.loads(read(os.path.join(d, 'web', 'briefing.json')))
+        cls.date = manifest.sp_date(B['generated_at'])
+        cls.path = os.path.join(d, 'dist', f'manifest-{cls.date}.json.gz')
+        cls.M = json.loads(gzip.decompress(read(cls.path))) if os.path.exists(cls.path) else None
+
+    @classmethod
+    def tearDownClass(cls): cls.tmp.cleanup()
+
+    def test_the_reddit_fixture_fails_the_manifest_check(self):
+        r = run('check', os.path.join(FIX, 'reddit_leak.json'))
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn('manifest holds a Reddit URL or t3_ id', r.stderr)
+        self.assertIn('records[1]: a Reddit record carries a field other than the hash and the network name (id, url)', r.stderr)
+
+    def test_daily_manifest_passes_its_check_and_holds_no_reddit_field_but_the_hash(self):
+        self.assertEqual(self.r.returncode, 0, self.r.stderr)
+        self.assertEqual(run('check', self.path).returncode, 0)
+        text = gzip.decompress(read(self.path)).decode('utf-8')
+        for s in ('reddit.com', 't3_', 'LocalLLaMA', 'u_fixture', 'A Reddit fixture', 'someone', 'hn_person', 'did:plc', 'bsky.app', '/@'):
+            self.assertNotIn(s, text)
+        reddit = [x for x in self.M['records'] if x['net'] == 'Reddit']
+        self.assertEqual(len(reddit), 2)
+        for x in reddit: self.assertEqual(set(x), {'net', 'sha256'})
+
+    def test_an_outsider_recomputes_a_reddit_record_hash_from_its_canonical_json(self):
+        row = self.rows['reddit2']                                   # non-ASCII title and permalink: kept as UTF-8, not escaped
+        blob = json.dumps({k: row[k] for k in ('net', 'pid', 'url', 'title', 'author', 'created', 'score', 'comments', 'source', 'fetched', 'extra')},
+                          sort_keys=True, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+        self.assertIn(hashlib.sha256(blob).hexdigest(), {x['sha256'] for x in self.M['records'] if x['net'] == 'Reddit'})
+
+    def test_records_carry_ids_handle_free_urls_observed_values_and_fetch_times(self):
+        by = {x.get('id'): x for x in self.M['records']}
+        hn = by['HN:50000001']
+        self.assertEqual((hn['url'], hn['score'], hn['comments'], hn['created'], hn['fetched']),
+                         (self.rows['hn']['url'], 120, 40, self.rows['hn']['created'], self.rows['hn']['fetched']))
+        self.assertEqual(by['Mastodon:113000000000000001']['url'], 'https://mastodon.social/statuses/113000000000000001')    # C25
+        self.assertTrue(all(x['url'].startswith('https://mastodon.social/statuses/') for x in self.M['records'] if x['net'] == 'Mastodon'))
+        self.assertEqual(by['Lobsters:abc123']['url'], 'https://lobste.rs/s/abc123/a_fixture')
+        news = [x for x in self.M['records'] if x['net'] == 'Newsletter']
+        self.assertEqual(sorted(set(x) for x in news), sorted([{'net', 'sha256'}, set(hn)]))         # a URL with /@writer is a hash only
+        self.assertTrue(any(x['net'] == 'Bluesky' and set(x) == {'net', 'sha256'} for x in self.M['records']))
+        self.assertEqual(self.M['counts'], {'Bluesky': 1, 'HN': 1, 'Lobsters': 1, 'Mastodon': 1, 'Newsletter': 2, 'Official': 1, 'Reddit': 2})
+
+    def test_posts_gone_removed_or_older_than_the_widest_window_are_left_out(self):
+        ids = {x.get('id') for x in self.M['records']}
+        for k in ('HN:49000001', 'HN:50000002', 'Lobsters:zzz999'): self.assertNotIn(k, ids)
+
+    def test_source_status_and_a_sha256_per_published_file(self):
+        B = json.loads(read(os.path.join(self.d, 'web', 'briefing.json')))
+        self.assertEqual(self.M['sources'], {n: {'status': s['status'], 'detail': s['detail']} for n, s in B['sources'].items()})
+        for f in ('briefing.json', 'pulse.json', 'feed.xml', 'verdicts.json', f'ledger/ids/{self.date}.json'):
+            self.assertEqual(self.M['files'][f'web/{f}'], hashlib.sha256(read(os.path.join(self.d, 'web', f))).hexdigest(), f)
+
+    def test_a_stale_briefing_gets_no_manifest(self):
+        with tempfile.TemporaryDirectory() as d:
+            scratch(d)
+            p = os.path.join(d, 'web', 'briefing.json'); B = json.loads(read(p)); B['stale'] = {'since': '2026-10-16'}
+            with open(p, 'w') as f: json.dump(B, f)
+            r = daily(d)
+            self.assertEqual(r.returncode, 1); self.assertIn('stale briefing', r.stderr)
+            self.assertFalse(os.path.exists(os.path.join(d, 'web', 'ledger', 'index.json')) and json.loads(read(os.path.join(d, 'web', 'ledger', 'index.json'))))
+
+
+class LedgerTest(unittest.TestCase):
+    """The ledger part of SC-18 (C3) and the story-id archive (C32, Decision 13): the ledger's SHA256 equals the Release asset's."""
+    def test_ledger_entry_day_file_archive_and_the_release_asset_hash(self):
+        with tempfile.TemporaryDirectory() as d:
+            scratch(d); r = daily(d); self.assertEqual(r.returncode, 0, r.stderr)
+            web = os.path.join(d, 'web')
+            B, P = (json.loads(read(os.path.join(web, f))) for f in ('briefing.json', 'pulse.json'))
+            date = manifest.sp_date(B['generated_at'])
+            [e] = json.loads(read(os.path.join(web, 'ledger', 'index.json')))
+            self.assertEqual((e['date'], e['asset'], e['release'], e['block']), (date, f'manifest-{date}.json.gz', None, None))
+            self.assertEqual(e['ledger_sha256'], hashlib.sha256(read(os.path.join(web, 'ledger', f'{date}.json'))).hexdigest())
+            day = json.loads(read(os.path.join(web, 'ledger', f'{date}.json')))
+            self.assertEqual(day['manifest']['sha256'], e['manifest_sha256']); self.assertEqual([g['id'] for g in day['gauges']], [g['id'] for g in B['gauges']])
+            A = json.loads(read(os.path.join(web, 'ledger', 'ids', f'{date}.json')))         # B2's read shape
+            self.assertEqual((A['date'], A['generated_at']), (date, B['generated_at']))
+            self.assertTrue({s['id'] for s in P['stories']} | {x['id'] for x in B['records']} <= set(A['ids']))
+            asset, r = published(d, date)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            [e] = json.loads(read(os.path.join(web, 'ledger', 'index.json')))
+            self.assertEqual(e['release']['sha256'], hashlib.sha256(read(asset)).hexdigest())
+            self.assertEqual(e['release']['sha256'], e['manifest_sha256'])
+            g = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+            self.assertEqual(g.returncode, 0, g.stderr); self.assertIn('ledger 1 days', g.stdout)
+            with open(asset, 'ab') as f: f.write(b'\0')                                       # a Release asset that is not the manifest
+            r = run('release', asset, '--tag', 'x', '--url', 'https://example.test/x', '--web', web)
+            self.assertEqual(r.returncode, 1); self.assertIn('the ledger records', r.stderr)
+            self.assertEqual(json.loads(read(os.path.join(web, 'ledger', 'index.json')))[0]['release']['sha256'], e['manifest_sha256'])
+
+    def test_a_rerun_on_the_same_date_replaces_its_entry_and_never_shrinks_its_archive(self):
+        with tempfile.TemporaryDirectory() as d:
+            scratch(d); self.assertEqual(daily(d).returncode, 0)
+            web = os.path.join(d, 'web'); date = json.loads(read(os.path.join(web, 'ledger', 'index.json')))[0]['date']
+            ids = os.path.join(web, 'ledger', 'ids', f'{date}.json'); A = json.loads(read(ids)); A['ids'].append('s:0123456789ab')
+            with open(ids, 'w') as f: json.dump(A, f)
+            self.assertEqual(daily(d).returncode, 0)
+            self.assertEqual(len(json.loads(read(os.path.join(web, 'ledger', 'index.json')))), 1)
+            self.assertIn('s:0123456789ab', json.loads(read(ids))['ids'])
+            L = os.path.join(web, 'ledger', 'index.json'); E = json.loads(read(L)); E[0]['date'] = '2999-01-01'
+            with open(L, 'w') as f: json.dump(E, f)
+            r = daily(d); self.assertEqual(r.returncode, 1); self.assertIn('later than', r.stderr)      # an earlier date is never written
+
+
+class LedgerGateTest(unittest.TestCase):
+    """check_page.mjs on the ledger (Decision 14 overlays): a published day passes; each broken record fails on its own rule."""
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory(); d = cls.tmp.name
+        scratch(d); assert daily(d).returncode == 0
+        B = json.loads(read(os.path.join(d, 'web', 'briefing.json')))
+        cls.date = manifest.sp_date(B['generated_at'])
+        assert published(d, cls.date)[1].returncode == 0
+        cls.ledger = os.path.join(d, 'web', 'ledger')
+
+    @classmethod
+    def tearDownClass(cls): cls.tmp.cleanup()
+
+    def overlay(self, change=None):
+        with tempfile.TemporaryDirectory() as t:
+            shutil.copytree(self.ledger, os.path.join(t, 'ledger'))
+            if change: change(os.path.join(t, 'ledger'))
+            return check_page(tree=t)
+
+    def edit(self, rel, fn):
+        def change(L):
+            p = os.path.join(L, rel); X = json.loads(read(p)); X = fn(X) or X
+            with open(p, 'w') as f: json.dump(X, f)
+        return change
+
+    def assert_only(self, r, msg):
+        self.assertEqual(r.returncode, 1, r.stdout)
+        got = findings(r)
+        self.assertEqual(len(got), 1, got); self.assertTrue(got[0].startswith(msg), got)
+
+    def test_a_published_day_passes(self):
+        r = self.overlay(); self.assertEqual(r.returncode, 0, r.stderr); self.assertIn('ledger 1 days', r.stdout)
+
+    def test_an_entry_without_its_release_fails(self):
+        self.assert_only(self.overlay(self.edit('index.json', lambda E: E[0].update(release=None))),
+                         'ledger/index.json: entry whose dated Release asset is missing or does not hash to its manifest_sha256')
+
+    def test_an_edited_day_file_fails(self):
+        self.assert_only(self.overlay(self.edit(f'{self.date}.json', lambda D: D.update(top10=[]))),
+                         'ledger/index.json: entry ledger_sha256 is not the SHA256 of its day file')
+
+    def test_an_index_in_another_shape_fails(self):
+        r = self.overlay(lambda L: put(os.path.join(L, 'index.json'), '{"days": []}'))
+        self.assertEqual(r.returncode, 1); self.assertIn('ledger/index.json is not a list of day entries (or {"entries": [...]})', findings(r))
+
+    def test_an_archive_file_missing_a_published_story_id_fails(self):
+        self.assert_only(self.overlay(self.edit(f'ids/{self.date}.json', lambda A: A.update(ids=A['ids'][1:]))),
+                         f"ledger/ids/{self.date}.json: the day's archive file lacks a story id its pulse.json or briefing.json publishes")
+
+    def test_a_handle_in_a_day_file_fails_the_public_rules(self):
+        def change(L):
+            p = os.path.join(L, f'{self.date}.json'); D = json.loads(read(p)); D['note'] = 'see https://fosstodon.org/@someone/1'
+            text = json.dumps(D); put(p, text)
+            E = json.loads(read(os.path.join(L, 'index.json'))); E[0]['ledger_sha256'] = hashlib.sha256(text.encode()).hexdigest()
+            put(os.path.join(L, 'index.json'), json.dumps(E))
+        r = self.overlay(change)
+        self.assertEqual(r.returncode, 1); self.assertTrue(any(g.startswith(f'ledger/{self.date}.json: account-naming URL') for g in findings(r)), findings(r))
+
+
+@need_cordis
+class StaleSinceTest(unittest.TestCase):
+    """The failed-Pulse part of SC-19 (C5): compose.mjs on a failed-Pulse fixture; the briefing, gauges and feed read "stale since"
+    the date with the reason and carry no value over, and the stale outputs pass check_page.mjs."""
+    def test_a_failed_pulse_step_makes_the_briefing_gauges_and_feeds_read_stale_since(self):
+        with tempfile.TemporaryDirectory() as d:
+            web = os.path.join(d, 'web'); shutil.copytree(WEB, web)
+            B0 = json.loads(read(os.path.join(web, 'briefing.json'))); since = manifest.sp_date(B0['generated_at'])
+            failed_at = pulse.iso(pulse.parse_dt(B0['generated_at']) + timedelta(days=1))
+            with open(os.path.join(web, 'checks', 'pulse-failed.json'), 'w') as f: json.dump({'at': failed_at, 'run': '4242'}, f)
+            r = compose(d); self.assertEqual(r.returncode, 0, r.stderr); self.assertIn('web/briefing.json', r.stdout)
+            B = json.loads(read(os.path.join(web, 'briefing.json')))
+            reason = 'the Pulse step failed in refresh run 4242'
+            self.assertEqual(B['stale'], {'since': since, 'reason': reason, 'at': failed_at, 'run': '4242'})
+            self.assertEqual((B['records'], B['top10'], B['generated_at'], B['ledger_days']), ([], [], B0['generated_at'], B0['ledger_days']))
+            self.assertEqual([g['id'] for g in B['gauges']], [g['id'] for g in B0['gauges']])
+            for g in B['gauges']:
+                self.assertIsNone(g['value']); self.assertEqual(g['reason'], f'insufficient data: stale since {since}, {reason}')
+            self.assertTrue(all(p.get('events') in (None, []) for p in B['panels']))
+            for f, word in (('feed.json', 'Stale since'), ('feed.pt.json', 'Desatualizado desde')):
+                J = json.loads(read(os.path.join(web, f)))
+                self.assertTrue(J['description'].startswith(f'{word} {since}'), J['description'])
+                self.assertEqual([i['id'] for i in J['items']], [f'stale:{since}']); self.assertEqual(J['_dehype']['stale']['since'], since)
+                self.assertEqual(J['items'][0]['date_published'], failed_at)
+            for f in ('feed.xml', 'feed.pt.xml'):
+                X = read(os.path.join(web, f)).decode()
+                self.assertIn(f'<guid isPermaLink="false">stale:{since}</guid>', X); self.assertNotIn('<guid isPermaLink="false">s:', X)
+            g = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+            self.assertEqual(g.returncode, 0, g.stderr); self.assertIn(f'briefing stale since {since}', g.stdout)
+            self.assertEqual(compose(d).returncode, 0)                                    # a second failed day keeps the date
+            self.assertEqual(json.loads(read(os.path.join(web, 'briefing.json')))['stale']['since'], since)
+            B['records'] = B0['records'][:1]                                              # a stale briefing that carries a record over
+            with open(os.path.join(web, 'briefing.json'), 'w') as f: json.dump(B, f)
+            g = subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
+            self.assertEqual(g.returncode, 1)
+            self.assertIn('briefing.json: stale briefing carries a value over (records, Top 10 and gauge values stay empty) at 1 place, e.g. stale',
+                          findings(g))
+
+    def test_a_marker_without_the_run_is_refused_and_nothing_is_written(self):
+        with tempfile.TemporaryDirectory() as d:
+            web = os.path.join(d, 'web'); shutil.copytree(WEB, web)
+            with open(os.path.join(web, 'checks', 'pulse-failed.json'), 'w') as f: json.dump({'at': 'yesterday'}, f)
+            r = compose(d); self.assertNotEqual(r.returncode, 0)
+            self.assertEqual(read(os.path.join(web, 'briefing.json')), read(os.path.join(WEB, 'briefing.json')))
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,7 @@
+{"_comment": "A manifest that leaks a Reddit record (tests/test_manifest.py): scripts/manifest.py check must fail it on the Reddit rules.",
+ "manifest": "dehype daily input manifest", "version": 1, "date": "2026-10-17", "generated_at": "2026-10-17T08:25:00Z",
+ "files": {"web/pulse.json": null},
+ "records": [
+  {"net": "HN", "id": "HN:50000001", "url": "https://news.ycombinator.com/item?id=50000001", "created": "2026-10-17T05:25:00Z", "fetched": "2026-10-17T08:20:00Z", "score": 120, "comments": 40},
+  {"net": "Reddit", "sha256": "8f2c9d1e0b7a6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d", "id": "t3_1abcde", "url": "https://www.reddit.com/r/LocalLLaMA/comments/1abcde/a_fixture/"}
+ ]}

@@ -955,7 +955,8 @@ class BriefingFixtureTest(unittest.TestCase):
                 self.assertEqual(r.returncode, 1, r.stdout)
                 self.assertIn(msg, r.stderr)
         r = self.check('trend_13_days')                                    # the 13-day path alone: ledger_days agrees with the ledger
-        self.assertEqual([l for l in r.stderr.splitlines() if l.startswith('- ')], ['- ' + self.RULES['trend_13_days'] + ', e.g. gauges[0].trend'])
+        # (its index entries carry only their dates, so the ledger rules of group E1 also fail them: only briefing.json's findings count here)
+        self.assertEqual([l for l in r.stderr.splitlines() if l.startswith('- briefing.json')], ['- ' + self.RULES['trend_13_days'] + ', e.g. gauges[0].trend'])
 
     def test_clean_overlay_passes(self):
         for name in self.CLEAN:
