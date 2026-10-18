@@ -316,6 +316,36 @@ class TestPRCohort(unittest.TestCase):
                 self.assertIsNone(self.feature_activity(activity).get('merge'))
 
 
+class TestSourceNotes(unittest.TestCase):
+    """A source note is published in data.json: it carries the HTTP status, never the API's response body."""
+    def http_error(self, code, body, **headers):
+        import email.message, io, urllib.error
+        hd = email.message.Message()
+        for k, v in headers.items(): hd[k.replace('_', '-')] = v
+        return urllib.error.HTTPError('https://api.github.com/x', code, 'Forbidden', hd, io.BytesIO(body))
+
+    def test_stargazers_failure_note_has_no_response_body(self):
+        body = b'{"message":"Resource not accessible by personal access token","documentation_url":"https://docs.github.com/rest"}'
+        repos = {f'o/r{i}': {'stars': 50} for i in range(3)}
+        def refuse(*a, **k): raise self.http_error(403, body)     # a fresh error per call: each one's body can be read once
+        with patch.object(run.urllib.request, 'urlopen', side_effect=refuse), \
+             patch.object(run, 'gh_core_remaining', return_value=(100, 0)), patch.object(run, 'load_json', return_value={}), \
+             patch.object(run, 'save_json'), patch.object(run, 'OFFLINE', False), patch.dict(run.SOURCES, clear=True):
+            run.fetch_stargazers(repos, list(repos))
+            note = run.SOURCES['GitHub stargazers API']
+        self.assertEqual(note['status'], 'failed')
+        self.assertIn('HTTP 403: Forbidden', note['detail'])
+        for leaked in ('message', 'Resource not accessible', '{', 'docs.github.com'):
+            self.assertNotIn(leaked, note['detail'])
+
+    def test_rate_limit_stays_visible_without_the_body(self):
+        for headers, body in (({'X_RateLimit_Remaining': '0'}, b'{}'), ({}, b'{"message":"You have exceeded a secondary rate limit"}')):
+            with self.subTest(headers=headers), patch.object(run.urllib.request, 'urlopen', side_effect=self.http_error(403, body, **headers)):
+                with self.assertRaises(run.HTTPErr) as cm: run.http_get('https://api.github.com/x')
+                self.assertEqual(str(cm.exception), 'HTTP 403: rate limit')
+                self.assertEqual(cm.exception.body, body.decode())
+
+
 class TestMovement(unittest.TestCase):
     def test_hysteresis_new_and_reset(self):
         prev = {'a': (1, 80.0), 'b': (2, 79.5), 'c': (3, 60.0), 'd': (4, 50.0)}
