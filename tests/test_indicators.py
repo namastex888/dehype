@@ -97,6 +97,17 @@ class HiringCounts(unittest.TestCase):
                  {'text': 'Zeta | said ai in lower case'}, {'text': None}, {'text': 'reply about AI', 'parent_id': 99}]
         self.assertEqual(IND.hiring_counts(item(posts), cfg), (6, 3))           # deleted and nested posts left out; "AI" is case-sensitive
 
+class Budget(unittest.TestCase):
+    def test_no_request_starts_once_the_budget_is_spent(self):
+        with self.assertRaisesRegex(TimeoutError, 'time budget spent'): IND._http('https://example.invalid/', time.monotonic())
+
+    def test_the_bls_notice_is_the_full_statement_its_terms_require(self):
+        self.assertTrue(IND.BLS_NOTICE.endswith('after the data have been retrieved from BLS.gov.'))
+        quotes = [e['quote'] for e in IND.config()['bls']['terms_evidence']]
+        self.assertTrue(any(IND.BLS_NOTICE in q for q in quotes), quotes)
+        for k in ('bls', 'hn_hiring', 'wikipedia'):
+            for e in IND.config()[k]['terms_evidence']: self.assertTrue(e['url'].startswith('https://') and e['quote'] and e['retrieved'])
+
 class Fetch(unittest.TestCase):
     """fetch_all over a fake transport replaying the recorded responses: the parallel path, the budget and the stored shape."""
     def fake(self, S):

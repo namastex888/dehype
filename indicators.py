@@ -22,7 +22,7 @@ BUDGET, REQ_SECONDS = 45.0, 15.0                      # all three sources togeth
 UA = 'dehype/1.0 (+https://github.com/namastex888/dehype; felipe@namastex.ai) python-urllib'
 PREVIEW, NOT_FETCHED = 'preview, not yet reproducible', 'not fetched'
 NAMES = {'bls': 'BLS (public API v1)', 'hn_hiring': 'Hacker News "Who is hiring?" (Algolia)', 'wikipedia': 'Wikipedia page views (Wikimedia REST)'}
-BLS_NOTICE = 'BLS.gov cannot vouch for the data or analyses derived from these data'
+BLS_NOTICE = 'BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov.'   # the BLS API terms: users must clearly state this sentence
 CONTEXT_NOTE = 'context, not a forecast: general labour figures and hiring posts; none of them attributes a change to AI'
 WINDOW_DAYS = 7
 
@@ -36,7 +36,12 @@ def _http(url, deadline, data=None):
     h = {'User-Agent': UA, 'Accept': 'application/json'}
     if data is not None: h['Content-Type'] = 'application/json'
     req = urllib.request.Request(url, data=data, headers=h)
-    with urllib.request.urlopen(req, timeout=min(REQ_SECONDS, left)) as r: return json.loads(r.read().decode('utf-8'))
+    body = b''
+    with urllib.request.urlopen(req, timeout=min(REQ_SECONDS, left)) as r:   # the timeout bounds each network read
+        while chunk := r.read(65536):                    # a reply still trickling in past the budget is dropped, so the
+            body += chunk                                # whole step ends within budget + one read timeout (about 60 s)
+            if time.monotonic() > deadline + 1: raise TimeoutError('time budget spent while reading')
+    return json.loads(body.decode('utf-8'))
 
 def fetch_bls(cfg, now, deadline, get=_http):
     year = now.year

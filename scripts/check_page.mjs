@@ -255,7 +255,7 @@ const TREND_KEY = /^(trend|trends|arrow|arrows|delta|day_over_day)$/;
 // a value only from a source fetched in this run, with its retrieval date, else null with an "insufficient data" reason (never 0); a BLS
 // value carries the BLS notice; counts are whole and consistent; no trend or arrow before 14 ledger days; no dial; no AI-caused claim.
 const PANEL_IDS = new Set(['risk', 'jobs', 'pageviews']), DAY_RX = /^\d{4}-\d{2}-\d{2}$/;
-const BLS_NOTICE = 'BLS.gov cannot vouch for the data or analyses derived from these data';
+const BLS_NOTICE = 'BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov.';
 const CAUSAL = /\b(caused by|due to|because of|driven by|blamed on) (AI|artificial intelligence)\b|\bAI (caused|took|cost|destroyed|replaced)\b/i;
 function contextRules(F, B, panel, d) {
   const count = (v, at, what) => { if (!(Number.isInteger(v) && v >= 0)) finding(F, `context ${what} is not a whole count`, at); };
@@ -775,6 +775,7 @@ let i18nNote = 'no strings file';
   }
   const doc = { en: md.en != null && methodDoc(md.en, false), pt: md.pt != null && methodDoc(md.pt, true) };
   for (const [lang, f] of [['en', 'METHODOLOGY.md'], ['pt', 'METHODOLOGY.pt.md']]) if (md[lang] != null) licenceRules(f, lang, md[lang]);
+  for (const f of ['METHODOLOGY.md', 'METHODOLOGY.pt.md']) if (md[f.includes('.pt.') ? 'pt' : 'en'] != null && !md[f.includes('.pt.') ? 'pt' : 'en'].includes(BLS_NOTICE)) finding(f, 'the method page lacks the full BLS statement', 'Context panels');
   if (doc.en && doc.pt) {
     const a = doc.en.heads.map(h => h.join(' ')).join('|'), b = doc.pt.heads.map(h => h.join(' ')).join('|');
     if (a !== b) finding('METHODOLOGY.pt.md', 'headings do not match METHODOLOGY.md: same headings, levels and order, each under <a id="<the English anchor>"></a>',
@@ -832,6 +833,10 @@ let i18nNote = 'no strings file';
       if (md[lang] != null && !(text(entry[k]?.[lang]) && flat(md[lang]).includes(flat(entry[k][lang])))) finding(f, `lacks the ${k} text in ${lang} (i18n/strings.json)`, k);
     if (!/posts in our sample/.test(entry['x_route.disclosure']?.en || '') || !/posts na nossa amostra/.test(entry['x_route.disclosure']?.pt || ''))
       finding(F, 'x_route.disclosure does not read "posts in our sample" in both languages', 'strings.x_route.disclosure');
+    // the BLS API terms require the full statement wherever we show BLS data: the panel's notice and the Sources page's terms, both languages
+    for (const k of ['ind.bls.notice', 'status.ind.terms.bls']) for (const l of ['en', 'pt'])
+      if (!String(entry[k]?.[l] || '').includes(BLS_NOTICE)) finding(F, `${k} lacks the full BLS statement ("${BLS_NOTICE}")`, `strings.${k}.${l}`);
+    if (entry['ind.bls.notice']?.en !== BLS_NOTICE) finding(F, 'ind.bls.notice en is not exactly the BLS statement', 'strings.ind.bls.notice.en');
     // headlines and post titles stay as posted (no translated field), each with a lang tag; our fixed headline line reads "en"
     const fixed = entry['headline.count_only'] && tpl('headline.count_only');
     let titles = 0;
