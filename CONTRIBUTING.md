@@ -61,7 +61,7 @@ Never commit API tokens. GitHub auth comes from `gh auth` at run time.
 
 ## Licences
 
-Code contributions are under the MIT licence. Data snapshots (`web/*.json`) are CC BY 4.0. By contributing you agree to license your contribution the same way.
+Code contributions are under the AGPL-3.0 (version 3 only, [LICENSE](LICENSE)). Data snapshots (`web/*.json`, the feeds and `web/ledger/`) are CC BY-SA 4.0 for our selection, arrangement and computed fields only. By contributing you agree to license your contribution the same way. Contributions made before the licence change (commits whose `LICENSE` is MIT) stay under MIT and CC BY 4.0; see [METHODOLOGY.md](METHODOLOGY.md#licence).
 
 ## Offline issue 11 qualification
 

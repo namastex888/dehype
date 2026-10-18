@@ -1,8 +1,9 @@
 cff-version: 1.2.0
-message: "If you use this tracker, its scoring method or its data snapshots, please cite it as below."
-title: "trending-research: an open, evidence-weighted tracker of AI research papers, repositories and hype"
+message: "If you use dehype, its scoring method or its data snapshots, please cite it as below."
+title: "dehype: a daily AI reality briefing and evidence-weighted tracker of AI research papers, repositories and hype"
 abstract: >-
-  Ranks AI research papers and GitHub repositories on agents, harnesses and context layers, JEPA,
+  dehype publishes a daily briefing of what happened in AI in the last 24 hours, with each story's evidence and verdict state, in
+  English and Portuguese, on a ledger anyone can verify. It also ranks AI research papers and GitHub repositories on agents, harnesses and context layers, JEPA,
   JEV (decision models) and world/action models, and compares sampled attention (Hype) with evidence
   of substance (Real) across the wider AI world. Scores are confidence-aware: missing evidence shrinks
   a score toward the median instead of being filled in.
@@ -12,11 +13,14 @@ authors:
     family-names: Rosa
     affiliation: Namastex
   - name: Namastex
-repository-code: "https://github.com/namastex888/trending-research"
-url: "https://github.com/namastex888/trending-research"
-license: MIT
-version: "2.0"
-date-released: "2026-10-07"
+repository-code: "https://github.com/namastex888/dehype"
+url: "https://namastex888.github.io/dehype/"
+# Code is AGPL-3.0-only from the commit that replaced the MIT LICENSE; the data (web/*.json, feeds, ledger) are CC BY-SA 4.0 for our
+# selection, arrangement and computed fields only. Earlier commits and the 2.0 release (2026-10-07, the last one under MIT and CC BY 4.0)
+# keep MIT and CC BY 4.0; no version is named here until the next release is cut.
+license:
+  - AGPL-3.0-only
+  - CC-BY-SA-4.0
 keywords:
   - AI agents
   - context engineering

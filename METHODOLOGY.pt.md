@@ -433,6 +433,16 @@ npx -p opentimestamps@0.4.9 ots-cli.js verify --ignore-bitcoin-node -f manifest-
 
 Veja [CONTRIBUTING.md](CONTRIBUTING.md) para fontes de dados, listas de sementes e a regra de nunca inventar números.
 
+<a id="licence"></a>
+## Licença
+
+A partir do commit que adiciona esta seção e substitui o arquivo `LICENSE` MIT (`git log --follow -- LICENSE` mostra qual é), o dehype tem estas licenças:
+
+- **Código** (tudo neste repositório que não é dado): [AGPL-3.0](LICENSE), a GNU Affero General Public License, somente a versão 3. Quem roda uma cópia modificada como serviço de rede oferece aos usuários o código-fonte dessa versão.
+- **Dados** (`web/*.json`, os quatro feeds, `web/ledger/` e os arquivos das Releases datadas): [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), cobrindo apenas a nossa seleção, organização e campos calculados: pontuações, contagens, cobertura, ids de histórias, valores dos medidores, estados de evidência e o nosso próprio texto. Ela não relicencia o que não fizemos: títulos de posts, manchetes, nomes, links e outros textos de terceiros mantêm os termos de seus donos, e cada fonte mantém os seus (os metadados do arXiv são CC0).
+- **Versões anteriores mantêm sua licença.** Todo commit e release anterior a esse commit, incluindo a versão 2.0 de 2026-10-07, continua disponível sob MIT para o código e CC BY 4.0 para os dados; esta mudança não revoga nenhuma das duas concessões.
+- Código de terceiros mantém sua própria licença e aviso: Cordis (MIT) em `scripts/dehype/NOTICE`, e o cliente OpenTimestamps (LGPL-3.0) em `scripts/checks/NOTICE`; a busca por sentido carrega o transformers.js (Apache-2.0) e o onnxruntime-web (MIT) dos próprios pacotes.
+
 <a id="issue-11-change-record-and-attributed-rulings"></a>
 ## Registro de mudanças da issue 11 e decisões atribuídas
 

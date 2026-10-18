@@ -1,13 +1,13 @@
-# trending-research
+# dehype
 
-[![code: MIT](https://img.shields.io/badge/code-MIT-blue.svg)](LICENSE)
-[![data: CC BY 4.0](https://img.shields.io/badge/data-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
+[![code: AGPL-3.0](https://img.shields.io/badge/code-AGPL--3.0-blue.svg)](LICENSE)
+[![data: CC BY-SA 4.0](https://img.shields.io/badge/data-CC%20BY--SA%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-sa/4.0/)
 
-An evolving, open AI intelligence observatory. Its current executable tracker ranks **papers** and **GitHub repos** on AI agents, harnesses and context layers, JEPA, JEV (decision models), and world and action models. A third view compares sampled **Attention** with **Discovery** proxies across AI projects. These scores help find leads for investigation; they do not establish capability, adoption, economic value or truth.
+**dehype** is a daily AI reality briefing: what happened in AI in the last 24 hours, what each story's evidence is and who has confirmed what, in English and Portuguese, on a record anyone can verify. It grew out of `trending-research` (the repository's earlier name), whose tracker still ranks **papers** and **GitHub repos** on AI agents, harnesses and context layers, JEPA, JEV (decision models), and world and action models, and compares sampled **Attention** with **Discovery** proxies across AI projects. Scores and stories are leads for investigation; they do not establish capability, adoption, economic value or truth.
 
-![Observatory console: papers view with paradigm mix, score × coverage scatter and leaders](docs/console.png)
+![dehype: the daily AI reality briefing](web/og.png)
 
-How it fits together, in plain diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Current sequencing and decisions: [docs/ROADMAP.md](docs/ROADMAP.md). Launch plan: [docs/PUBLISHING.md](docs/PUBLISHING.md).
+How it fits together, in plain diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Current sequencing and decisions: [docs/ROADMAP.md](docs/ROADMAP.md). Launch plan (2026-10-16; its Cloudflare and licence lines are superseded, see [ROADMAP.md](docs/ROADMAP.md#superseded-statements)): [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Research and roadmap state
 
@@ -22,32 +22,30 @@ Roadmap work through 2026-10-16 was aggregated in [PR #22](https://github.com/na
 ## Quickstart
 
 ```bash
-git clone https://github.com/namastex888/trending-research && cd trending-research
+git clone https://github.com/namastex888/dehype && cd dehype
 python -m http.server 8765 -d web   # open http://localhost:8765 to browse the committed snapshot
 ```
 
-`web/` is a static page (`index.html` plus `data.json` and `hype.json`), so any static host can serve the snapshot offline. To check the current scoring code against bundled fixtures without refreshing data, run `python eval.py --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json`.
+`web/` is a set of static pages (`index.html`, `stories.html`, `output.html`, `hype.html`, `method.html`, `audit.html`, sharing `dehype.css` and `dehype.js`) that read committed data files, so any static host can serve the snapshot offline; no page has a build step. To check the current scoring code against bundled fixtures without refreshing data, run `python eval.py --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json`.
 
 An optional network refresh is `python run.py`; it calls external source APIs and is separate from browsing or fixture evaluation. Install [requirements.txt](requirements.txt) first if needed (`tzdata` on Windows); `gh auth login` or a `GH_TOKEN` variable raises GitHub API limits.
 
-**Live site:** https://namastex888.github.io/trending-research/
+**Live site:** https://namastex888.github.io/dehype/
 
-**Hosting and updates.** `.github/workflows/refresh.yml` runs `run.py` daily in GitHub Actions, commits `web/data.json` to `dev` and deploys `web/` to GitHub Pages (and Cloudflare Pages when configured) through `deploy.yml`; `ci.yml` runs on every pull request (mark it as a required check under branch protection to block merges). GitHub Pages needs no setup; the Cloudflare deploy needs two repository secrets, see [ARCHITECTURE.md](docs/ARCHITECTURE.md#3-publishing).
+**Hosting and updates.** GitHub Pages is the only host (no Cloudflare, no server). `.github/workflows/refresh.yml` runs daily in GitHub Actions, scheduled at 04:45 America/Sao_Paulo so the briefing is live by 06:00: it fetches and scores (`run.py`), builds the conversation map and the briefing (`pulse.py`), composes the four feeds (`scripts/dehype/compose.mjs`, Cordis 4.0.4), writes the day's ledger entry and story-id archive (`scripts/manifest.py`), puts the input manifest on a dated GitHub Release, commits only the bot-written files to `dev` and deploys `web/` through `deploy.yml`. `ci.yml` runs on every pull request; `scripts/check_page.mjs` is the page and public-data gate, and it also checks that the refresh stages exactly the bot-written files. Until the owner applies the pending workflow change (`.genie/wishes/dehype-s1/f-workflow.proposed.diff`, after `e-workflow.combined.proposed.diff`), the cron still runs at 06:17 and the ledger steps are not wired. Details: [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## The page
+## The pages
 
-**Pulse** (default tab) is a live topic map: what the AI conversation is about right now across Hacker News, Reddit, Mastodon and Lobsters (plus our paper and repo tracker). Bigger nodes have more distinct voices across more networks, lines join topics mentioned in the same post, and every node opens the posts behind it. Built daily by `pulse.py`; method in [METHODOLOGY.md](METHODOLOGY.md#pulse-topic-map).
-
-Search box: type a question such as `agent repos over 1k stars this month`, `browser automation` or `attention ahead`. It is parsed into filters in the browser (tab, window, paradigm, numeric thresholds, author/lab, new, rising), and the remaining words are ranked by meaning with a small open embedding model that runs in the browser (vectors are built at refresh time by `scripts/embed`). No server or paid API is involved; toggle `✦ semantic` off for plain keyword matching. Click any row or chart point for its score anatomy and sources.
-
-| Tab | What it ranks | Score |
+| Page | What it shows | Data it reads |
 |---|---|---|
-| **Papers** | arXiv / Hugging Face papers on the subjects above | HF upvote momentum 40%, linked-repo activity proxy 35%, HN mention momentum 25% |
-| **GitHub** | repos on the same subjects | activity discovery index: star growth, issues, PRs, created-and-merged PR cohort when observed, commits and contributors |
-| **HYPE** | sampled AI projects, open and closed source | **Attention** (sampled posts) vs **Discovery** (available GitHub, paper and discussion proxies); sourced usage families appear separately |
-| **Methodology** | renders [METHODOLOGY.md](METHODOLOGY.md) | every formula, weight and threshold |
+| **Briefing** (`index.html`) | the gauge header (at most four gauges, each a preview with its coverage) and the day's Top 10 stories, each with its evidence record and verdict state | `briefing.json`, `pulse.json`, `verdicts.json` |
+| **Stories** (`stories.html`) | every story of the last 7 days, with its posts as counts or handle-free links | `briefing.json`, `pulse.json` |
+| **Output** (`output.html`) | releases and research output by area: Papers and Repos, with search by words or by meaning | `data.json`, search index |
+| **Hype** (`hype.html`) | sampled attention against discovery proxies for AI projects, from a research dossier with a content cut | `hype.json` |
+| **Method** (`method.html`) | [METHODOLOGY.md](METHODOLOGY.md) and [METHODOLOGY.pt.md](METHODOLOGY.pt.md), the policy, and the licence | the method sources |
+| **Audit** (`audit.html`) | the ledger, the dated Releases, attestations, timestamp proofs, verdicts, corrections and removals | `ledger/index.json` |
 
-Windows (1d, 7d, 30d, 90d, 180d, 1y, overall) filter by release, creation or push date. Paradigm buttons re-rank within a subject. Score tooltips distinguish raw score, evidence coverage and prior. Coverage measures observed signal completeness, not confidence in truth; verification, freshness and source independence remain unqualified.
+Every page exists in English and Portuguese. Old console URLs (`#pulse`, `#papers`, `#repos`, `#hype`, `#methodology`, `?q=`, `?open=`) fold to their dehype page. Search by meaning embeds the query in the browser with a small open model; transformers.js 4.2.0 (exact-pinned) and its onnxruntime wasm build load from jsDelivr and the model weights from Hugging Face, only after the reader selects it (vendoring it is deferred: GitHub push protection flags a pattern in the minified bundle; needs an owner decision). Feeds: `feed.xml` and `feed.json` (and `.pt`), RSS 2.0 and JSON Feed 1.1.
 
 ## Method in one minute (current scoring v3.0)
 
@@ -76,8 +74,10 @@ hype_build.py        HYPE tab: research dossier -> web/hype.json
 scoring.py           current v3 scoring plus frozen historical v2 mode
 scoring_config.json  every weight and threshold
 eval.py              stability / evidence / HYPE-shortlist report for scoring PRs
-METHODOLOGY.md       the method (run.py copies it to web/ for the page)
-web/                 static page + data snapshots (CC BY 4.0)
+pulse.py             conversation map, stories and the daily briefing -> web/pulse.json, web/briefing.json
+scripts/             page gate (check_page.mjs), Cordis composition (dehype/), ledger (manifest.py, ots.mjs), search index (embed/)
+METHODOLOGY.md       the method, with METHODOLOGY.pt.md (run.py and deploy.yml copy both to web/ for the method page)
+web/                 static pages and data snapshots (CC BY-SA 4.0)
 tests/               unit tests + a small real-data fixture
 ```
 
@@ -90,15 +90,23 @@ Weight changes, new data sources, seed queries and bug reports are welcome. Read
 If you use the tracker, its method or its data, please cite it ([CITATION.cff](CITATION.cff)):
 
 ```bibtex
-@software{rosa_trending_research_2026,
+@software{rosa_dehype_2026,
   author  = {Rosa, Felipe and {Namastex}},
-  title   = {trending-research: an open, evidence-weighted tracker of AI research papers, repositories and hype},
+  title   = {dehype: a daily AI reality briefing and evidence-weighted tracker of AI research papers, repositories and hype},
   year    = {2026},
-  version = {2.0},
-  url     = {https://github.com/namastex888/trending-research}
+  url     = {https://github.com/namastex888/dehype}
 }
 ```
 
 ## License
 
-Code: [MIT](LICENSE). Data snapshots in `web/*.json`: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Upstream sources keep their own terms.
+Copyright (C) 2026 Felipe Rosa / Namastex.
+
+From the commit that replaced the MIT `LICENSE` with the GNU Affero General Public License, version 3 only (`git log --follow -- LICENSE` names it):
+
+- **Code**: [AGPL-3.0](LICENSE).
+- **Data** (`web/*.json`, the feeds, `web/ledger/` and the dated Release assets): [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), covering only our selection, arrangement and computed fields. Post titles, headlines, names, links and other third-party text keep their owners' terms, and each upstream source keeps its own.
+- **Earlier releases keep their licence**: every commit before that one, the 2.0 release of 2026-10-07 included, stays under MIT for code and CC BY 4.0 for data.
+- Third-party code keeps its own notice: `scripts/dehype/NOTICE` (Cordis, MIT), `scripts/checks/NOTICE` (OpenTimestamps client, LGPL-3.0); transformers.js (Apache-2.0) loads from its own package in the browser.
+
+The full statement is in the method's [Licence](METHODOLOGY.md#licence) section.

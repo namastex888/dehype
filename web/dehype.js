@@ -454,7 +454,7 @@ async function semLoad() {
     const [ix, bin] = await Promise.all([load('search-index.json'), load('search-vectors.bin')]);
     if (bin.byteLength !== ix.rows * ix.dim || !ix.revision) throw new Error('search index and vectors disagree');
     const tf = await import(TF_URL);
-    SEM.ext = await tf.pipeline('feature-extraction', ix.model, { dtype: ix.dtype, revision: ix.revision });
+    SEM.ext = await tf.pipeline('feature-extraction', ix.model, { dtype: ix.dtype, revision: ix.revision, device: 'wasm' });
     SEM.ix = ix; SEM.vec = new Int8Array(bin);
     for (const [tab, v] of Object.entries(ix.tabs)) SEM.pos[tab] = new Map(v.ids.map((id, i) => [id, v.offset + i]));
     SEM.st = 'ready';

@@ -1064,10 +1064,10 @@ class StoryAliasTest(unittest.TestCase):
 
     def test_refresh_stages_aliases_and_never_the_owner_files(self):
         wf = read(os.path.join(ROOT, '.github', 'workflows', 'refresh.yml')).decode()
-        add = [l for l in wf.splitlines() if l.strip().startswith('git add ')]
-        self.assertEqual(len(add), 1)
-        self.assertIn('web/story-aliases.json', add[0].split())
-        for f in ('web/verdicts.json', 'web/corrections.json', 'web', 'web/', '.', '-A', '--all'): self.assertNotIn(f, add[0].split()[2:])
+        add = [l.split() for l in wf.splitlines() if l.strip().startswith('git add ')]
+        self.assertIn('web/story-aliases.json', add[0])
+        for a in add[1:]: self.assertTrue(set(a[2:]) <= set(add[0][2:]), a)      # M2 (group F): a later line only re-stages the recomposed feeds
+        for f in ('web/verdicts.json', 'web/corrections.json', 'web', 'web/', '.', '-A', '--all'): self.assertNotIn(f, [p for a in add for p in a[2:]])
 
     def test_committed_alias_file_maps_ids(self):
         A = json.loads(read(os.path.join(ROOT, 'web', 'story-aliases.json')))
@@ -1214,12 +1214,14 @@ class OwnerFilesTest(unittest.TestCase):
         self.assertIn('github.event.pull_request.base.sha || github.event.before', ci)
         # the refresh pushes with github.token (no ci.yml run), so it checks its own commit after `git commit` and before the push
         wf = read(os.path.join(ROOT, '.github', 'workflows', 'refresh.yml')).decode()
-        c, k, push = wf.index('git commit -m "data: daily refresh'), wf.index('python scripts/check_owner_files.py HEAD~1'), wf.index('git push')
+        c, k = wf.index('git commit -m "data: daily refresh'), wf.index('python scripts/check_owner_files.py HEAD~1')
+        push = re.search(r'\b(?:git|g) push "\$remote"', wf).start()                   # M2 (group F): the push step's git wrapper g()
         self.assertLess(c, k); self.assertLess(k, push)
         dep = read(os.path.join(ROOT, '.github', 'workflows', 'deploy.yml')).decode()
-        self.assertEqual(dep.count('python3 scripts/check_owner_files.py "$BASE"'), 2)          # both publishing jobs
-        self.assertEqual(dep.count('fetch-depth: 0'), 2)
-        for job in dep.split('\n  cloudflare:'):
+        jobs = re.split(r'\n  [\w-]+:\n', '\n' + dep.split('\njobs:\n')[1])[1:]                       # every publishing job (GitHub Pages only from group F)
+        self.assertTrue(jobs)
+        for job in jobs:
+            self.assertIn('fetch-depth: 0', job); self.assertIn('python3 scripts/check_owner_files.py "$BASE"', job)
             self.assertLess(job.index('check_owner_files.py'), job.index('check_page.mjs'))
 
 
