@@ -650,7 +650,7 @@ async function status() {
       rows: rows.map(([n, s]) => ({ cells: [esc(nm(n)), stCell(s.status), s.detail ? esc(tr(s.detail)) : '—', `${s.files.map(([f]) => `<code class="mono">${esc(f)}</code>`).join(', ')}<br><span class="dim">${esc(ago(s.files[0][1], now))}</span>`] })) });
     const planT = list => table({ stack: true, cols: [[t('status.col.source')], [t('status.col.what')], [t('status.col.terms')], [t('status.col.feeds')]],
       rows: list.map(e => { const x = txt(e), r = claimed.has(e.live) && live.get(e.live);
-        return { cells: [`<b>${esc(e.name)}</b>${r ? `<br><span class="dim">${esc(t('status.reported'))}</span> ${stCell(r.status)}${r.detail ? ` <span class="dim">· ${esc(tr(r.detail))}</span>` : ''}` : ''}`, esc(x.what), `<span class="dim">${esc(x.terms)}</span>`, feeds(e)] }; }) });
+        return { cells: [`<b>${esc(x.name)}</b>${r ? `<br><span class="dim">${esc(t('status.reported'))}</span> ${stCell(r.status)}${r.detail ? ` <span class="dim">· ${esc(tr(r.detail))}</span>` : ''}` : ''}`, esc(x.what), `<span class="dim">${esc(x.terms)}</span>`, feeds(e)] }; }) });
     $('#body').innerHTML = `${B ? staleBanner(B) : ''}${read.filter(([, d]) => !d).map(([f]) => `<p class="notice">${esc(t('status.unread', { file: f }))}</p>`).join('')}
 ${kpis([[t('status.group.live'), nf(rows.length), esc(t('ui.sources_ok', { n: ok, total: rows.length }))], ...Object.entries(GROUPS).map(([g, k]) => [t(k), nf(by(g).length)])]).replace('class="kpis"', 'class="kpis k5"')}
 <section class="card aline" id="record" aria-label="${esc(t('status.record'))}">${rec.map(([k, v]) => `<p><span class="lbl">${esc(k)}</span> ${v}</p>`).join('')}<p class="go"><a href="${href('audit')}">${esc(t('status.audit.more'))}</a></p></section>

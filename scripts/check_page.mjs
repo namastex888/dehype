@@ -882,7 +882,7 @@ let pageNote = 'no dehype pages';
 function planRules(js) {                                         // called from the pages block above, so its constants live here
   const PLAN = 'i18n/sources-plan.json', PLAN_GROUPS = ['ready', 'pending', 'held', 'free'], PLAN_STATES = ['done', 'next', 'planned'];
   const PLAN_FEEDS = ['output_by_area', 'hype_vs_substance', 'daily_movers', 'risk', 'jobs', 'awareness'];
-  const PLAN_ROW = new Set(['id', 'group', 'name', 'live', 'feeds', 'en', 'pt']), PLAN_STEP = new Set(['id', 'state', 'en', 'pt']);
+  const PLAN_ROW = new Set(['id', 'group', 'live', 'feeds', 'en', 'pt']), PLAN_STEP = new Set(['id', 'state', 'en', 'pt']);
   const P = readJSON(PLAN, `${PLAN} missing (the Sources page plan, owner-reviewed; status.html reads it)`);
   if (!P) return 'no sources plan';
   publicRules(PLAN, P);
@@ -894,11 +894,10 @@ function planRules(js) {                                         // called from 
     const at = `sources[${i}]`;
     shape(e, PLAN_ROW, at);
     if (!text(e?.id) || seen.has(e.id)) finding(PLAN, 'source row without a unique id', at); seen.add(e?.id);
-    if (!text(e?.name)) finding(PLAN, 'source row without its name', `${at}.name`);
     if (!PLAN_GROUPS.includes(e?.group)) finding(PLAN, `source row in an unknown group (${PLAN_GROUPS.join(', ')})`, `${at}.group`);
     if (!Array.isArray(e?.feeds) || !e.feeds.length || e.feeds.some(f => !PLAN_FEEDS.includes(f))) finding(PLAN, `source row feeds no known gauge (${PLAN_FEEDS.join(', ')})`, `${at}.feeds`);
     if (e && 'live' in e && !text(e.live)) finding(PLAN, 'source row live is not a source name', `${at}.live`);
-    both(e, ['what', 'terms'], at);
+    both(e, ['name', 'what', 'terms'], at);
   });
   R.forEach((r, i) => {
     const at = `roadmap[${i}]`;

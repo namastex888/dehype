@@ -49,7 +49,7 @@ class StatusPageTest(unittest.TestCase):
 
     def test_live_rows_are_read_from_the_data_files_not_written_in_the_plan(self):
         for f in ('briefing.json', 'pulse.json', 'data.json'): self.assertIn(f"opt('{f}', null)", self.js)
-        self.assertTrue(all(set(e) <= {'id', 'group', 'name', 'live', 'feeds', 'en', 'pt'} for e in self.plan['sources']))
+        self.assertTrue(all(set(e) <= {'id', 'group', 'live', 'feeds', 'en', 'pt'} for e in self.plan['sources']))
         self.assertTrue(all(e['group'] in GROUPS for e in self.plan['sources']))          # no live group in the plan
         def add_status(P): P['sources'][0]['status'] = 'ok'
         self.assert_only(check_page(self.plan_with(add_status)), f'{PLAN}: row carries a field outside its shape')
@@ -57,6 +57,8 @@ class StatusPageTest(unittest.TestCase):
     def test_plan_rows_need_en_and_pt(self):
         def drop_pt(P): del P['sources'][0]['pt']['terms']
         self.assert_only(check_page(self.plan_with(drop_pt)), f'{PLAN}: row lacks its en or pt text')
+        def drop_name(P): del P['sources'][2]['pt']['name']
+        self.assert_only(check_page(self.plan_with(drop_name)), f'{PLAN}: row lacks its en or pt text')
         def drop_step(P): P['roadmap'][1]['en']['what'] = ' '
         self.assert_only(check_page(self.plan_with(drop_step)), f'{PLAN}: row lacks its en or pt text')
 
