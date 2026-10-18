@@ -540,6 +540,8 @@ python3 eval.py --issue11-smoke --features tests/fixtures/features_a.json tests/
 node scripts/check_page.mjs
 ```
 
+- E1 known gap (deferred to the owner): the audit page's "equal" mark compares the Release asset SHA256 that the refresh runner recorded after downloading the asset back (`scripts/manifest.py release`), not a hash the browser reads from GitHub; a browser check against the GitHub Releases API would add an external fetch to `web/dehype.js` (one loader, named files only) and is left for the owner to decide.
+
 **depends-on:** D, B3, C3
 
 ---

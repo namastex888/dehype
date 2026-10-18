@@ -21,3 +21,9 @@ scripts/checks/node_modules/
 
 # one-shot Cordis composition dependencies (@deepseek-ai/cordis 4.0.4)
 scripts/dehype/node_modules/
+
+# a failed Pulse step marks the run for compose.mjs (refresh.yml); never committed
+web/checks/pulse-failed.json
+
+# the daily input manifest goes on a dated Release, not into git (scripts/manifest.py)
+dist/

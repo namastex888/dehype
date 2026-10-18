@@ -167,7 +167,7 @@ class FoldTest(unittest.TestCase):
     def test_stale_since_cases_pass_under_node_test(self):              # Decision 15's runner, also run here until E1 adds it to ci.yml
         r = subprocess.run(['node', '--test', os.path.join(ROOT, 'tests', 'dehype_stale.test.mjs')], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.assertIn('pass 7', r.stdout)
+        self.assertIn('pass 10', r.stdout)
 
     def test_only_the_pinned_transformers_import(self):
         self.assert_only(check_page({'dehype.js': self.js + "\nimport('https://example.com/x.js');"}), 'dehype.js: imports code other than the exact-pinned transformers.js')

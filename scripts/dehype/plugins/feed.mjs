@@ -5,7 +5,9 @@
 // resolved through story-aliases.json, confirms a label) and its source links. A count-only network (Reddit, X, LinkedIn, YouTube,
 // Telegram, Discord, and Mastodon: a feed reader keeps an item after a later render check fails or the post is deleted) is never
 // linked, only counted; no author or handle is written. Every date comes from briefing.json generated_at, so the same inputs give the same bytes. Node standard library only;
-// scripts/dehype/compose.mjs loads it as a Cordis plugin (apply) and writes what it emits.
+// scripts/dehype/compose.mjs loads it as a Cordis plugin (apply) and writes what it emits. A stale briefing (compose.mjs, after a failed Pulse
+// step; C5) has no Top 10: each feed then reads "stale since" its date with the reason, in its description and in one item dated by the
+// failed run (id stale:<date>), and carries the stale object in _dehype; no story of the earlier briefing is carried over.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -75,15 +77,17 @@ export function build({ briefing: B, pulse: P, verdicts: V, aliases: A, strings:
       const readings = { seen: r.seen, kind: r.kind, voices: c.voices ?? null, networks: c.networks || {}, newsletters: c.newsletters ?? null, official: c.official ?? null, hn_points: c.hn_points ?? null, sources: r.sources || {} };
       return { r, url: page('stories', r.id), story, verdict, links, readings, text, html };
     });
-    const title = `dehype · ${t('index.title')}`, home = page('index'), about = page('method');
+    const title = `dehype · ${t('index.title')}`, home = page('index'), about = page('method'), S0 = B.stale?.since ? B.stale : null;
+    const note = S0 && { id: `stale:${S0.since}`, when: new Date(S0.at), title: t('stale.failed', { date: S0.since, reason: t('stale.reason.pulse_failed', { run: S0.run }) }), text: t('stale.failed.note', { date: S0.since }) };
+    const scope = note ? `${note.title}. ${note.text}` : t('index.scope'), built = note ? note.when : when;
     out[L.xml] = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
 <channel>
 <title>${xml(title)}</title>
 <link>${xml(home)}</link>
-<description>${xml(t('index.scope'))}</description>
+<description>${xml(scope)}</description>
 <language>${L.code}</language>
-<lastBuildDate>${when.toUTCString()}</lastBuildDate>
+<lastBuildDate>${built.toUTCString()}</lastBuildDate>
 <docs>https://www.rssboard.org/rss-specification</docs>
 <atom:link href="${SITE}${L.xml}" rel="self" type="application/rss+xml"/>
 ${items.map(i => `<item>
@@ -95,13 +99,21 @@ ${items.map(i => `<item>
 <dc:language>${xml(i.r.lang || 'und')}</dc:language>
 <description>${xml(i.html)}</description>
 </item>
-`).join('')}</channel>
+`).join('')}${note ? `<item>
+<title>${xml(note.title)}</title>
+<link>${xml(home)}</link>
+<guid isPermaLink="false">${xml(note.id)}</guid>
+<pubDate>${note.when.toUTCString()}</pubDate>
+<description>${xml(note.text)}</description>
+</item>
+` : ''}</channel>
 </rss>
 `;
-    out[L.json] = JSON.stringify({ version: 'https://jsonfeed.org/version/1.1', title, home_page_url: home, feed_url: `${SITE}${L.json}`, description: t('index.scope'), language: L.code,
-      _dehype: { about, generated_at: at, window_end: B.window?.end_brt || null, items: 'briefing.json top10, in rank order' },
+    out[L.json] = JSON.stringify({ version: 'https://jsonfeed.org/version/1.1', title, home_page_url: home, feed_url: `${SITE}${L.json}`, description: scope, language: L.code,
+      _dehype: { about, generated_at: at, window_end: B.window?.end_brt || null, items: 'briefing.json top10, in rank order', ...(S0 ? { stale: S0 } : {}) },
       items: items.map(i => ({ id: i.r.id, url: i.url, ...(i.story ? { external_url: i.story } : {}), title: i.r.headline, language: i.r.lang || 'und', content_text: i.text, date_published: at,
-        _dehype: { about, id: i.r.id, verdict: i.verdict, sources: i.links, readings: i.readings } })) });
+        _dehype: { about, id: i.r.id, verdict: i.verdict, sources: i.links, readings: i.readings } })).concat(note
+        ? [{ id: note.id, url: home, title: note.title, language: L.code, content_text: note.text, date_published: S0.at }] : []) });
   }
   return out;
 }

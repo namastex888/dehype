@@ -11,6 +11,7 @@ const DH = (() => {
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const REPO = 'https://github.com/namastex888/dehype/blob/dev/';            // repository files the method text links (code, config)
+const ATTEST_REPO = REPO.split('/').slice(3, 5).join('/');                 // owner/name, for gh attestation verify --repo
 const NAV = [['index', 'nav.briefing'], ['stories', 'nav.stories'], ['output', 'nav.output'], ['hype', 'nav.hype'], ['method', 'nav.method'], ['audit', 'nav.audit']];
 const COUNT_ONLY = new Set(['Reddit', 'X', 'LinkedIn', 'YouTube', 'Telegram', 'Discord', 'Mastodon']);
 const NOT_FETCHED = 'not fetched', DAY = 864e5;
@@ -436,6 +437,8 @@ function staleSince(generatedAt, now) {                          // the briefing
 }
 // stale:end
 const staleBanner = B => {                                       // "stale since" the briefing's date, and the 06:00 BRT update it missed (the next date)
+  if (B.stale?.since)                                            // a failed Pulse step (compose.mjs, C5): its date and reason, whatever the hour
+    return `<div class="banner stale" role="status"><p><b>${esc(t('stale.failed', { date: B.stale.since, reason: tr(B.stale.reason) }))}.</b> <span class="sn">${esc(t('stale.failed.note', { date: B.stale.since }))}</span></p></div>`;
   const d = staleSince(B.generated_at, Date.now()), next = d && new Date(Date.parse(d + 'T12:00:00Z') + DAY).toISOString().slice(0, 10);
   return d ? `<div class="banner stale" role="status"><p><b>${esc(t('stale.since', { date: d, deadline: next }))}.</b> <span class="sn">${esc(t('stale.note', { date: d, at: B.window?.end_brt || B.generated_at }))}</span></p></div>` : ''; };
 // ------------------------------------------------------------------ search by meaning (the console's semantic search, kept by the fold, C21)
@@ -577,19 +580,24 @@ async function method() {
   await render();
 }
 // ------------------------------------------------------------------ audit: what anyone can check today, and the slots the ledger groups fill
-// Slots (E1, E2): #ledger (ledger/index.json entries), #attestation (Sigstore attestation of the day's manifest), #timestamp (OpenTimestamps
-// proof, "pending" until a ledger entry records its Bitcoin block, then "anchored"). Until a file exists its slot reads "not yet published".
+// Slots (E1, E2): #ledger (ledger/index.json entries: the SHA256 the ledger records for each day's manifest beside the SHA256 of the asset
+// on its dated Release, read back by the refresh), #attestation (Sigstore attestation of the day's manifest, made by its own job: the page
+// shows how to check the latest), #timestamp (OpenTimestamps proof, "pending" until a ledger entry records its Bitcoin block, then
+// "anchored"). Until a file exists its slot reads "not yet published".
 async function audit() {
   const [B, V, C, R] = await Promise.all([load('briefing.json'), opt('verdicts.json', { rows: [] }), opt('corrections.json', { entries: [] }), opt('removals.json', { entries: [] })]);
-  const L = B.ledger_days > 0 ? await opt('ledger/index.json', null) : null;   // briefing.json counts the ledger's days: no request before the first
-  const E = Array.isArray(L) ? L : L?.entries || [], kv = (k, v) => `<div><span class="lbl">${esc(k)}</span><span class="mono">${v}</span></div>`, none = `<span class="pill">${esc(t('audit.pending'))}</span>`;
+  const L = await opt('ledger/index.json', null);                  // ledger_days counts the days before the briefing: today's entry may be new
+  const E = Array.isArray(L) ? L : L?.entries || [], last = E.at(-1), kv = (k, v) => `<div><span class="lbl">${esc(k)}</span><span class="mono">${v}</span></div>`, none = `<span class="pill">${esc(t('audit.pending'))}</span>`;
   render = () => {
     $('#body').innerHTML = `${staleBanner(B)}<section class="card"><div class="card-h"><div><h2>${esc(t('audit.today'))}</h2><p>${esc(t('audit.today.sub'))}</p></div></div>
 <div class="kvs">${kv(t('audit.generated'), esc(B.window?.end_brt || B.generated_at))}${kv(t('audit.version'), esc(B.method?.version))}${kv(t('audit.hash'), esc(B.method?.config_hash))}${kv(t('audit.days'), esc(t('audit.days.n', { n: nf(B.ledger_days ?? 0) })))}${kv(t('audit.records'), nf((B.records || []).length))}</div>
 <p class="dim">${esc(t('audit.hash.note', { files: (B.method?.config_files || []).join(', ') }))} <a href="${METHOD()}#${esc(I.methods?.['briefing.json']?.['method.records'] || '')}">${esc(t('ui.method'))}</a></p></section>
 <section class="card slot-a" id="ledger" data-slot="ledger"><div class="card-h"><div><h2>${esc(t('audit.ledger'))}</h2><p>${esc(t('audit.ledger.sub'))}</p></div></div>
-${E.length ? `<div class="tw">${table({ cols: [[t('audit.col.date')], [t('audit.col.manifest')], [t('audit.col.proof')]], rows: E.map(e => ({ cells: [esc(e.date || '—'), `<span class="mono">${esc(e.manifest_sha256 || e.sha256 || '—')}</span>`, esc(e.block ? t('audit.anchored', { n: e.block }) : t('audit.pending_proof'))] })) })}</div>` : `<p>${none} ${esc(t('audit.ledger.none'))}</p>`}</section>
-<section class="card slot-a" id="attestation" data-slot="attestation"><div class="card-h"><div><h2>${esc(t('audit.attest'))}</h2><p>${esc(t('audit.attest.sub'))}</p></div></div><p>${none}</p></section>
+${E.length ? `<div class="tw">${table({ cols: [[t('audit.col.date')], [t('audit.col.manifest')], [t('audit.col.release')], [t('audit.col.proof')]], rows: E.map(e => ({ cells: [esc(e.date || '—'),
+  `<span class="mono">${esc(e.manifest_sha256 || '—')}</span>`, e.release?.sha256 ? `${link(e.release.url, `<span class="mono">${esc(e.release.sha256)}</span>`)} <span class="pill">${esc(t(e.release.sha256 === e.manifest_sha256 ? 'audit.match' : 'audit.mismatch'))}</span>` : none,
+  esc(e.block ? t('audit.anchored', { n: e.block }) : t('audit.pending_proof'))] })) })}</div>` : `<p>${none} ${esc(t('audit.ledger.none'))}</p>`}</section>
+<section class="card slot-a" id="attestation" data-slot="attestation"><div class="card-h"><div><h2>${esc(t('audit.attest'))}</h2><p>${esc(t('audit.attest.sub'))}</p></div></div>${last?.release?.url ? `<p>${esc(t('audit.attest.how', { date: last.date }))}</p>
+<p>${link(last.release.url, `<code class="mono">${esc(last.asset)}</code>`)}</p><pre class="mono">gh attestation verify ${esc(last.asset)} --repo ${esc(ATTEST_REPO)}</pre>` : `<p>${none}</p>`}</section>
 <section class="card slot-a" id="timestamp" data-slot="timestamp"><div class="card-h"><div><h2>${esc(t('audit.ots'))}</h2><p>${esc(t('audit.ots.sub'))}</p></div></div><p>${none}</p></section>
 <section class="card"><div class="card-h"><div><h2>${esc(t('audit.owner'))}</h2><p>${esc(t('audit.owner.sub'))}</p></div></div>
 <div class="kvs">${kv(t('audit.verdicts'), `<a href="verdicts.json">${nf((V.rows || []).length)}</a>`)}${kv(t('audit.corrections'), `<a href="corrections.json">${nf((C.entries || []).length)}</a>`)}${kv(t('audit.removals'), `<a href="removals.json">${nf((R.entries || []).length)}</a>`)}</div>
