@@ -2,7 +2,7 @@
 // It creates a Cordis context, loads the feed and frontend adapter plugins with the committed web/ files as their config, collects what
 // they emit, disposes them and the context, and only then writes web/feed.xml, web/feed.json, web/feed.pt.xml, web/feed.pt.json and
 // web/i18n/table.{en,pt}.json (each through a temporary file and a rename). Only the qualified component API is used (new Context(),
-// ctx.plugin, ctx.effect, fiber.dispose); git is the store: nothing is read or written outside web/, and no state outlives the run.
+// ctx.plugin, ctx.effect, and fiber.dispose on each plugin's fiber); git is the store: nothing is read or written outside web/, and no state outlives the run.
 // No server, socket, profile, credential or home directory; no DSH launcher, WISH Run, task, worker or dispatch; no claim of WISH #4
 // acceptance. @deepseek-ai/cordis is pinned exactly to 4.0.4 (package-lock.json; MIT, see NOTICE and licence-closure.json).
 import { Context } from '@deepseek-ai/cordis';
@@ -23,7 +23,6 @@ const fibers = [];
 fibers.push(await root.plugin(feed, { inputs: feedInputs(WEB), emit }));
 fibers.push(await root.plugin(frontend, { inputs: frontendInputs(WEB), emit }));
 for (const f of fibers.reverse()) await f.dispose();
-await root.fiber.dispose();
 
 for (const [f, text] of out) writeFileSync(join(WEB, f + '.tmp'), text);
 for (const f of out.keys()) renameSync(join(WEB, f + '.tmp'), join(WEB, f));

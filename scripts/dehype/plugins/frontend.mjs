@@ -3,7 +3,9 @@
 // its "ref" resolved (Decision 10: the X-figure placeholder lives beside its list) and only the text the page needs in that language:
 // en alone in the English table, en and pt in the Portuguese one (web/dehype.js tr() maps a data string's English back to its entry),
 // plus the data files' "fields" and "methods" maps. Deterministic: the same strings.json gives the same bytes, so the refresh never
-// stages the tables; a pull request that changes strings.json commits them regenerated (tests/test_feed.py). Node standard library only.
+// stages the tables. A pull request that changes web/verdicts.json or web/i18n/strings.json runs
+// `npm ci --prefix scripts/dehype --ignore-scripts && node scripts/dehype/compose.mjs` and commits the four feeds and the two tables
+// (web/POLICY.md; tests/test_feed.py fails it otherwise). Node standard library only.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 

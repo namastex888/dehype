@@ -66,7 +66,7 @@ function shell() {
 <div class="tools"><div class="seg" role="group" aria-label="${esc(t('ui.language'))}"><button data-lang="en" lang="en" aria-pressed="${lang === 'en'}">EN</button><button data-lang="pt" lang="pt" aria-pressed="${lang === 'pt'}">PT</button></div>
 <button class="btn" id="theme">${esc(t(theme === 'dark' ? 'ui.theme.light' : 'ui.theme.dark'))}</button></div></div>`;
   const nav = $('#top nav'), cur = $('[aria-current]', nav); if (cur && nav.scrollWidth > nav.clientWidth) nav.scrollLeft = cur.offsetLeft - 16;
-  $$('[data-lang]').forEach(b => b.onclick = () => setLang(b.dataset.lang));
+  $$('[data-lang]').forEach(b => b.onclick = () => setLang(b.dataset.lang).catch(oops));
   $('#theme').onclick = () => { theme = theme === 'dark' ? 'light' : 'dark'; store.set('dehype.theme', theme); shell(); redraw(); };
   $$('[data-k]').forEach(el => el.textContent = t(el.dataset.k));
   document.documentElement.classList.add('ready');
@@ -598,6 +598,7 @@ ${E.length ? `<div class="tw">${table({ cols: [[t('audit.col.date')], [t('audit.
   render();
 }
 // ------------------------------------------------------------------ start
+const oops = e => { document.documentElement.classList.add('ready'); $('#body').innerHTML = `<div class="err">${esc(t('ui.error'))} <span class="mono">${esc(e.message)}</span></div>`; };
 async function start() {
   if (page === 'index') { const to = fold(location.hash, location.search); if (to?.startsWith('index.html')) history.replaceState(null, '', to); else if (to) return location.replace(to); }
   const u = new URLSearchParams(location.search);
@@ -609,7 +610,7 @@ async function start() {
     shell();
     $('#main').classList.add('loading');
     await ({ index, stories, output, hype, method, audit })[page]();
-  } catch (e) { document.documentElement.classList.add('ready'); $('#body').innerHTML = `<div class="err">${esc(t('ui.error'))} <span class="mono">${esc(e.message)}</span></div>`; }
+  } catch (e) { oops(e); }
   $('#main').classList.remove('loading');
 }
 start();
