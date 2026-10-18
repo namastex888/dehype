@@ -22,8 +22,15 @@ jobs:
         run: |
           npm ci --prefix scripts/dehype --ignore-scripts --no-audit --no-fund
           npm ls @deepseek-ai/cordis --prefix scripts/dehype | grep -q '@deepseek-ai/cordis@4.0.4'
+      - name: Checks tree pins (playwright-core 1.59.1, opentimestamps 0.4.9 from the lockfile; no browser download; tests/test_ots.py runs the client offline)
+        run: |
+          npm ci --prefix scripts/checks --ignore-scripts --no-audit --no-fund
+          npm ls playwright-core --prefix scripts/checks | grep -q 'playwright-core@1.59.1'
+          npm ls opentimestamps --prefix scripts/checks | grep -q 'opentimestamps@0.4.9'
       - name: Tests and fixture evaluation
         run: python -m unittest discover tests && python eval.py --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json
+      - name: Stale since in the browser (dehype.js staleSince, the six SC-19 cases; Decision 15)
+        run: node --test tests/dehype_stale.test.mjs
       - name: Scoring smoke
         run: python eval.py --issue11-smoke --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json --compare-v2
       - name: Owner-reviewed files (corrections appended, never edited over, against the base commit; no bot commit touches verdicts or corrections)
@@ -32,10 +39,6 @@ jobs:
         run: python scripts/check_owner_files.py "$BASE"
       - name: Page data, script and public-data check (handles, Reddit, X/LinkedIn/YouTube/Telegram, X figures, Mastodon links, verdict rows)
         run: node scripts/check_page.mjs
-      - name: Mastodon render-check pin (playwright-core 1.59.1 from the lockfile; no browser download, no network check)
-        run: |
-          npm ci --prefix scripts/checks --ignore-scripts --no-audit --no-fund
-          npm ls playwright-core --prefix scripts/checks | grep -q 'playwright-core@1.59.1'
   search-index:
     # Proves the semantic index builds on a clean Linux runner (same step refresh.yml and deploy.yml run).
     runs-on: ubuntu-latest

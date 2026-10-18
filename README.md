@@ -102,7 +102,7 @@ If you use the tracker, its method or its data, please cite it ([CITATION.cff](C
 
 Copyright (C) 2026 Felipe Rosa / Namastex.
 
-From the commit that replaced the MIT `LICENSE` with the GNU Affero General Public License, version 3 only (`git log --follow -- LICENSE` names it):
+From the commit that replaced the MIT `LICENSE` with the GNU Affero General Public License, version 3 or (at your option) any later version (`git log --follow -- LICENSE` names it):
 
 - **Code**: [AGPL-3.0](LICENSE).
 - **Data** (`web/*.json`, the feeds, `web/ledger/` and the dated Release assets): [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), covering only our selection, arrangement and computed fields. Post titles, headlines, names, links and other third-party text keep their owners' terms, and each upstream source keeps its own.
