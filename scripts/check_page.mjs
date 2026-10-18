@@ -516,7 +516,7 @@ let ledgerNote = 'no ledger';
     try { days = readdirSync(join(web, 'ledger')).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)); } catch { }
     const dates = new Set(E.map(e => e?.date));
     for (const f of days) if (!dates.has(f.slice(0, 10))) finding(F, 'ledger day file with no index entry', f);
-    const A = today && E.at(-1)?.date === today && !B.stale ? readJSON(`ledger/ids/${today}.json`) : null;
+    const A = today && !B.stale ? readJSON(`ledger/ids/${today}.json`) : null;                // whether or not the index has its entry
     if (A && A.generated_at === B.generated_at && P.generated_at === B.generated_at) {    // the archive written from this very briefing
       const have = new Set(A.ids || []);
       const miss = [...(P.stories || []).map(s => s.id), ...(B.records || []).map(r => r.id)].filter(id => !have.has(id));

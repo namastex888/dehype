@@ -929,6 +929,18 @@ class DayFilesTest(unittest.TestCase):
         self.assertRegex(wf, r'git add [^\n]*web/pulse\.json[^\n]*web/briefing\.json|git add [^\n]*web/briefing\.json[^\n]*web/pulse\.json')
 
 
+def ledger_companions(web):
+    """A fixture ledger/index.json holds complete entries; their day files ({date, manifest: {asset, sha256}}, the bytes whose SHA256 is
+    the entry's ledger_sha256) and empty archive files are written here, so a 13-day fixture needs no 26 committed files."""
+    try: E = json.loads(read(os.path.join(web, 'ledger', 'index.json')))
+    except FileNotFoundError: return
+    os.makedirs(os.path.join(web, 'ledger', 'ids'), exist_ok=True)
+    for e in E:
+        day = json.dumps({'date': e['date'], 'manifest': {'asset': e['asset'], 'sha256': e['manifest_sha256']}}, separators=(',', ':'))
+        with open(os.path.join(web, 'ledger', e['date'] + '.json'), 'w') as f: f.write(day)
+        with open(os.path.join(web, 'ledger', 'ids', e['date'] + '.json'), 'w') as f: json.dump({'date': e['date'], 'generated_at': e['generated_at'], 'ids': []}, f)
+
+
 @unittest.skipUnless(shutil.which('node'), 'node not installed')
 class BriefingFixtureTest(unittest.TestCase):
     """Decision 14 for the briefing: each fixture overlays a copy of the committed web/ with its briefing.json; check_page.mjs must fail
@@ -944,7 +956,10 @@ class BriefingFixtureTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             web = os.path.join(d, 'web')
             shutil.copytree(os.path.join(ROOT, 'web'), web)
+            own = os.path.isdir(os.path.join(FIX, 'briefing', name, 'ledger'))
+            if own: shutil.rmtree(os.path.join(web, 'ledger'))                           # a fixture with a ledger: its own ledger only
             shutil.copytree(os.path.join(FIX, 'briefing', name), web, dirs_exist_ok=True)
+            if own: ledger_companions(web)
             return subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
 
     def test_each_fixture_fails_on_its_own_rule(self):
@@ -955,8 +970,7 @@ class BriefingFixtureTest(unittest.TestCase):
                 self.assertEqual(r.returncode, 1, r.stdout)
                 self.assertIn(msg, r.stderr)
         r = self.check('trend_13_days')                                    # the 13-day path alone: ledger_days agrees with the ledger
-        # (its index entries carry only their dates, so the ledger rules of group E1 also fail them: only briefing.json's findings count here)
-        self.assertEqual([l for l in r.stderr.splitlines() if l.startswith('- briefing.json')], ['- ' + self.RULES['trend_13_days'] + ', e.g. gauges[0].trend'])
+        self.assertEqual([l for l in r.stderr.splitlines() if l.startswith('- ')], ['- ' + self.RULES['trend_13_days'] + ', e.g. gauges[0].trend'])
 
     def test_clean_overlay_passes(self):
         for name in self.CLEAN:

@@ -12,7 +12,8 @@ Run:   python3 scripts/manifest.py daily [--web web] [--history history] [--out 
            which then records the Release (tag, url, sha256); exit 1 on a mismatch, so the ledger never names a Release it does not equal.
 
 <date> is the America/Sao_Paulo date of briefing.json generated_at (the date dehype.js gives the briefing). A rerun on the same date
-replaces that date's ledger entry and day file and adds to its archive file (ids are never removed); an earlier date is never touched.
+replaces that date's ledger entry and day file while its Release is unpublished (a published one is never replaced: a different manifest
+for that date is refused) and adds to its archive file (ids are never removed); an earlier date is never touched.
 
 The manifest lists every stored post of the last 30 days (pulse.RECHECK_DAYS, the widest window an output shows) that the day's outputs
 were built from, minus the posts the deleted-post recheck found gone (history/recheck.json) and those web/removals.json or
@@ -89,7 +90,8 @@ def record(row):
     url = None
     if net == 'Mastodon' and row.get('source') == 'live' and re.fullmatch(r'\d{1,20}', pid): url = f'https://mastodon.social/statuses/{pid}'
     elif net in LINKED - {'Mastodon'} and isinstance(row['url'], str) and re.match(r'^https?://', row['url']) \
-            and not COUNT_ONLY_URL.search(row['url']) and not ACCOUNT_URL.search(row['url']) and not HANDLE.search(row['url']):
+            and not COUNT_ONLY_URL.search(row['url']) and not ACCOUNT_URL.search(row['url']) and not HANDLE.search(row['url']) \
+            and not REDDIT.search(row['url']):                       # a Reddit link or t3_ id under any network is a hash only
         url = row['url']
     if not url: return {'net': net, 'sha256': sha256(canonical(row))}
     rid = f'{net}:{pid}' if SAFE_ID.match(pid) else f'{net}:h{sha256(pid.encode("utf-8"))[:16]}'
@@ -200,6 +202,10 @@ def ledger(web, path, digest, M, B):
     """web/ledger/<date>.json (the day's gauge and verdict ledger) and its web/ledger/index.json entry; release is filled by `release`."""
     date, E = M['date'], entries(web)
     if E and E[-1].get('date', '') > date: raise SystemExit(f'manifest: the ledger already holds {E[-1]["date"]}, later than {date}')
+    old = next((e for e in E if e.get('date') == date), None)
+    if old and old.get('release') and old.get('manifest_sha256') != digest:     # a published Release asset is never replaced
+        raise SystemExit(f'manifest: {date} is already in the ledger with its Release {old["release"].get("tag")} (manifest {old["manifest_sha256"]}); '
+                         f'this run\'s manifest {digest} differs, so no ledger entry is written for it')
     V = read_json(os.path.join(web, 'verdicts.json'), {'rows': []})
     day = {'date': date, 'generated_at': B['generated_at'], 'method': M['method'],
            'manifest': {'asset': os.path.basename(path), 'sha256': digest, 'counts': M['counts']},
@@ -209,7 +215,7 @@ def ledger(web, path, digest, M, B):
     text = compact(day)
     write(os.path.join(web, 'ledger', f'{date}.json'), text)
     entry = {'date': date, 'generated_at': B['generated_at'], 'manifest_sha256': digest, 'asset': os.path.basename(path),
-             'ledger_sha256': sha256(text.encode('utf-8')), 'release': None, 'block': None}
+             'ledger_sha256': sha256(text.encode('utf-8')), 'release': old.get('release') if old else None, 'block': None}
     E = [e for e in E if e.get('date') != date] + [entry]
     write(os.path.join(web, 'ledger', 'index.json'), compact(E))
     return entry

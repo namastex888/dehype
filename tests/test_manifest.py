@@ -116,7 +116,9 @@ class ManifestTest(unittest.TestCase):
         news = [x for x in self.M['records'] if x['net'] == 'Newsletter']
         self.assertEqual(sorted(set(x) for x in news), sorted([{'net', 'sha256'}, set(hn)]))         # a URL with /@writer is a hash only
         self.assertTrue(any(x['net'] == 'Bluesky' and set(x) == {'net', 'sha256'} for x in self.M['records']))
-        self.assertEqual(self.M['counts'], {'Bluesky': 1, 'HN': 1, 'Lobsters': 1, 'Mastodon': 1, 'Newsletter': 2, 'Official': 1, 'Reddit': 2})
+        self.assertEqual(self.M['counts'], {'Bluesky': 1, 'HN': 1, 'Lobsters': 1, 'Mastodon': 1, 'Newsletter': 2, 'Official': 2, 'Reddit': 2})
+        official = sorted((set(x) for x in self.M['records'] if x['net'] == 'Official'), key=len)
+        self.assertEqual(official[0], {'net', 'sha256'})                                    # a t3_ id in any URL: a hash only
 
     def test_posts_gone_removed_or_older_than_the_widest_window_are_left_out(self):
         ids = {x.get('id') for x in self.M['records']}
@@ -165,6 +167,22 @@ class LedgerTest(unittest.TestCase):
             r = run('release', asset, '--tag', 'x', '--url', 'https://example.test/x', '--web', web)
             self.assertEqual(r.returncode, 1); self.assertIn('the ledger records', r.stderr)
             self.assertEqual(json.loads(read(os.path.join(web, 'ledger', 'index.json')))[0]['release']['sha256'], e['manifest_sha256'])
+
+    def test_a_published_date_is_never_replaced_by_a_different_manifest(self):
+        with tempfile.TemporaryDirectory() as d:
+            scratch(d); self.assertEqual(daily(d).returncode, 0)
+            web = os.path.join(d, 'web'); L = os.path.join(web, 'ledger', 'index.json')
+            date = json.loads(read(L))[0]['date']
+            self.assertEqual(published(d, date)[1].returncode, 0)
+            before = read(L)
+            r = daily(d); self.assertEqual(r.returncode, 0, r.stderr)                       # the same inputs: the same manifest, Release kept
+            self.assertEqual(read(L), before)
+            with open(os.path.join(web, 'feed.xml'), 'a') as f: f.write(' ')            # a published file changed: a different manifest
+            r = daily(d)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn(f'manifest: {date} is already in the ledger with its Release ledger-{date}', r.stderr)
+            self.assertIn('differs, so no ledger entry is written for it', r.stderr)
+            self.assertEqual(read(L), before)
 
     def test_a_rerun_on_the_same_date_replaces_its_entry_and_never_shrinks_its_archive(self):
         with tempfile.TemporaryDirectory() as d:
@@ -230,6 +248,12 @@ class LedgerGateTest(unittest.TestCase):
     def test_an_archive_file_missing_a_published_story_id_fails(self):
         self.assert_only(self.overlay(self.edit(f'ids/{self.date}.json', lambda A: A.update(ids=A['ids'][1:]))),
                          f"ledger/ids/{self.date}.json: the day's archive file lacks a story id its pulse.json or briefing.json publishes")
+
+    def test_the_archive_is_covered_even_when_the_index_has_no_entry_for_its_date(self):
+        def change(L):
+            put(os.path.join(L, 'index.json'), '[]'); os.remove(os.path.join(L, f'{self.date}.json'))      # the Release failed: no entry
+            self.edit(f'ids/{self.date}.json', lambda A: A.update(ids=A['ids'][1:]))(L)
+        self.assert_only(self.overlay(change), f"ledger/ids/{self.date}.json: the day's archive file lacks a story id its pulse.json or briefing.json publishes")
 
     def test_a_handle_in_a_day_file_fails_the_public_rules(self):
         def change(L):
