@@ -1071,6 +1071,8 @@ class VerdictFixtureTest(unittest.TestCase):
             web = os.path.join(d, 'web')
             shutil.copytree(os.path.join(ROOT, 'web'), web)
             with open(os.path.join(web, 'story-aliases.json'), 'w') as f: json.dump({'aliases': {}}, f)   # the committed map moves daily
+            shutil.rmtree(os.path.join(web, 'ledger'), ignore_errors=True); os.makedirs(os.path.join(web, 'ledger'))   # so does the ledger
+            with open(os.path.join(web, 'ledger', 'index.json'), 'w') as f: f.write('[]')
             if tree: shutil.copytree(tree, web, dirs_exist_ok=True)
             for rel, body in (files or {}).items():
                 if body is None: os.remove(os.path.join(web, rel)); continue

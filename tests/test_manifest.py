@@ -9,7 +9,7 @@ from datetime import timedelta
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
-from test_i18n import check_page, findings
+from test_i18n import findings
 from test_feed import compose, need_cordis
 import pulse
 
@@ -32,10 +32,12 @@ def run(*args):
 
 
 def scratch(d):
-    """d/web (a copy of the committed web/, one removal request added) and d/history (signals.sqlite from the fixture rows, one post
-    the recheck found gone) -> {fixture key: stored row}."""
+    """d/web (a copy of the committed web/ with an empty ledger, one removal request added) and d/history (signals.sqlite from the
+    fixture rows, one post the recheck found gone) -> {fixture key: stored row}."""
     web, hist = os.path.join(d, 'web'), os.path.join(d, 'history')
     shutil.copytree(WEB, web); os.makedirs(hist)
+    shutil.rmtree(os.path.join(web, 'ledger'), ignore_errors=True); os.makedirs(os.path.join(web, 'ledger'))
+    put(os.path.join(web, 'ledger', 'index.json'), '[]')              # the committed ledger grows daily: these cases start from day 0
     gen = pulse.parse_dt(json.loads(read(os.path.join(web, 'briefing.json')))['generated_at'])
     rows = {}
     con = sqlite3.connect(os.path.join(hist, 'signals.sqlite'))
@@ -179,7 +181,8 @@ class LedgerTest(unittest.TestCase):
 
 
 class LedgerGateTest(unittest.TestCase):
-    """check_page.mjs on the ledger (Decision 14 overlays): a published day passes; each broken record fails on its own rule."""
+    """check_page.mjs on the ledger (Decision 14: a copy of web/, here with the scratch ledger in place of the committed one, since an
+    overlay cannot remove committed day files): a published day passes; each broken record fails on its own rule."""
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory(); d = cls.tmp.name
@@ -187,16 +190,16 @@ class LedgerGateTest(unittest.TestCase):
         B = json.loads(read(os.path.join(d, 'web', 'briefing.json')))
         cls.date = manifest.sp_date(B['generated_at'])
         assert published(d, cls.date)[1].returncode == 0
-        cls.ledger = os.path.join(d, 'web', 'ledger')
+        cls.web = os.path.join(d, 'web')
 
     @classmethod
     def tearDownClass(cls): cls.tmp.cleanup()
 
     def overlay(self, change=None):
         with tempfile.TemporaryDirectory() as t:
-            shutil.copytree(self.ledger, os.path.join(t, 'ledger'))
-            if change: change(os.path.join(t, 'ledger'))
-            return check_page(tree=t)
+            web = os.path.join(t, 'web'); shutil.copytree(self.web, web)
+            if change: change(os.path.join(web, 'ledger'))
+            return subprocess.run(['node', os.path.join(ROOT, 'scripts', 'check_page.mjs'), web], capture_output=True, text=True)
 
     def edit(self, rel, fn):
         def change(L):
@@ -257,9 +260,9 @@ class StaleSinceTest(unittest.TestCase):
             for g in B['gauges']:
                 self.assertIsNone(g['value']); self.assertEqual(g['reason'], f'insufficient data: stale since {since}, {reason}')
             self.assertTrue(all(p.get('events') in (None, []) for p in B['panels']))
-            for f, word in (('feed.json', 'Stale since'), ('feed.pt.json', 'Desatualizado desde')):
+            for f, word, why in (('feed.json', 'Stale since', reason), ('feed.pt.json', 'Desatualizado desde', 'a etapa Pulse falhou na execução de atualização 4242')):
                 J = json.loads(read(os.path.join(web, f)))
-                self.assertTrue(J['description'].startswith(f'{word} {since}'), J['description'])
+                self.assertTrue(J['description'].startswith(f'{word} {since}: {why}'), J['description'])
                 self.assertEqual([i['id'] for i in J['items']], [f'stale:{since}']); self.assertEqual(J['_dehype']['stale']['since'], since)
                 self.assertEqual(J['items'][0]['date_published'], failed_at)
             for f in ('feed.xml', 'feed.pt.xml'):

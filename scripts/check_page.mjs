@@ -482,8 +482,8 @@ let feedNote = 'no feeds';
 // Ledger, story-id archive and stale since (design rows 17, 18; C3, C5, C32, C37; group E1). scripts/manifest.py writes ledger/index.json
 // (one entry per day, dates increasing), ledger/<date>.json (the day's gauge and verdict ledger: the entry's ledger_sha256 is its SHA256,
 // and it names the entry's manifest asset and SHA256) and ledger/ids/<date>.json. An entry's release (the dated Release asset, downloaded
-// back) hashes to its manifest_sha256: the ledger never names a Release asset it does not equal. On the briefing's own date the archive
-// file holds every story id pulse.json and briefing.json publish. A stale briefing (compose.mjs after a failed Pulse step) names its date
+// back) hashes to its manifest_sha256: the ledger never names a Release asset it does not equal. The archive file written from the day's
+// briefing (same generated_at as briefing.json and pulse.json) holds every story id they publish. A stale briefing (compose.mjs after a failed Pulse step) names its date
 // (the São Paulo date of generated_at), its reason and the failed run's time, carries no value over, and the JSON feeds read it too.
 const spDay = ms => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(ms);
 let ledgerNote = 'no ledger';
@@ -516,8 +516,9 @@ let ledgerNote = 'no ledger';
     try { days = readdirSync(join(web, 'ledger')).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)); } catch { }
     const dates = new Set(E.map(e => e?.date));
     for (const f of days) if (!dates.has(f.slice(0, 10))) finding(F, 'ledger day file with no index entry', f);
-    if (today && E.at(-1)?.date === today && !B.stale) {
-      const have = new Set(readJSON(`ledger/ids/${today}.json`)?.ids || []);
+    const A = today && E.at(-1)?.date === today && !B.stale ? readJSON(`ledger/ids/${today}.json`) : null;
+    if (A && A.generated_at === B.generated_at && P.generated_at === B.generated_at) {    // the archive written from this very briefing
+      const have = new Set(A.ids || []);
       const miss = [...(P.stories || []).map(s => s.id), ...(B.records || []).map(r => r.id)].filter(id => !have.has(id));
       if (miss.length) finding(`ledger/ids/${today}.json`, "the day's archive file lacks a story id its pulse.json or briefing.json publishes", miss.slice(0, 3).join(', '));
     }

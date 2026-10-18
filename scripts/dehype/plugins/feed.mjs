@@ -78,7 +78,7 @@ export function build({ briefing: B, pulse: P, verdicts: V, aliases: A, strings:
       return { r, url: page('stories', r.id), story, verdict, links, readings, text, html };
     });
     const title = `dehype · ${t('index.title')}`, home = page('index'), about = page('method'), S0 = B.stale?.since ? B.stale : null;
-    const note = S0 && { id: `stale:${S0.since}`, when: new Date(S0.at), title: t('stale.failed', { date: S0.since, reason: tr(S0.reason) }), text: t('stale.failed.note', { date: S0.since }) };
+    const note = S0 && { id: `stale:${S0.since}`, when: new Date(S0.at), title: t('stale.failed', { date: S0.since, reason: t('stale.reason.pulse_failed', { run: S0.run }) }), text: t('stale.failed.note', { date: S0.since }) };
     const scope = note ? `${note.title}. ${note.text}` : t('index.scope'), built = note ? note.when : when;
     out[L.xml] = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">
