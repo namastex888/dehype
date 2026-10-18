@@ -9,7 +9,8 @@
 // The dehype pages (the briefing in index.html, stories, output, hype, method, audit) load the shared dehype.css and dehype.js, name their
 // data files and keep the same rules; i18n/dossier.pt.json entries keep their form; every console URL and tab anchor folds to its page.
 // The ledger (ledger/index.json, its day files and the story-id archive) names only Release assets that hash to its manifest SHA256,
-// and a stale briefing carries no value over. Node standard library only. Usage: node scripts/check_page.mjs [webDir]
+// every day's OpenTimestamps proof commits to its manifest, no proof is edited after a ledger entry records it anchored, and a stale
+// briefing carries no value over. Node standard library only. Usage: node scripts/check_page.mjs [webDir]
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -485,8 +486,50 @@ let feedNote = 'no feeds';
 // back) hashes to its manifest_sha256: the ledger never names a Release asset it does not equal. The archive file written from the day's
 // briefing (same generated_at as briefing.json and pulse.json) holds every story id they publish. A stale briefing (compose.mjs after a failed Pulse step) names its date
 // (the São Paulo date of generated_at), its reason and the failed run's time, carries no value over, and the JSON feeds read it too.
+// OpenTimestamps (design row 18, proof part; C4, C38; group E2; scripts/ots.mjs): every entry names its proof ots/<date>.ots, which is
+// present and commits (its SHA256 file digest) to the entry's manifest_sha256; the entry's ots.sha256 is the proof's SHA256 at stamp time
+// (the pending file as first published: an upgrade later rewrites the file in place, so it is not compared with the file). A later run
+// that finds a proof anchored records it in its own entry's `anchored` list as {date, block, time, ots_sha256}: the date names an entry before the recording one and is recorded
+// once, the block is a Bitcoin block height the proof attests, and the proof file still hashes to ots_sha256 (no proof is edited after
+// anchoring). No proof file is left without its entry. The proof is read in the detached format of the pinned opentimestamps 0.4.9 client.
+const OTS_MAGIC = Buffer.from('004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e89294', 'hex');
+const OTS_BTC = '0588960d73d71901', OTS_PENDING = '83dfe30d2ef90c8e', OTS_UNARY = new Set([0x02, 0x03, 0x08, 0x67, 0xf2, 0xf3]), OTS_BINARY = new Set([0xf0, 0xf1]);
+function otsProof(b) {                                           // -> {digest, pending, blocks}; throws on anything but a version-1 SHA256 proof
+  const rd = (buf, i = 0) => ({ get done() { return i === buf.length; }, byte() { if (i >= buf.length) throw new Error('truncated'); return buf[i++]; },
+    uint() { let v = 0, s = 0, x; do { x = this.byte(); v += (x & 127) * 2 ** s; s += 7; } while (x & 128 && s < 63); return v; },
+    bytes(n) { if (n > buf.length - i) throw new Error('truncated'); return buf.subarray(i, i += n); } });
+  if (!b.subarray(0, OTS_MAGIC.length).equals(OTS_MAGIC)) throw new Error('no OpenTimestamps header');
+  const r = rd(b, OTS_MAGIC.length);
+  if (r.uint() !== 1) throw new Error('not a version 1 proof');
+  if (r.byte() !== 0x08) throw new Error('its file digest is not SHA256');
+  const out = { digest: r.bytes(32).toString('hex'), pending: 0, blocks: [] };
+  const item = (tag, depth) => {
+    if (depth > 256) throw new Error('nested too deep');
+    if (tag === 0x00) {
+      const t = r.bytes(8).toString('hex'), payload = r.bytes(r.uint());
+      if (t === OTS_BTC) out.blocks.push(rd(payload).uint()); else if (t === OTS_PENDING) out.pending++;
+      return;
+    }
+    if (OTS_BINARY.has(tag)) r.bytes(r.uint()); else if (!OTS_UNARY.has(tag)) throw new Error(`unknown operation 0x${tag.toString(16)}`);
+    tree(depth + 1);
+  };
+  const tree = depth => { let t = r.byte(); while (t === 0xff) { item(r.byte(), depth); t = r.byte(); } item(t, depth); };
+  tree(0);
+  if (!r.done) throw new Error('trailing bytes');
+  return out;
+}
+const otsFiles = new Map();
+function otsFile(date) {                                         // ledger/ots/<date>.ots -> {sha256, proof} or {error}; null when absent
+  if (!otsFiles.has(date)) {
+    let b = null;
+    try { b = readFileSync(join(web, 'ledger', 'ots', `${date}.ots`)); } catch { }
+    try { otsFiles.set(date, b && { sha256: createHash('sha256').update(b).digest('hex'), proof: otsProof(b) }); }
+    catch (e) { otsFiles.set(date, { error: e.message }); }
+  }
+  return otsFiles.get(date);
+}
 const spDay = ms => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(ms);
-let ledgerNote = 'no ledger';
+let ledgerNote = 'no ledger', proofNote = '';
 {
   const F = 'ledger/index.json', L = readJSON(F), B = readJSON('briefing.json') || {}, P = readJSON('pulse.json') || {};
   const E = L === null ? [] : Array.isArray(L) ? L : L?.entries, g = Date.parse(B.generated_at), today = Number.isFinite(g) ? spDay(g) : null;
@@ -494,15 +537,31 @@ let ledgerNote = 'no ledger';
   else {
     if (L) publicRules(F, L);
     let prev = '';
+    const seen = new Set(), anchored = new Set();
     E.forEach((e, i) => {
       const at = `[${i}]`;
       if (!e || typeof e !== 'object' || !DAY.test(e.date || '')) return finding(F, 'entry without its date (YYYY-MM-DD)', at);
       if (e.date <= prev) finding(F, 'entry dates not increasing (one entry per day)', `${at}.date`);
-      prev = e.date;
+      prev = e.date; seen.add(e.date);
       if (!HEX64.test(e.manifest_sha256 || '')) finding(F, 'entry without its manifest_sha256', `${at}.manifest_sha256`);
       if (e.release?.sha256 !== e.manifest_sha256 || !text(e.release?.tag) || !/^https:\/\/\S+$/.test(e.release?.url || ''))
         finding(F, 'entry whose dated Release asset is missing or does not hash to its manifest_sha256', `${at}.release`);
-      if (e.block != null && !(Number.isInteger(e.block) && e.block > 0)) finding(F, 'entry block is not a Bitcoin block height', `${at}.block`);
+      const P = otsFile(e.date), O = `ledger/ots/${e.date}.ots`;
+      if (e.ots?.file !== `ots/${e.date}.ots` || !HEX64.test(e.ots?.sha256 || '')) finding(F, 'entry does not name its OpenTimestamps proof (ots: {"file": "ots/<date>.ots", "sha256"})', `${at}.ots`);
+      if (!P) finding(F, 'entry without its OpenTimestamps proof file ledger/ots/<date>.ots', `${at}.ots`);
+      else if (P.error) finding(O, `not an OpenTimestamps proof (${P.error})`, 'header');
+      else if (P.proof.digest !== e.manifest_sha256) finding(O, "proof does not commit to its entry's manifest_sha256", 'digest');
+      if (e.anchored != null && !Array.isArray(e.anchored)) finding(F, 'entry anchored is not a list of {date, block, time, ots_sha256}', `${at}.anchored`);
+      (Array.isArray(e.anchored) ? e.anchored : []).forEach((a, j) => {
+        const aj = `${at}.anchored[${j}]`, Q = DAY.test(a?.date || '') && a.date < e.date && seen.has(a.date) ? otsFile(a.date) : undefined;
+        if (Q === undefined) return finding(F, 'anchored record names no entry before the entry that records it (a later run records it)', `${aj}.date`);
+        if (anchored.has(a.date)) finding(F, `${a.date} is recorded anchored twice (once, in the entry of the run that found it)`, `${aj}.date`);
+        anchored.add(a.date);
+        if (!(Number.isInteger(a.block) && a.block > 0)) finding(F, 'anchored record without its Bitcoin block height', `${aj}.block`);
+        else if (!text(a.time) || !Number.isFinite(Date.parse(a.time))) finding(F, 'anchored record without its block time', `${aj}.time`);
+        else if (!Q || Q.sha256 !== a.ots_sha256) finding(`ledger/ots/${a.date}.ots`, `proof edited after anchoring (its SHA256 is not the ots_sha256 recorded with block ${a.block})`, 'sha256');
+        else if (!Q.proof?.blocks.includes(a.block)) finding(`ledger/ots/${a.date}.ots`, `the proof attests no Bitcoin block ${a.block}`, 'attestations');
+      });
       let raw = null, D = null;
       try { raw = readFileSync(join(web, 'ledger', `${e.date}.json`), 'utf8'); D = JSON.parse(raw); }
       catch { if (raw === null) finding(F, 'entry without its ledger/<date>.json day file', `${at}.date`); }
@@ -516,6 +575,10 @@ let ledgerNote = 'no ledger';
     try { days = readdirSync(join(web, 'ledger')).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)); } catch { }
     const dates = new Set(E.map(e => e?.date));
     for (const f of days) if (!dates.has(f.slice(0, 10))) finding(F, 'ledger day file with no index entry', f);
+    let ots = [];
+    try { ots = readdirSync(join(web, 'ledger', 'ots')); } catch { }
+    for (const f of ots) if (!/^\d{4}-\d{2}-\d{2}\.ots$/.test(f) || !dates.has(f.slice(0, 10))) finding(F, 'ledger/ots file with no index entry (only <date>.ots proofs of ledger days)', `ots/${f}`);
+    proofNote = `, proofs ${E.filter(e => otsFile(e?.date)?.proof).length} (${anchored.size} anchored)`;
     const A = today && !B.stale ? readJSON(`ledger/ids/${today}.json`) : null;                // whether or not the index has its entry
     if (A && A.generated_at === B.generated_at && P.generated_at === B.generated_at) {    // the archive written from this very briefing
       const have = new Set(A.ids || []);
@@ -533,7 +596,7 @@ let ledgerNote = 'no ledger';
       if (FEED[f] && (FEED[f]._dehype?.stale?.since !== S.since || (FEED[f].items || []).some(x => SID.test(x.id || ''))))
         finding(f, 'the feed of a stale briefing does not read stale since its date, or still carries a story', '_dehype.stale');
   }
-  ledgerNote = `ledger ${Array.isArray(E) ? E.length : 0} days${B.stale ? `, briefing stale since ${B.stale.since}` : ''}`;
+  ledgerNote = `ledger ${Array.isArray(E) ? E.length : 0} days${proofNote}${B.stale ? `, briefing stale since ${B.stale.since}` : ''}`;
 }
 let removalNote = 'no removals';
 {

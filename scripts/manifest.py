@@ -13,7 +13,9 @@ Run:   python3 scripts/manifest.py daily [--web web] [--history history] [--out 
 
 <date> is the America/Sao_Paulo date of briefing.json generated_at (the date dehype.js gives the briefing). A rerun on the same date
 replaces that date's ledger entry and day file while its Release is unpublished (a published one is never replaced: a different manifest
-for that date is refused) and adds to its archive file (ids are never removed); an earlier date is never touched.
+for that date is refused) and adds to its archive file (ids are never removed); an earlier date is never touched. The entry's
+OpenTimestamps fields (`ots`, the day's proof, and `anchored`, the proofs that run found anchored; scripts/ots.mjs) are kept by a rerun,
+`ots` only while the manifest is the same.
 
 The manifest lists every stored post of the last 30 days (pulse.RECHECK_DAYS, the widest window an output shows) that the day's outputs
 were built from, minus the posts the deleted-post recheck found gone (history/recheck.json) and those web/removals.json or
@@ -215,7 +217,11 @@ def ledger(web, path, digest, M, B):
     text = compact(day)
     write(os.path.join(web, 'ledger', f'{date}.json'), text)
     entry = {'date': date, 'generated_at': B['generated_at'], 'manifest_sha256': digest, 'asset': os.path.basename(path),
-             'ledger_sha256': sha256(text.encode('utf-8')), 'release': old.get('release') if old else None, 'block': None}
+             'ledger_sha256': sha256(text.encode('utf-8')), 'release': old.get('release') if old else None}
+    # the OpenTimestamps fields (group E2, scripts/ots.mjs) survive a rerun: the day's proof while it commits to the same manifest, and
+    # the anchored records this date's earlier run made (each about a proof already checked against its Bitcoin block)
+    if old and old.get('ots') and old.get('manifest_sha256') == digest: entry['ots'] = old['ots']
+    if old and old.get('anchored'): entry['anchored'] = old['anchored']
     E = [e for e in E if e.get('date') != date] + [entry]
     write(os.path.join(web, 'ledger', 'index.json'), compact(E))
     return entry

@@ -2,8 +2,9 @@
   "name": "dehype-checks",
   "private": true,
   "type": "module",
-  "description": "Pinned tools for the refresh checks: the logged-out Mastodon render check (scripts/check_mastodon_links.mjs). Not needed to view the site or run the unit tests.",
+  "description": "Pinned tools for the refresh checks: the logged-out Mastodon render check (scripts/check_mastodon_links.mjs) and the OpenTimestamps client (scripts/ots.mjs; LGPL-3.0, see NOTICE and licence-closure.json). Not needed to view the site; the unit tests that run the client skip without it.",
   "dependencies": {
+    "opentimestamps": "0.4.9",
     "playwright-core": "1.59.1"
   }
 }

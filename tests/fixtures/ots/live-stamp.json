@@ -1,0 +1,25 @@
+{
+ "what": "the one real stamp made while building group E2, to prove the route: scripts/ots.mjs stamp (opentimestamps 0.4.9 defaults, the four public aggregators) on a scratch ledger whose one entry names the SHA256 of tests/fixtures/manifest/signals.json as its manifest, then one scripts/ots.mjs upgrade a minute later (still pending, as expected that soon). No payment, wallet or account; only the SHA256 left the machine.",
+ "at": "2026-10-18T01:29:25Z",
+ "digest": "6cdc1fe1237bb038b30aefd70a8c85cd1067a5275c77735f856325248d860413",
+ "digest_of": "tests/fixtures/manifest/signals.json at commit 15ef2af",
+ "proof": "live-stamp.ots",
+ "proof_sha256": "302320416b0fbf6ebae2a88774c8834ce433e47366e8c672ac81ede5e0800f1e",
+ "stamp_output": [
+  "Submitting to remote calendar https://a.pool.opentimestamps.org",
+  "Submitting to remote calendar https://b.pool.opentimestamps.org",
+  "Submitting to remote calendar https://a.pool.eternitywall.com",
+  "Submitting to remote calendar https://ots.btc.catallaxy.com",
+  "ots 2026-10-17: stamped manifest 6cdc1fe1237bb038b30aefd70a8c85cd1067a5275c77735f856325248d860413 -> web/ledger/ots/2026-10-17.ots (sha256 302320416b0fbf6ebae2a88774c8834ce433e47366e8c672ac81ede5e0800f1e), pending at https://alice.btc.calendar.opentimestamps.org, https://bob.btc.calendar.opentimestamps.org, https://btc.calendar.catallaxy.com, https://finney.calendar.eternitywall.com",
+  "exit 0"
+ ],
+ "upgrade_output": [
+  "Calendar https://bob.btc.calendar.opentimestamps.org: Pending confirmation in Bitcoin blockchain",
+  "Calendar https://btc.calendar.catallaxy.com: Pending confirmation in Bitcoin blockchain",
+  "Calendar https://alice.btc.calendar.opentimestamps.org: Pending confirmation in Bitcoin blockchain",
+  "Calendar https://finney.calendar.eternitywall.com: Pending confirmation in Bitcoin blockchain",
+  "ots 2026-10-17: pending (https://alice.btc.calendar.opentimestamps.org, https://bob.btc.calendar.opentimestamps.org, https://btc.calendar.catallaxy.com, https://finney.calendar.eternitywall.com)",
+  "ots upgrade: 1 pending proofs checked, 0 anchored and recorded in the 2026-10-17 entry, 0 recorded before",
+  "exit 0"
+ ]
+}

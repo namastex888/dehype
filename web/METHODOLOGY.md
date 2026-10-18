@@ -364,6 +364,17 @@ When a newsletter item is parsed, the links in its HTML are read before the HTML
 
 `pulse.json` carries `projects`: for every HYPE project id, the 7-day and 30-day voices, posts and networks among **live** sampled posts (HN, Reddit, Mastodon, Lobsters, newsletters; never the tracker or the static research dossier) that match the project's name or aliases; Official vendor feeds never count. A value of 0 means no matching post in our sampled feeds, not zero attention; a dash means the Pulse file is unavailable. The research dossier columns on the Hype tab stay a static sample as of the dossier's content cutoff.
 
+## Timestamp proof
+
+Each day's input manifest (the asset on its dated GitHub Release, whose SHA256 the ledger records) gets an [OpenTimestamps](https://opentimestamps.org) proof, `web/ledger/ots/YYYY-MM-DD.ots`, made by the JavaScript client `opentimestamps` pinned exactly to 0.4.9 (LGPL-3.0, installed unmodified from `scripts/checks/package-lock.json`). The refresh sends only the manifest's SHA256 to the public OpenTimestamps calendars, so the proof is committed **pending**: the calendars promise to put it in a Bitcoin transaction. Each later refresh runs the client's `upgrade` on every proof no ledger entry records as anchored, commits the upgraded file in place, and checks each complete proof with `verify --ignore-bitcoin-node`. The date and Bitcoin block height of every proof it accepts go into **that run's own** ledger entry (`anchored`); earlier entries are never edited, and a proof is never changed after a ledger entry records its block. The audit page reads "anchored" for a date only once a ledger entry records its block, else "pending". A day's own entry keeps `ots.sha256`, the proof's SHA256 **when it was stamped** (the pending file as first published); the file then changes in place when it is upgraded, so its current SHA256 is the `ots_sha256` of the later record that anchors it, and from then on it never changes.
+
+**What the refresh trusts.** The refresh runs no Bitcoin node. `verify --ignore-bitcoin-node` takes the block header from the public Esplora explorer at `https://blockstream.info/api` and **assumes that explorer's block is valid**; a wrong explorer could make a false proof look anchored. Anyone with a Bitcoin node can remove that trust: download the manifest from its Release and the proof from the site, and run `ots verify`, which checks the header against their own node (the first command below; the second is the refresh's explorer route). A proof says only that the manifest existed by that block's time; it does not say any verdict is right.
+
+```
+ots verify -f manifest-YYYY-MM-DD.json.gz YYYY-MM-DD.ots
+npx -p opentimestamps@0.4.9 ots-cli.js verify --ignore-bitcoin-node -f manifest-YYYY-MM-DD.json.gz YYYY-MM-DD.ots
+```
+
 ## Known biases
 
 - **HN dominance**: Papers mentions and most HYPE posts come from Hacker News, which over-represents developer tools and under-represents research-only and non-English work.

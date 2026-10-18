@@ -1,0 +1,238 @@
+diff -ru a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+--- a/.github/workflows/ci.yml	2026-10-17 22:14:44
++++ b/.github/workflows/ci.yml	2026-10-17 23:03:51
+@@ -22,8 +22,15 @@
+         run: |
+           npm ci --prefix scripts/dehype --ignore-scripts --no-audit --no-fund
+           npm ls @deepseek-ai/cordis --prefix scripts/dehype | grep -q '@deepseek-ai/cordis@4.0.4'
++      - name: Checks tree pins (playwright-core 1.59.1, opentimestamps 0.4.9 from the lockfile; no browser download; tests/test_ots.py runs the client offline)
++        run: |
++          npm ci --prefix scripts/checks --ignore-scripts --no-audit --no-fund
++          npm ls playwright-core --prefix scripts/checks | grep -q 'playwright-core@1.59.1'
++          npm ls opentimestamps --prefix scripts/checks | grep -q 'opentimestamps@0.4.9'
+       - name: Tests and fixture evaluation
+         run: python -m unittest discover tests && python eval.py --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json
++      - name: Stale since in the browser (dehype.js staleSince, the six SC-19 cases; Decision 15)
++        run: node --test tests/dehype_stale.test.mjs
+       - name: Scoring smoke
+         run: python eval.py --issue11-smoke --features tests/fixtures/features_a.json tests/fixtures/features_b.json --hype tests/fixtures/hype_small.json --compare-v2
+       - name: Owner-reviewed files (corrections appended, never edited over, against the base commit; no bot commit touches verdicts or corrections)
+@@ -32,10 +39,6 @@
+         run: python scripts/check_owner_files.py "$BASE"
+       - name: Page data, script and public-data check (handles, Reddit, X/LinkedIn/YouTube/Telegram, X figures, Mastodon links, verdict rows)
+         run: node scripts/check_page.mjs
+-      - name: Mastodon render-check pin (playwright-core 1.59.1 from the lockfile; no browser download, no network check)
+-        run: |
+-          npm ci --prefix scripts/checks --ignore-scripts --no-audit --no-fund
+-          npm ls playwright-core --prefix scripts/checks | grep -q 'playwright-core@1.59.1'
+   search-index:
+     # Proves the semantic index builds on a clean Linux runner (same step refresh.yml and deploy.yml run).
+     runs-on: ubuntu-latest
+diff -ru a/.github/workflows/refresh.yml b/.github/workflows/refresh.yml
+--- a/.github/workflows/refresh.yml	2026-10-17 22:14:44
++++ b/.github/workflows/refresh.yml	2026-10-17 23:04:03
+@@ -11,6 +11,19 @@
+ # web/checks/mastodon-links.json); the check is time-capped and fail-closed, so a failure leaves every unchecked post a count.
+ # The feeds (web/feed{,.pt}.{xml,json}) come from one Cordis step after pulse.py: @deepseek-ai/cordis pinned to 4.0.4 by its lockfile,
+ # installed with --ignore-scripts in a step with no secret and no id-token (this job has neither), time-capped; it opens no server or socket.
++# Stale since (C5): when the Pulse step fails, the committed pulse.json and briefing.json are kept and web/checks/pulse-failed.json (never
++# staged) tells compose.mjs to rewrite briefing.json and the feeds as "stale since" that briefing's date with the reason, carrying no value
++# over; no manifest, ledger entry or Release is made that day.
++# Ledger (design row 17; C3, C16, C32): scripts/manifest.py builds the day's input manifest (dist/, never committed; Reddit and Bluesky
++# records only as SHA256 of their stored rows, no handle), writes web/ledger/<date>.json, its web/ledger/index.json entry and the story-id
++# archive web/ledger/ids/<date>.json; the manifest goes on the dated Release ledger-<date> (a draft until the data commit is pushed, then
++# published on that commit, never marked latest, never replaced) and, downloaded back, must hash to the ledger's manifest_sha256 before
++# anything is committed. The Sigstore attestation of the manifest is made by the separate attest job (C42).
++# OpenTimestamps (design row 18; C4, C38): scripts/ots.mjs, with opentimestamps pinned to 0.4.9 by scripts/checks/package-lock.json (LGPL-3.0,
++# scripts/checks/NOTICE), stamps the day's manifest SHA256 into web/ledger/ots/<date>.ots before the Release step (no calendar answer: no
++# ledger entry that day), committed pending; each later run upgrades every earlier proof no entry records anchored, commits the upgraded
++# file in place, runs verify --ignore-bitcoin-node (block headers from https://blockstream.info/api) and records each accepted proof's
++# date and Bitcoin block in its own entry only. `git add web/ledger` stages the proofs.
+ on:
+   schedule:
+     - cron: '17 9 * * *'   # 06:17 America/Sao_Paulo
+@@ -24,6 +37,8 @@
+   refresh:
+     runs-on: ubuntu-latest
+     timeout-minutes: 120
++    outputs:
++      manifest: ${{ steps.handoff.outcome == 'success' && steps.ledger.outputs.asset || '' }}
+     steps:
+       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+         with:
+@@ -58,6 +73,12 @@
+         # after its lists and before any output write, pulse.py runs the deleted-post recheck and prints its checked, removed and
+         # unreached counts and its time cap (180s); --relink below reuses that result (history/recheck.json) and makes no call
+         run: python pulse.py
++      - name: Keep the last briefing and mark this run stale (Pulse failed; compose.mjs writes "stale since" with the reason)
++        if: steps.pulse.outcome == 'failure'
++        run: |
++          git restore --source=HEAD -- web/pulse.json web/briefing.json
++          printf '{"at":"%s","run":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$GITHUB_RUN_ID" > web/checks/pulse-failed.json
++          echo "::warning::Pulse failed: the briefing, gauges and feeds read stale since the last briefing's date"
+       - name: Save pipeline state
+         if: success()
+         uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+@@ -116,6 +137,95 @@
+           echo "cordis step: $((SECONDS - start))s (npm ci and compose) of its 120s time cap"
+       - name: Build semantic search index
+         run: npm ci --prefix scripts/embed --ignore-scripts --no-audit --no-fund && node scripts/embed/embed.mjs web
++      - name: Input manifest, ledger and story-id archive (scripts/manifest.py; the manifest check runs before anything is written)
++        id: ledger
++        if: steps.pulse.outcome == 'success'
++        continue-on-error: true   # no manifest or a refused entry: the day's ledger files are dropped below, the briefing is still committed
++        run: python scripts/manifest.py daily --web web --history history --out dist/manifest
++      - name: OpenTimestamps proof of the day's manifest (opentimestamps 0.4.9 from the lockfile; committed pending)
++        # sends only the manifest SHA256 to the client's public calendars; a same-date rerun keeps a proof of the same manifest
++        id: stamp
++        if: steps.ledger.outcome == 'success'
++        continue-on-error: true   # no calendar answered: no proof, so the day's ledger entry is dropped below (no Release either)
++        timeout-minutes: 2       # each calendar has a 45 s deadline in scripts/ots.mjs
++        env:
++          DATE: ${{ steps.ledger.outputs.date }}
++        run: |
++          # the tree is installed by the render-check browser step above (npm ci, same lockfile); no tree or another pin: no proof
++          npm ls opentimestamps --prefix scripts/checks | grep -q 'opentimestamps@0.4.9'
++          node scripts/ots.mjs stamp --web web --date "$DATE"
++      - name: Put the manifest on its dated draft Release and read it back (its SHA256 must equal the ledger's)
++        # a draft until the data commit is pushed (published after the push); a published asset is never replaced: one already there must be
++        # byte-identical, else this step fails and the day's entry is dropped
++        id: release
++        if: steps.stamp.outcome == 'success'
++        continue-on-error: true   # no Release: the day's ledger files are dropped below, the briefing is still committed
++        env:
++          GH_TOKEN: ${{ github.token }}
++          GH_REPO: ${{ github.repository }}
++          TAG: ledger-${{ steps.ledger.outputs.date }}
++          ASSET: ${{ steps.ledger.outputs.path }}
++          NAME: ${{ steps.ledger.outputs.asset }}
++        run: |
++          if ! draft=$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null); then
++            gh release create "$TAG" --draft --latest=false --title "dehype ledger $TAG" \
++              --notes "Daily input manifest for ${TAG#ledger-} (scripts/manifest.py); its SHA256 is in web/ledger/index.json."
++            draft=true
++          fi
++          rm -rf dist/release && mkdir -p dist/release
++          if gh release download "$TAG" --pattern "$NAME" --dir dist/release 2>/dev/null; then
++            if ! cmp -s "dist/release/$NAME" "$ASSET"; then
++              if [ "$draft" != true ]; then echo "::error::$TAG is published with a different $NAME; it is never replaced"; exit 1; fi
++              gh release delete-asset "$TAG" "$NAME" --yes                 # a draft left by a run whose commit never landed
++              gh release upload "$TAG" "$ASSET"
++            fi
++          else
++            gh release upload "$TAG" "$ASSET"
++          fi
++          rm -rf dist/release && gh release download "$TAG" --pattern "$NAME" --dir dist/release
++          python scripts/manifest.py release "dist/release/$NAME" --tag "$TAG" --web web \
++            --url "https://github.com/${GITHUB_REPOSITORY}/releases/download/$TAG/$NAME"
++      - name: Drop the day's ledger entry when the manifest step, the proof or the Release failed (the story-id archive stays)
++        # the ledger never names a Release it does not equal, nor a day without its proof; web/ledger/ids/ is committed whatever happened here
++        if: steps.ledger.outcome == 'failure' || steps.stamp.outcome == 'failure' || steps.release.outcome == 'failure'
++        env:
++          DATE: ${{ steps.ledger.outputs.date }}
++        run: |
++          git restore --source=HEAD -- web/ledger/index.json 2>/dev/null || echo '[]' > web/ledger/index.json
++          for f in web/ledger/*.json; do
++            [ "$f" = web/ledger/index.json ] && continue
++            git restore --source=HEAD -- "$f" 2>/dev/null || rm -f "$f"
++          done
++          if [ -n "$DATE" ]; then git restore --source=HEAD -- "web/ledger/ots/$DATE.ots" 2>/dev/null || rm -f "web/ledger/ots/$DATE.ots"; fi
++          echo "::warning::no ledger entry today (manifest step: ${{ steps.ledger.outcome }}, proof: ${{ steps.stamp.outcome }}, Release: ${{ steps.release.outcome }})"
++      - name: OpenTimestamps upgrade and verify
++        # upgrade every earlier proof no ledger entry records anchored (in place), verify --ignore-bitcoin-node against the public Esplora
++        # explorer at https://blockstream.info/api (its block assumed valid), and record each accepted proof's date and Bitcoin block in
++        # today's entry only; then the client's own CLI re-checks each one recorded today. Calendars or explorer down: still pending.
++        if: steps.release.outcome == 'success'
++        continue-on-error: true   # a proof not yet upgraded reads "pending", which passes (C4); a failure here never blocks the data commit
++        timeout-minutes: 3       # the loop stops at its 150 s budget (45 s deadline per call) and keeps what it recorded
++        env:
++          DATE: ${{ steps.ledger.outputs.date }}
++        run: |
++          node scripts/ots.mjs upgrade --web web --date "$DATE" --budget 150
++          jq -r --arg d "$DATE" '(map({(.date): .manifest_sha256}) | add) as $M | .[] | select(.date == $d) | .anchored[]? | "\(.date) \(.block) \($M[.date])"' web/ledger/index.json |
++          while read -r day block digest; do
++            if timeout 20 node scripts/checks/node_modules/opentimestamps/ots-cli.js verify --ignore-bitcoin-node -t 15000 -d "$digest" "web/ledger/ots/$day.ots" | tee /dev/stderr | grep -q "Success! Bitcoin block $block "; then
++              echo "ots $day: verify --ignore-bitcoin-node accepts block $block"
++            else
++              echo "::warning::ots $day: the client CLI did not confirm block $block (explorer unreachable?); the record stays, re-check it by hand"
++            fi
++          done
++      - name: Hand the manifest to the attest job
++        id: handoff
++        if: steps.release.outcome == 'success'
++        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
++        with:
++          name: manifest-${{ github.run_id }}
++          path: ${{ steps.ledger.outputs.path }}
++          retention-days: 7
++          if-no-files-found: error
+       - name: Gate
+         run: python -m unittest discover tests && node scripts/check_page.mjs
+       - name: Commit snapshot
+@@ -124,7 +234,7 @@
+         run: |
+           git config user.name "trend-observatory-bot"
+           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+-          git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json web/briefing.json web/checks/mastodon-links.json web/story-aliases.json web/hype.json web/checks/dossier-gone.json web/feed.xml web/feed.json web/feed.pt.xml web/feed.pt.json
++          git add web/data.json web/search-index.json web/search-vectors.bin web/pulse.json web/briefing.json web/checks/mastodon-links.json web/story-aliases.json web/hype.json web/checks/dossier-gone.json web/feed.xml web/feed.json web/feed.pt.xml web/feed.pt.json web/ledger
+           if git diff --cached --quiet; then echo "no data change"; exit 0; fi
+           git commit -m "data: daily refresh $(date -u +%Y-%m-%d)"
+           # this push uses github.token, so it triggers no ci.yml run: the bot checks its own commit before pushing (no push on a failure)
+@@ -137,6 +247,17 @@
+             sleep $((i * 10))
+           done
+           echo "::error::could not push the data commit to dev"; exit 1
++      - name: Publish the dated Release on the pushed data commit (not marked latest)
++        if: steps.release.outcome == 'success'
++        env:
++          GH_TOKEN: ${{ github.token }}
++          GH_REPO: ${{ github.repository }}
++          TAG: ledger-${{ steps.ledger.outputs.date }}
++        run: |
++          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft)" = true ]; then
++            gh release edit "$TAG" --draft=false --latest=false --target "$(git rev-parse HEAD)"
++          fi
++          echo "$TAG published on $(git rev-parse HEAD)"
+   deploy:
+     needs: refresh
+     permissions:
+@@ -145,3 +266,39 @@
+       id-token: write
+     uses: ./.github/workflows/deploy.yml
+     secrets: inherit
++  attest:
++    # Sigstore attestation of the day's manifest (design row 18, C4, C42), in its own job: no checkout, no npm or pip code, and a token
++    # that can only mint the OIDC identity and write the attestation. Check it with `gh attestation verify <manifest> --repo <owner/repo>`.
++    needs: refresh
++    if: needs.refresh.outputs.manifest != ''
++    runs-on: ubuntu-latest
++    timeout-minutes: 10
++    permissions:
++      id-token: write
++      attestations: write
++    steps:
++      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
++        with:
++          name: manifest-${{ github.run_id }}
++          path: manifest
++      - uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
++        with:
++          subject-path: manifest/${{ needs.refresh.outputs.manifest }}
++  verify-attestation:
++    # The per-deploy check `gh attestation verify` on the day's manifest (C39), with a read-only token and no id-token.
++    needs: [refresh, attest]
++    runs-on: ubuntu-latest
++    timeout-minutes: 5
++    permissions:
++      contents: read
++      attestations: read
++    steps:
++      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
++        with:
++          name: manifest-${{ github.run_id }}
++          path: manifest
++      - name: gh attestation verify on the day's manifest
++        env:
++          GH_TOKEN: ${{ github.token }}
++          ASSET: manifest/${{ needs.refresh.outputs.manifest }}
++        run: gh attestation verify "$ASSET" --repo "$GITHUB_REPOSITORY" --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/refresh.yml"

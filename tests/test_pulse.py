@@ -931,11 +931,16 @@ class DayFilesTest(unittest.TestCase):
 
 def ledger_companions(web):
     """A fixture ledger/index.json holds complete entries; their day files ({date, manifest: {asset, sha256}}, the bytes whose SHA256 is
-    the entry's ledger_sha256) and empty archive files are written here, so a 13-day fixture needs no 26 committed files."""
+    the entry's ledger_sha256), empty archive files and pending OpenTimestamps proofs (one attestation on the manifest SHA256, the bytes
+    whose SHA256 is the entry's ots.sha256; group E2) are written here, so a 13-day fixture needs no 39 committed files."""
     try: E = json.loads(read(os.path.join(web, 'ledger', 'index.json')))
     except FileNotFoundError: return
-    os.makedirs(os.path.join(web, 'ledger', 'ids'), exist_ok=True)
+    os.makedirs(os.path.join(web, 'ledger', 'ids'), exist_ok=True); os.makedirs(os.path.join(web, 'ledger', 'ots'), exist_ok=True)
+    uri = b'https://alice.btc.calendar.opentimestamps.org'; att = bytes([len(uri)]) + uri
     for e in E:
+        with open(os.path.join(web, 'ledger', 'ots', e['date'] + '.ots'), 'wb') as f:
+            f.write(bytes.fromhex('004f70656e54696d657374616d7073000050726f6f6600bf89e2e884e89294') + b'\x01\x08' + bytes.fromhex(e['manifest_sha256'])
+                    + b'\x00' + bytes.fromhex('83dfe30d2ef90c8e') + bytes([len(att)]) + att)
         day = json.dumps({'date': e['date'], 'manifest': {'asset': e['asset'], 'sha256': e['manifest_sha256']}}, separators=(',', ':'))
         with open(os.path.join(web, 'ledger', e['date'] + '.json'), 'w') as f: f.write(day)
         with open(os.path.join(web, 'ledger', 'ids', e['date'] + '.json'), 'w') as f: json.dump({'date': e['date'], 'generated_at': e['generated_at'], 'ids': []}, f)
