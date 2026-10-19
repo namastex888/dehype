@@ -70,7 +70,7 @@ What each piece guarantees:
 | `check_page.mjs` | the pages and data keep the public-data rules; both method sources carry the licence; the one imported script is the exact-pinned transformers.js; the refresh stages exactly the bot-written files and never an owner-reviewed one | `ci.yml`, `refresh.yml`, `deploy.yml` |
 | `check_owner_files.py` | `verdicts.json`, `corrections.json`, `removals.json`, `i18n/x-org-accounts.json`, `i18n/sources-plan.json` and the root `hub_orgs.json` change only by a person's merged PR; corrections are appended, never edited | `ci.yml`, `refresh.yml`, `deploy.yml` |
 
-\* Bluesky needs an app password secret (`BSKY_HANDLE`, `BSKY_APP_PASSWORD`). The official Reddit API is optional (`REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`); without it Reddit comes from the arctic-shift public archive. X is not collected: there is no free route that stays within X's terms.
+\* Bluesky needs an app password secret (`BSKY_HANDLE`, `BSKY_APP_PASSWORD`). The official Reddit API is optional (`REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`); without it Reddit comes from the arctic-shift public archive. X is not collected: there is no free route that stays within X's terms. YouTube and Product Hunt are held on their API terms ([SOURCE_TERMS.md](SOURCE_TERMS.md)): YouTube caps stored statistics at 30 days and may forbid derived counts, and Product Hunt forbids commercial use, which our CC BY-SA data licence would pass on.
 
 ## 2. How it updates itself
 
