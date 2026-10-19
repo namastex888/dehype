@@ -21,8 +21,9 @@ NAME = 'Hugging Face Hub (model search)'
 NOT_FETCHED, NO_NAME = 'not fetched', 'no release name'
 SEARCH_LIMIT, SHOWN = 100, 5
 METHOD = ('Hub check: a story with a release name (its label) is searched once on the Hugging Face Hub (models, the 100 most downloaded '
-          'in 30 days whose id matches the name); a model counts when its organisation is listed in hub_orgs.json (owner-reviewed: labs and '
-          'vendors, never a person) and its name carries the release name\'s words and numbers in order, a version exactly (Qwen 3 is not '
+          'in 30 days whose id matches the name; a single word with no number is not searched); a model counts when its organisation is '
+          'listed in hub_orgs.json (labs and vendors, never a person; admitted by the agent on 2026-10-18 under the owner\'s delegation, the '
+          'owner vetoes by pull request) and its name carries the release name\'s words and numbers in order, a version exactly (Qwen 3 is not '
           'Qwen3.8). The record carries the count among those 100 and the five most downloaded matches (id, created, downloads in the last 30 days, likes); '
           '"no release name" when the story has none, "not fetched" when the search did not run or failed; 0 models is a reading of the '
           'listed organisations only, not a verdict that a model is closed, and a name that is not a model reads 0 too')
@@ -70,9 +71,10 @@ def load(path=STORE):
 def name_rx(name):
     """The release name's words and numbers, in order, inside a model name: words may have other words between them and end where a
     word ends (spark is not sparkle), a number follows its word directly (a separator or a v between) and is matched whole (3 is not 3.8,
-    35 or 3b: Gemma 2 is not gemma-2b); None for a name with no Latin letter or digit, which is not searched."""
+    35 or 3b: Gemma 2 is not gemma-2b); None, so the name is not searched, for a name with no Latin letter or digit and for a single
+    word with no number (an emerging phrase such as TypeScript matches tools and datasets, not a release)."""
     toks = re.findall(r'[a-z]+|\d+(?:\.\d+)*', (name or '').lower())
-    if not toks: return None
+    if not toks or (len(toks) == 1 and not toks[0][0].isdigit()): return None
     num = lambda t: t[0].isdigit()
     rx = '' if num(toks[0]) else r'(?<![a-z])'
     for i, t in enumerate(toks):
