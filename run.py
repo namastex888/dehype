@@ -190,6 +190,17 @@ def gh_token():
     except Exception: pass
     return GH_TOKEN
 
+# the GitHub token as GitHub reports it: the expiry header it sends with a personal access token, and the calls it refused (by kind)
+TOKEN = {'expires': None, 'refused': {}}
+TOKEN_WARN_DAYS = 14
+
+def token_refusal(e):
+    """Why GitHub refused the token itself (not a rate limit): a 401, or a 403 'Resource not accessible by ...'; None otherwise."""
+    if not isinstance(e, HTTPErr): return None
+    if e.code == 401: return 'refused (HTTP 401: expired, revoked or malformed)'
+    if e.code == 403 and 'resource not accessible' in (e.body or '').lower(): return "not allowed by the token's settings (HTTP 403: resource not accessible)"
+    return None
+
 def gh_get(path, accept='application/vnd.github+json', search=False):
     url = 'https://api.github.com' + path
     h = {'Accept': accept, 'X-GitHub-Api-Version': '2022-11-28'}
@@ -198,8 +209,14 @@ def gh_get(path, accept='application/vnd.github+json', search=False):
         if search and not OFFLINE: (GH_SEARCH_RL_AUTH if GH_TOKEN else GH_SEARCH_RL).wait()
         try:
             st, hd, body = http_get(url, h)
+            exp = next((v for k, v in hd.items() if k.lower() == 'github-authentication-token-expiration'), None)
+            if exp and GH_TOKEN: TOKEN['expires'] = exp
             return json.loads(body), hd
         except HTTPErr as e:
+            why = token_refusal(e)
+            if why and GH_TOKEN:                               # no retry: the same token is refused again
+                TOKEN['refused'][re.sub(r'^/repos/[^/]+/[^/]+', '/repos/<repo>', path.split('?')[0])] = why
+                raise
             rem = e.headers.get('X-RateLimit-Remaining') or e.headers.get('x-ratelimit-remaining')
             if e.code in (403, 429) and rem == '0':
                 reset = int(e.headers.get('X-RateLimit-Reset') or e.headers.get('x-ratelimit-reset') or 0)
@@ -208,6 +225,24 @@ def gh_get(path, accept='application/vnd.github+json', search=False):
                 raise
             if e.code >= 500 and attempt < 2: time.sleep(4); continue
             raise
+
+def token_note(now=None):
+    """The 'GitHub token' source note: refused calls by kind, the expiry GitHub reports and a warning (an Actions annotation) before it."""
+    if OFFLINE: return
+    if not GH_TOKEN: return note('GitHub token', 'not connected', 'no token: unauthenticated limits (60 core requests per hour)')
+    m = re.search(r'\d{4}-\d{2}-\d{2}', TOKEN['expires'] or '')      # the date only: GitHub's header gives a time with a zone or an offset
+    exp = datetime.strptime(m[0], '%Y-%m-%d').replace(tzinfo=timezone.utc) if m else None
+    days = (exp - (now or datetime.now(timezone.utc))).days if exp else None
+    when = f'; expires {exp.date().isoformat()} (in {days} days)' if exp else ''
+    if TOKEN['refused']:
+        st = 'failed' if '/rate_limit' in TOKEN['refused'] else 'partial'
+        note('GitHub token', st, '; '.join(f'{k}: {v}' for k, v in sorted(TOKEN['refused'].items())) + when + '; replace (or set) the TRENDING_GH_TOKEN secret')
+    elif days is not None and days < TOKEN_WARN_DAYS:
+        note('GitHub token', 'partial', f'accepted{when}; replace the TRENDING_GH_TOKEN secret before then')
+    else:
+        note('GitHub token', 'ok', 'accepted' + when)
+    if TOKEN['refused'] or (days is not None and days < TOKEN_WARN_DAYS):
+        print(f"::warning::GitHub token: {SOURCES['GitHub token']['detail']}", flush=True)
 
 def gh_core_remaining():
     try:
@@ -421,7 +456,7 @@ def fetch_stargazers(repos, order):
         note('GitHub stargazers API', 'cache', f'offline: {len(cache)} cached repos'); return cache
     rem, reset = gh_core_remaining()
     budget = max(0, rem - 3)
-    used, done, consec_fail, last_err = 0, 0, 0, ''
+    used, done, consec_fail, last_err, last_exc = 0, 0, 0, '', None
     for fn in order:
         if consec_fail >= 3: break
         r = repos[fn]
@@ -437,7 +472,7 @@ def fetch_stargazers(repos, order):
                 d, _ = gh_get(f'/repos/{fn}/stargazers?per_page=100&page={page}', accept='application/vnd.github.star+json')
                 used += 1
             except Exception as e:
-                used += 1; times = None; consec_fail += 1; last_err = str(e)[:100]; log(f'stargazers {fn}: {e} {getattr(e, "body", "")[:200]}'); break
+                used += 1; times = None; consec_fail += 1; last_err, last_exc = str(e)[:100], e; log(f'stargazers {fn}: {e} {getattr(e, "body", "")[:200]}'); break
             consec_fail = 0
             times += [x['starred_at'] for x in d if x.get('starred_at')]
             if page == 1: complete = True; break
@@ -455,8 +490,12 @@ def fetch_stargazers(repos, order):
     if consec_fail >= 3 and 'HTTP 404' in last_err:
         note('GitHub stargazers API', 'unavailable', f'the stargazers endpoint answered HTTP 404 for every repo tried (even authenticated); '
              f'star growth comes from our own snapshots instead. {len(cache)} cached')
+    elif consec_fail >= 3 and GH_TOKEN and token_refusal(last_exc):
+        note('GitHub stargazers API', 'failed', f'stopped: the GitHub token is {token_refusal(last_exc)} (see GitHub token); star timestamps for {done} repos this run, {len(cache)} cached')
     elif consec_fail >= 3:
         note('GitHub stargazers API', 'failed', f'stopped after 3 consecutive errors ({last_err}); star timestamps for {done} repos this run, {len(cache)} cached')
+    elif budget == 0 and '/rate_limit' in TOKEN['refused']:
+        note('GitHub stargazers API', 'skipped', f'the GitHub token was refused (see GitHub token); using cached timestamps for {len(cache)} repos')
     elif budget == 0:
         note('GitHub stargazers API', 'skipped', f'core rate limit exhausted (unauthenticated 60/h); resets {datetime.fromtimestamp(reset, TZ).strftime("%H:%M")} BRT. Using cached timestamps for {len(cache)} repos')
     else:
@@ -525,6 +564,11 @@ def fetch_repo_activity(repos, order):
             save_json(cpath('repo_activity'), cache)   # checkpoint
         except Exception as e:
             fail += 1
+            if GH_TOKEN and token_refusal(e):
+                note('GitHub activity (issues/PRs/commits)', 'partial',
+                     f'stopped after {done} repos: the GitHub token is {token_refusal(e)} (see GitHub token); {len(cache)} cached')
+                save_json(cpath('repo_activity'), cache)
+                return cache
             if 'rate limit' in str(e).lower() or '403' in str(e) or '429' in str(e):
                 note('GitHub activity (issues/PRs/commits)', 'partial',
                      f'stopped on rate limit after {done} repos ({fail} fails); {len(cache)} cached. {str(e)[:80]}')
@@ -1112,6 +1156,7 @@ def main():
                'ranks': {f'{t}/{w}': [[i, rk, sc] for (tt, ww, i, rk, sc) in ranks_rows if tt == t and ww == w]
                          for t in sorted({r[0] for r in ranks_rows}) for w, _ in WINDOWS}})
     resets = sorted({t for t in ('papers', 'repos') if prev_ver.get(t) and prev_ver[t] != scoring.SCORING_VERSION})
+    token_note()
     data = {'generated_at': iso(NOW), 'generated_local': now_local.strftime('%Y-%m-%d %H:%M:%S') + ' BRT (America/Sao_Paulo)',
             'run_id': run_id, 'run_kind': kind, 'previous_run': prev_ts, 'run_seconds': secs, 'sources': SOURCES,
             'scoring_version': scoring.SCORING_VERSION, 'config_sha': scoring.config_sha(), 'priors': S['priors'],

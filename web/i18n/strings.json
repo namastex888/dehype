@@ -474,6 +474,7 @@
   "name.src.gh_stars": {"en": "GitHub stargazers API", "pt": "API de stargazers do GitHub"},
   "name.src.gh_activity": {"en": "GitHub activity (issues/PRs/commits)", "pt": "Atividade no GitHub (issues/PRs/commits)"},
   "name.src.gh_contributors": {"en": "GitHub contributors", "pt": "Contribuidores no GitHub"},
+  "name.src.gh_token": {"en": "GitHub token", "pt": "Token do GitHub"},
   "name.net.official": {"en": "Official", "pt": "Oficial"},
   "name.area.world": {"en": "world/action models", "pt": "modelos de mundo/ação"},
   "name.area.harness": {"en": "harness/context", "pt": "harness/contexto"},
