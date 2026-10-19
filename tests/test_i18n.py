@@ -155,11 +155,12 @@ class CommittedFilesTest(unittest.TestCase):
             self.assertIn('history-38948143514', text)
         self.assertIn('posts in our sample', S['x_route.disclosure']['en'])
         self.assertIn('posts na nossa amostra', S['x_route.disclosure']['pt'])
-        for fig in ('-0.2%', '-3.5%', '1.7', '157', '133', '2026-11-06'): self.assertIn(fig, S['method.scrub_effect']['pt'])
+        for fig in ('-0,2%', '-3,5%', '1,7', '157', '133', '2026-11-06'): self.assertIn(fig, S['method.scrub_effect']['pt'])   # pt-BR notation
 
     def test_portuguese_method_translates_the_english_line_by_line(self):
         """METHODOLOGY.pt.md, without its anchor lines, has one line per English line: same kind (heading level, list, table cells,
-        code fence), the same inline code and numbers, the same link targets, and code blocks byte-identical."""
+        code fence), the same inline code and numbers (each in its language's notation: 2,019 and 0.75 in English are 2.019 and 0,75
+        in Portuguese, so a separator compares as either), the same link targets, and code blocks byte-identical."""
         en = read(os.path.join(ROOT, 'METHODOLOGY.md')).split('\n')
         pt = [l for l in read(os.path.join(ROOT, 'METHODOLOGY.pt.md')).split('\n') if not re.fullmatch(r'<a id="[^"]+"></a>', l)]
         self.assertEqual(len(en), len(pt))
@@ -174,7 +175,8 @@ class CommittedFilesTest(unittest.TestCase):
                 if fence: self.assertEqual(a, b); continue
                 self.assertEqual(re.sub(r'\d+\.', '1.', kind(a)), re.sub(r'\d+\.', '1.', kind(b)))
                 self.assertEqual(Counter(code.findall(a)), Counter(code.findall(b)))
-                self.assertEqual(Counter(num.findall(code.sub('', a))), Counter(num.findall(code.sub('', b))))
+                sep = lambda l: Counter(re.sub(r'[.,]', '·', n) for n in num.findall(code.sub('', l)))
+                self.assertEqual(sep(a), sep(b))
                 self.assertEqual(Counter(url.findall(a)), Counter(url.findall(b)))
 
 
