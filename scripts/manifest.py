@@ -23,8 +23,9 @@ web/checks/dossier-gone.json name. HN, Lobsters, Newsletter and Official records
 score and comments and the created and fetched times; a Mastodon record carries https://mastodon.social/statuses/<id> (C25). A Reddit
 record is only {"net", "sha256"} (C16); so is a Bluesky record (its id and URL name the account) and any record whose URL would break
 a public-data rule. The manifest also carries each source's status, the SHA256 of every file the refresh publishes and, whole, the
-stored inputs of the context panels and the Hub check when they are this run's (history/indicators.json: the BLS and Wikimedia responses
-and the HN hiring threads' ids, titles and counts; history/hub.json: model ids, dates and counts), so a recompute needs no call. No author
+stored inputs of the context panels and the Hub check when they are this run's, else null (history/indicators.json: the BLS and Wikimedia responses
+and the HN hiring threads' ids, titles and counts, with the BLS notice; history/hub.json: model ids, dates and counts), so a recompute needs
+no call. Version 2 (version 1, 2026-10-18 only, has no stored inputs). No author
 or handle is written, and no post title outside those stored inputs. Standard library only.
 """
 import argparse, gzip, hashlib, json, os, re, sqlite3, sys
@@ -44,9 +45,11 @@ HASH_RULE = ('sha256 of the UTF-8 JSON of the stored history/signals.sqlite row 
 FILES = ('data.json', 'search-index.json', 'search-vectors.bin', 'pulse.json', 'briefing.json', 'checks/mastodon-links.json',
          'story-aliases.json', 'hype.json', 'checks/dossier-gone.json', 'feed.xml', 'feed.json', 'feed.pt.xml', 'feed.pt.json',
          'verdicts.json', 'removals.json', 'corrections.json')
-# the stored inputs the day's outputs were computed from (indicators.py, hub.py), kept whole so a recompute needs no call (S5); the one
-# a run's Pulse step wrote, so it is fetched at most STORED_HOURS before the briefing (the relink rewrites generated_at minutes later)
-STORED, STORED_HOURS = ('indicators.json', 'hub.json'), 3
+# the stored inputs the day's outputs were computed from (indicators.py, hub.py), kept whole so a recompute needs no call (S5): only the
+# ones this run's live Pulse step wrote, whose fetched_at is the run time history/recheck.json records (the relink keeps it); the only
+# field names a stored input may carry beyond the record rule are the HN hiring-thread titles and the BLS footnote text
+STORED = ('indicators.json', 'hub.json')
+STORED_TEXT = re.compile(r'^manifest\.stored_inputs\.history/indicators\.json\.inputs\.(?:hn_hiring\.threads\[\d+\]\.title|bls\..*\.footnotes\[\d+\]\.text)$')
 HEX64, DAY = re.compile(r'^[0-9a-f]{64}$'), re.compile(r'^\d{4}-\d{2}-\d{2}$')
 SID = re.compile(r'^s:[0-9a-f]{12}$')
 STATUS_URL = re.compile(r'^https://mastodon\.social/statuses/(\d{1,20})$')
@@ -120,13 +123,16 @@ def inputs(rows, web, recheck_path, generated_at):
     return keep
 
 
-def stored_inputs(history, generated_at):
-    """{history/<file>: the stored input, or null when missing or not this run's (fetched more than STORED_HOURS before, or after, the briefing)}."""
-    end, out = pulse.parse_dt(generated_at), {}
+def stored_inputs(history, recheck_path):
+    """{history/<file>: the stored input, or null when missing, not this run's (its fetched_at is not the live run time recheck.json records:
+    a failed fetch leaves an earlier run's file) or breaking a public-data rule (then only that input is left out, never the day)}."""
+    run_at, out = (pulse.load_recheck(recheck_path).get('run') or {}).get('at'), {}
     for f in STORED:
-        S = read_json(os.path.join(history, f), {})
-        at = pulse.parse_dt(S.get('fetched_at')) if isinstance(S, dict) and isinstance(S.get('fetched_at'), str) else None
-        out[f'history/{f}'] = S if at and end - timedelta(hours=STORED_HOURS) <= at <= end else None
+        S, key = read_json(os.path.join(history, f), {}), f'history/{f}'
+        ok = run_at and isinstance(S, dict) and S.get('fetched_at') == run_at
+        bad = check({'date': '0000-00-00', 'files': {}, 'records': [], 'stored_inputs': {key: S}}) if ok else []
+        if bad: print(f'manifest: {key} left out ({bad[0]})', file=sys.stderr)
+        out[key] = S if ok and not bad else None
     return out
 
 
@@ -142,12 +148,12 @@ def build(web, history, out):
     for x in recs: counts[x['net']] = counts.get(x['net'], 0) + 1
     files = {f'web/{f}': file_sha(os.path.join(web, f)) for f in FILES}
     files[f'web/ledger/ids/{date}.json'] = file_sha(os.path.join(web, 'ledger', 'ids', f'{date}.json'))
-    M = {'manifest': 'dehype daily input manifest', 'version': 1, 'date': date, 'generated_at': B['generated_at'],
+    M = {'manifest': 'dehype daily input manifest', 'version': 2, 'date': date, 'generated_at': B['generated_at'],
          'window': {k: B.get('window', {}).get(k) for k in ('start', 'end')},
          'method': {k: B.get('method', {}).get(k) for k in ('version', 'config_hash')},
          'sources': {n: {'status': s.get('status'), 'detail': s.get('detail')} for n, s in (B.get('sources') or {}).items()},
          'files': files, 'hash_rule': HASH_RULE, 'counts': counts, 'records': recs,
-         'stored_inputs': stored_inputs(history, B['generated_at'])}
+         'stored_inputs': stored_inputs(history, os.path.join(history, 'recheck.json')), 'notices': [pulse.IND.BLS_NOTICE]}
     bad = check(M)
     if bad: raise SystemExit('manifest check FAILED (nothing written but the archive file)\n- ' + '\n- '.join(bad))
     path = os.path.join(out, f'manifest-{date}.json.gz')
@@ -177,8 +183,7 @@ def check(M):
     def walk(o, at):
         if isinstance(o, dict):
             for k, v in o.items():
-                # a stored input keeps what its source returned (HN hiring-thread titles, BLS footnote text); the URL and handle rules still apply
-                if k in ('author', 'title', 'handle', 'who', 'text') and not at.startswith('manifest.stored_inputs'): bad.append(f'manifest carries a {k} field at {at}.{k}')
+                if k in ('author', 'title', 'handle', 'who', 'text') and not STORED_TEXT.match(f'{at}.{k}'): bad.append(f'manifest carries a {k} field at {at}.{k}')
                 walk(v, f'{at}.{k}')
         elif isinstance(o, list):
             for i, v in enumerate(o): walk(v, f'{at}[{i}]')
