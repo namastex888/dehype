@@ -1,6 +1,6 @@
 {
- "_doc": "Owner-reviewed (scripts/check_owner_files.py OWNER_FILES): the Hugging Face organisations whose models count for the Hub check of a briefing record (hub.py). Organisations only, never a person's account: an entry is a lab or vendor that publishes its own models. fullname and verified are as the Hub's organisation overview (https://huggingface.co/api/organizations/<id>/overview) showed them on checked; verified is the Hub's badge, which several labs lack, so it is a note, not the test. Changing this list changes the briefing's config hash (pulse.py CONFIG_FILES).",
- "checked": "2026-10-18",
+ "_doc": "Owner file (scripts/check_owner_files.py OWNER_FILES: it changes only by a merged pull request): the Hugging Face organisations whose models count for the Hub check of a briefing record (hub.py). Admitted by the agent on 2026-10-18 under the owner's 2026-10-16 delegation and not yet reviewed by the owner, who can veto any entry by pull request. Admission rule: the id resolves on the Hub as an organisation (https://huggingface.co/api/organizations/<id>/overview) with at least one model; it is the publishing account of a named lab or vendor, never a person's account; and either the Hub shows its verified badge, or 'evidence' records a page of the lab's own site, documentation or official GitHub organisation that links to it. fullname and verified are as the overview showed them on checked. Changing this list changes the briefing's config hash (pulse.py CONFIG_FILES).",
+ "checked": "2026-10-19",
  "terms": [
   "https://huggingface.co/terms-of-service",
   "https://huggingface.co/docs/hub/api"
@@ -37,7 +37,8 @@
   },
   "ByteDance-Seed": {
    "fullname": "ByteDance Seed",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/ByteDance-Seed/Bagel"
   },
   "CohereLabs": {
    "fullname": "Cohere Labs",
@@ -57,19 +58,23 @@
   },
   "HuggingFaceTB": {
    "fullname": "Hugging Face Smol Models Research",
-   "verified": false
+   "verified": false,
+   "evidence": "https://huggingface.co/docs/transformers/model_doc/smollm3"
   },
   "ibm-granite": {
    "fullname": "IBM Granite",
-   "verified": false
+   "verified": false,
+   "evidence": "https://www.ibm.com/granite"
   },
   "inclusionAI": {
    "fullname": "inclusionAI",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/inclusionAI/Ling"
   },
   "internlm": {
    "fullname": "Intern Large Models",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/InternLM/InternLM"
   },
   "krea": {
    "fullname": "KREA",
@@ -77,7 +82,8 @@
   },
   "Kwai-Kolors": {
    "fullname": "Kolors Team, Kuaishou Technology",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/Kwai-Kolors/Kolors"
   },
   "Lightricks": {
    "fullname": "LTX.io",
@@ -85,7 +91,8 @@
   },
   "LiquidAI": {
    "fullname": "Liquid AI",
-   "verified": false
+   "verified": false,
+   "evidence": "https://docs.liquid.ai/"
   },
   "meta-llama": {
    "fullname": "Meta Llama",
@@ -101,7 +108,8 @@
   },
   "MiniMaxAI": {
    "fullname": "MiniMax",
-   "verified": false
+   "verified": false,
+   "evidence": "https://www.minimax.io/"
   },
   "mistralai": {
    "fullname": "Mistral AI_",
@@ -109,7 +117,8 @@
   },
   "moonshotai": {
    "fullname": "Moonshot AI",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/MoonshotAI/Kimi-K2"
   },
   "nvidia": {
    "fullname": "NVIDIA",
@@ -121,15 +130,18 @@
   },
   "OpenGVLab": {
    "fullname": "OpenGVLab",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/OpenGVLab"
   },
-  "OpenMOSS": {
+  "OpenMOSS-Team": {
    "fullname": "OpenMOSS",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/OpenMOSS"
   },
   "Qwen": {
    "fullname": "Qwen",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/QwenLM/Qwen3"
   },
   "Salesforce": {
    "fullname": "Salesforce AI Research",
@@ -141,7 +153,8 @@
   },
   "stepfun-ai": {
    "fullname": "StepFun",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/stepfun-ai/Step-Audio"
   },
   "tencent": {
    "fullname": "Tencent",
@@ -149,7 +162,8 @@
   },
   "Wan-AI": {
    "fullname": "Wan-AI",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/Wan-Video"
   },
   "xai-org": {
    "fullname": "xAI",
@@ -157,11 +171,13 @@
   },
   "XiaomiMiMo": {
    "fullname": "Xiaomi MiMo",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/XiaomiMiMo/MiMo"
   },
   "zai-org": {
    "fullname": "Z.ai",
-   "verified": false
+   "verified": false,
+   "evidence": "https://github.com/zai-org/GLM-4.5"
   }
  }
 }

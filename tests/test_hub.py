@@ -33,6 +33,15 @@ class Matcher(unittest.TestCase):
         self.assertIsNone(HUB.name_rx('TypeScript')); self.assertIsNone(HUB.name_rx('ComfyUI'))       # one word, no number: not a release name
         for name in ('Krea 2', 'Muse Spark', 'MOSS-Image', 'H3', '5090'): self.assertIsNotNone(HUB.name_rx(name), name)
 
+class Admission(unittest.TestCase):
+    def test_every_org_meets_the_written_rule(self):
+        cfg = HUB.config()
+        self.assertIn('Admission rule', cfg['_doc']); self.assertNotIn('OpenMOSS', set(cfg['orgs']) - {'OpenMOSS-Team'})
+        for org, v in cfg['orgs'].items():
+            with self.subTest(org=org):
+                self.assertTrue(v['fullname'])
+                if not v['verified']: self.assertRegex(v.get('evidence') or '', r'^https://')     # unbadged: a lab page that links it
+
 class Reading(unittest.TestCase):
     def test_recorded_input_names_listed_organisations_only(self):
         S = stored(); orgs = HUB.config()['orgs']
