@@ -8,9 +8,9 @@
     {"name": "The Decoder", "url": "https://the-decoder.com/feed/", "cadence": "many per day", "site": "the-decoder.com"},
     {"name": "Techmeme", "url": "https://www.techmeme.com/feed.xml", "cadence": "many per day", "site": "techmeme.com"},
     {"name": "AlphaSignal", "url": "https://alphasignal.ai/feed.xml", "cadence": "many per day", "site": "alphasignal.ai"},
-    {"name": "Don't Worry About the Vase (Zvi)", "url": "https://thezvi.substack.com/feed", "cadence": "near daily", "site": "thezvi.substack.com"},
+    {"name": "Don't Worry About the Vase (Zvi)", "url": "https://thezvi.wordpress.com/feed/", "cadence": "near daily", "site": "thezvi.wordpress.com"},
     {"name": "Simon Willison", "url": "https://simonwillison.net/atom/everything/", "cadence": "many per day", "site": "simonwillison.net"},
-    {"name": "Import AI", "url": "https://importai.substack.com/feed", "cadence": "weekly", "site": "importai.substack.com"},
+    {"name": "Import AI", "url": "https://jack-clark.net/feed/", "cadence": "weekly", "site": "jack-clark.net"},
     {"name": "Interconnects", "url": "https://www.interconnects.ai/feed", "cadence": "every few days", "site": "interconnects.ai"},
     {"name": "Agent Uptime", "url": "https://agentuptime.substack.com/feed", "cadence": "irregular", "site": "agentuptime.substack.com"}
   ]
