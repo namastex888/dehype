@@ -13,7 +13,7 @@ Legend used below: `[LIVE]` runs today · `[S1]` added by dehype S1 · `[src1]` 
  │  context panels: BLS public API v1 · Wikipedia page views · HN "Who is hiring?"      │
  │  Hub check: Hugging Face Hub model search (no key; HF_TOKEN optional)                │
  └──────────────────────────────────────────┬───────────────────────────────────────────┘
-                                            │  once a day, 04:45 São Paulo [LIVE]
+                                            │  once a day, 02:17 São Paulo [LIVE]
                                             ▼  (live since PR #44)
  ┌──────────────── .github/workflows/refresh.yml  (GitHub Actions, free) ───────────────┐
  │   Actions cache ──restore──►  history/ (trending.db, signals.sqlite)  cache/         │
@@ -75,12 +75,12 @@ What each piece guarantees:
 ## 2. How it updates itself
 
 ```
- 04:45 BRT daily ─► refresh.yml (~20–40 min) ─► commit + push to dev ─► deploy.yml ─► Pages by 06:00
+ 02:17 BRT daily ─► refresh.yml (~20–40 min) ─► commit + push to dev ─► deploy.yml ─► Pages by 06:00
  any push to dev touching web/**, METHODOLOGY.md or METHODOLOGY.pt.md ───────────► deploy.yml ─► Pages
  any PR ─► ci.yml (tests, fixture eval, scoring smoke, owner files, page check) — never deploys, never fetches
 ```
 
-The schedule is `45 7 * * *` (São Paulo is UTC-3 all year), re-fitted after 7-10 scheduled runs from their Pages deploy times. The change landed in PR #44 (2026-10-18); the first scheduled 04:45 run is the first evidence for the 06:00 ready time.
+The schedule is `17 5 * * *`, 02:17 BRT (São Paulo is UTC-3 all year), off the hour. It was `45 7 * * *` from PR #44 (2026-10-18), but scheduled runs fired about 4 hours late on 2026-10-17 and 2026-10-18 and not at all on 2026-10-19, so it moved earlier (ROADMAP D8): an on-time run is ready long before 06:00, and a 4-hour delay lands at about 06:50. It is re-fitted after 7 scheduled runs from their deploy times; a day with no scheduled run is refreshed by hand (`gh workflow run refresh.yml --ref dev`).
 
 The refresh's push is split in two (C42, live since PR #44): the data commit is made, replayed onto `dev` over the public URL and checked in a step that holds no secret, and `PUSH_TOKEN` is only in the next step, which runs git (with hooks, credential helpers and fsmonitor turned off) and no npm, node or Python code. That keeps the push token out of the steps that run dependency code; it does not isolate the job token. `github.token` is still the fallback `GH_TOKEN` of "Fetch and score" (`run.py`) when `TRENDING_GH_TOKEN` is unset, and the `gh release` steps hold it too. An earlier step that ran third-party code can also write `$GITHUB_ENV` or `$GITHUB_PATH`, or a `.git/config` entry (an `include.path`, or a `url.<base>.insteadOf` that redirects the push), which the push step inherits; the `-c` overrides cover only the keys they name. The full fix, future work, is a separate push job on a fresh runner that receives the data commit as a git bundle artifact and holds the only write token.
 
