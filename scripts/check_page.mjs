@@ -322,7 +322,7 @@ function briefingRules(B) {
     st[net] = s.includes('ok') ? 'ok' : s.includes('partial') ? 'partial' : NOT_FETCHED;
   }
   // a reading from one source: a positive count or true, 0 or false only when that source was fully fetched, else "not fetched"
-  let HUB_ORGS = {};                                              // hub_orgs.json (owner-reviewed): the organisations a Hub reading may name
+  let HUB_ORGS = {};                                              // hub_orgs.json (an owner file, agent-admitted): the organisations a Hub reading may name
   try { HUB_ORGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'hub_orgs.json'), 'utf8')).orgs || {}; }
   catch (e) { finding(F, `hub_orgs.json unreadable: ${e.message}`, 'hub_orgs.json'); }
   const fetched = (v, net, at, bool = false) => {

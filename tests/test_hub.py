@@ -30,6 +30,8 @@ class Matcher(unittest.TestCase):
             with self.subTest(name=name, model=model):
                 self.assertEqual(bool(HUB.name_rx(name).search(model.lower())), want)
         self.assertIsNone(HUB.name_rx('—')); self.assertIsNone(HUB.name_rx('通义'))
+        self.assertIsNone(HUB.name_rx('TypeScript')); self.assertIsNone(HUB.name_rx('ComfyUI'))       # one word, no number: not a release name
+        for name in ('Krea 2', 'Muse Spark', 'MOSS-Image', 'H3', '5090'): self.assertIsNotNone(HUB.name_rx(name), name)
 
 class Reading(unittest.TestCase):
     def test_recorded_input_names_listed_organisations_only(self):
@@ -72,11 +74,11 @@ class Fetch(unittest.TestCase):
             if 'Odd' in url: return {'error': 'not a list'}
             return [{'id': 'Qwen/Qwen3.8-27B', 'createdAt': '2026-08-13T08:01:58.000Z', 'downloads': 7, 'likes': 2, 'cardData': {'x': 1}},
                     {'id': 'someone/Qwen3.8-27B-GGUF', 'createdAt': '2026-08-14T00:00:00.000Z', 'downloads': 9, 'likes': 1}, 'junk']
-        S = HUB.fetch(['Qwen 3.8', 'Broken', '通义', 'Slow', 'Odd', 'Qwen 3.8'], NOW, get=get, token='t')
+        S = HUB.fetch(['Qwen 3.8', 'Broken 1', '通义', 'TypeScript', 'Slow 2', 'Odd 3', 'Qwen 3.8'], NOW, get=get, token='t')
         self.assertEqual(S['fetched_at'], '2026-10-19T00:43:43Z')
         self.assertEqual(S['inputs'], {'Qwen 3.8': [{'id': 'Qwen/Qwen3.8-27B', 'created': '2026-08-13T08:01:58.000Z', 'downloads': 7, 'likes': 2}]})
-        self.assertEqual(S['errors'], {'Broken': 'HTTP 503', 'Slow': 'TimeoutError', 'Odd': 'unexpected response'})   # never a body, never an invented 0
-        self.assertEqual([u.split('search=')[1].split('&')[0] for u, _ in seen], ['Qwen+3.8', 'Broken', 'Slow', 'Odd'])   # given order, once each, 通义 skipped
+        self.assertEqual(S['errors'], {'Broken 1': 'HTTP 503', 'Slow 2': 'TimeoutError', 'Odd 3': 'unexpected response'})   # never a body, never an invented 0
+        self.assertEqual([u.split('search=')[1].split('&')[0] for u, _ in seen], ['Qwen+3.8', 'Broken+1', 'Slow+2', 'Odd+3'])   # given order, once each, 通义 and TypeScript skipped
         self.assertTrue(all(t == 't' for _, t in seen))
         self.assertIn('sort=downloads', seen[0][0]); self.assertIn('limit=100', seen[0][0])
         self.assertEqual(HUB.source_status(S), {HUB.NAME: {'status': 'partial', 'detail': '1 of 4 release names searched'}})
@@ -123,13 +125,16 @@ class Relink(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             web = test_pulse.offline_rebuild(d)
             P = json.load(open(os.path.join(web, 'pulse.json')))
-            names = sorted({s['label'] for s in P['stories'] if s.get('label')})
+            names = sorted({s['label'] for s in P['stories'] if s.get('label') and HUB.name_rx(s['label'])})
             S = {'fetched_at': P['generated_at'], 'inputs': {n: [] for n in names}, 'errors': {}}
             with open(os.path.join(d, 'history', 'hub.json'), 'w') as f: json.dump(S, f)
             later = pulse.parse_dt(P['generated_at'])
-            hubs = lambda B: {r['substance']['hub'] if isinstance(r['substance']['hub'], str) else 'searched' for r in B['records'] if r['release']}
+            hubs = lambda B: {r['substance']['hub'] if isinstance(r['substance']['hub'], str) else 'searched' for r in B['records'] if r['release'] in names}
             self.assertTrue(names)                                                          # the fixture has release names
-            self.assertEqual(hubs(self.run_pulse(d, '--relink', later)), {'searched'})
+            skipped = {s['label'] for s in P['stories'] if s.get('label') and not HUB.name_rx(s['label'])}
+            B = self.run_pulse(d, '--relink', later)
+            self.assertEqual(hubs(B), {'searched'})
+            self.assertLessEqual({r['substance']['hub'] for r in B['records'] if r['release'] in skipped}, {HUB.NOT_FETCHED})   # one word, no number
             S['fetched_at'] = '2026-10-01T00:00:00Z'                                         # another run's input: not shown
             with open(os.path.join(d, 'history', 'hub.json'), 'w') as f: json.dump(S, f)
             B = self.run_pulse(d, '--relink', later)
