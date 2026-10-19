@@ -236,9 +236,9 @@ def token_note(now=None):
     when = f'; expires {exp.date().isoformat()} (in {days} days)' if exp else ''
     if TOKEN['refused']:
         st = 'failed' if '/rate_limit' in TOKEN['refused'] else 'partial'
-        note('GitHub token', st, '; '.join(f'{k}: {v}' for k, v in sorted(TOKEN['refused'].items())) + when + '; replace TRENDING_GH_TOKEN')
+        note('GitHub token', st, '; '.join(f'{k}: {v}' for k, v in sorted(TOKEN['refused'].items())) + when + '; replace (or set) the TRENDING_GH_TOKEN secret')
     elif days is not None and days < TOKEN_WARN_DAYS:
-        note('GitHub token', 'partial', f'accepted{when}; replace TRENDING_GH_TOKEN before then')
+        note('GitHub token', 'partial', f'accepted{when}; replace the TRENDING_GH_TOKEN secret before then')
     else:
         note('GitHub token', 'ok', 'accepted' + when)
     if TOKEN['refused'] or (days is not None and days < TOKEN_WARN_DAYS):
@@ -490,7 +490,7 @@ def fetch_stargazers(repos, order):
     if consec_fail >= 3 and 'HTTP 404' in last_err:
         note('GitHub stargazers API', 'unavailable', f'the stargazers endpoint answered HTTP 404 for every repo tried (even authenticated); '
              f'star growth comes from our own snapshots instead. {len(cache)} cached')
-    elif consec_fail >= 3 and token_refusal(last_exc):
+    elif consec_fail >= 3 and GH_TOKEN and token_refusal(last_exc):
         note('GitHub stargazers API', 'failed', f'stopped: the GitHub token is {token_refusal(last_exc)} (see GitHub token); star timestamps for {done} repos this run, {len(cache)} cached')
     elif consec_fail >= 3:
         note('GitHub stargazers API', 'failed', f'stopped after 3 consecutive errors ({last_err}); star timestamps for {done} repos this run, {len(cache)} cached')
@@ -564,6 +564,11 @@ def fetch_repo_activity(repos, order):
             save_json(cpath('repo_activity'), cache)   # checkpoint
         except Exception as e:
             fail += 1
+            if GH_TOKEN and token_refusal(e):
+                note('GitHub activity (issues/PRs/commits)', 'partial',
+                     f'stopped after {done} repos: the GitHub token is {token_refusal(e)} (see GitHub token); {len(cache)} cached')
+                save_json(cpath('repo_activity'), cache)
+                return cache
             if 'rate limit' in str(e).lower() or '403' in str(e) or '429' in str(e):
                 note('GitHub activity (issues/PRs/commits)', 'partial',
                      f'stopped on rate limit after {done} repos ({fail} fails); {len(cache)} cached. {str(e)[:80]}')

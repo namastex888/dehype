@@ -385,7 +385,7 @@ class TestTokenNotes(unittest.TestCase):
         self.assertEqual(star['status'], 'failed'); self.assertIn("the GitHub token is not allowed by the token's settings", star['detail'])
         self.assertEqual(tok['status'], 'partial')
         self.assertEqual(tok['detail'], "/repos/<repo>/stargazers: not allowed by the token's settings (HTTP 403: resource not accessible); "
-                                        "expires 2026-11-16 (in 28 days); replace TRENDING_GH_TOKEN")
+                                        "expires 2026-11-16 (in 28 days); replace (or set) the TRENDING_GH_TOKEN secret")
         self.assertNotIn('Resource not accessible by personal', tok['detail'] + star['detail'])          # our words, never the body
 
     def test_an_expired_token_fails_every_call_and_says_so(self):
@@ -398,11 +398,18 @@ class TestTokenNotes(unittest.TestCase):
             self.assertIn('/rate_limit: refused (HTTP 401', run.SOURCES['GitHub token']['detail'])
             self.assertIn('the GitHub token was refused', run.SOURCES['GitHub stargazers API']['detail'])   # not "rate limit exhausted"
 
+    def test_a_rate_limit_403_is_never_a_refusal(self):
+        for body in (b'{"message":"API rate limit exceeded for user"}', b'{"message":"You have exceeded a secondary rate limit"}'):
+            with self.subTest(body=body), patch.object(run.urllib.request, 'urlopen', side_effect=self.http_error(403, body)), \
+                 patch.object(run, 'OFFLINE', False):
+                with self.assertRaises(run.HTTPErr): run.gh_get('/repos/o/r/stargazers?page=1')
+                self.assertEqual(run.TOKEN['refused'], {})
+
     def test_expiry_within_two_weeks_warns(self):
         run.TOKEN['expires'] = '2026-11-16 12:00:00 UTC'
         with patch.dict(run.SOURCES, clear=True), patch.object(run, 'OFFLINE', False), patch('builtins.print') as out:
             run.token_note(now=datetime(2026, 11, 6, tzinfo=timezone.utc))
-            self.assertEqual(run.SOURCES['GitHub token'], {'status': 'partial', 'detail': 'accepted; expires 2026-11-16 (in 10 days); replace TRENDING_GH_TOKEN before then'})
+            self.assertEqual(run.SOURCES['GitHub token'], {'status': 'partial', 'detail': 'accepted; expires 2026-11-16 (in 10 days); replace the TRENDING_GH_TOKEN secret before then'})
             self.assertIn('::warning::GitHub token', out.call_args[0][0])
             run.token_note(now=datetime(2026, 10, 19, tzinfo=timezone.utc))
             self.assertEqual(run.SOURCES['GitHub token'], {'status': 'ok', 'detail': 'accepted; expires 2026-11-16 (in 28 days)'})
