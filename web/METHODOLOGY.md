@@ -472,9 +472,3 @@ The implementation worker exercised these local commands against the completed s
 | Historical numeric artifact preservation | All 7,706 paper/repo view rows preserve original numeric scores, raw values, rank/movement; method/config/prior/generation clocks unchanged |
 | Actual browser at 1280px and 390px | Current HYPE rows/cards show source units, unobserved usage, missing period/scope cohorts and separate unqualified dimensions; archived GitHub and rendered Methodology inspected; no JavaScript errors observed |
 
-`PYTHONDONTWRITEBYTECODE=1` was ambient for Python gates, not a replacement command. Initial SQLite context-manager fixtures passed but emitted ResourceWarnings; using explicit connection close removed the leak before final qualification. The original PR regression was exercised with a synthetic date-aware public-API response fixture at the actual Search/extraction boundary, not query-string source inspection or a live collection claim.
-
-Browser screenshots were captured through the existing managed Chromium tool after the Orca screenshot command returned an unusable 1×1 image; that image was not treated as visual proof. At 390px the existing wide table/card requires horizontal scrolling; the right-hand units/dimensions were inspected after scrolling. No responsive redesign, accessibility audit, source verification, capability accuracy, live collection, editorial approval or deployment is claimed. Full immutable inputs for a corrected current GitHub rescore remain unavailable under the explicitly accepted historical-archive disposition.
-
-Independent acceptance/design and separate quality review are coordinator gates, not this implementer's verdict. Local evidence does not establish deployed acceptance or authorize issue closure. No new repository paths, paid/model calls, source acquisition, shared-service restart, Git state mutation, commit, forge mutation or deployment were performed by this worker.
-

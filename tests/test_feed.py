@@ -210,7 +210,7 @@ class ComposeTest(unittest.TestCase):
                 for it in items:
                     for k, v in it['_dehype']['readings']['networks'].items():
                         if it['_dehype']['readings']['sources'].get(k) != 'ok': self.assertNotIn(v, (0, False), (it['id'], k))
-            self.assertEqual(S['reading.not_fetched']['pt'], 'não buscado')
+            self.assertEqual(S['reading.not_fetched']['pt'], 'não obtido')
 
     def test_posts_gone_or_removal_listed_reach_no_feed(self):
         for case in ('stored', 'removal'):
