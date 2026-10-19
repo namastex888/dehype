@@ -29,7 +29,7 @@ Every figure below is quoted from a committed file or the live JSON, with its da
    ├─ restore pipeline state (Actions cache: history/, cache/)
    ├─ collect      run.py (arXiv, HF papers, HN, GitHub) + pulse.py (HN, Lobsters, Mastodon,
    │               Reddit via arctic-shift archive, Bluesky, newsletters, official feeds, BLS,
-   │               HN hiring, Wikipedia views)
+   │               HN hiring, Wikipedia views, the Hugging Face Hub check of release names)
    ├─ recheck      pulse.py looks up every showable stored post by id; deleted/removed ones
    │               leave (180 s cap, fail-closed: unreached posts show as counts only)
    ├─ clean        Mastodon logged-out render check; drop removals.json / dossier-gone posts

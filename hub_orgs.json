@@ -1,0 +1,167 @@
+{
+ "_doc": "Owner-reviewed (scripts/check_owner_files.py OWNER_FILES): the Hugging Face organisations whose models count for the Hub check of a briefing record (hub.py). Organisations only, never a person's account: an entry is a lab or vendor that publishes its own models. fullname and verified are as the Hub's organisation overview (https://huggingface.co/api/organizations/<id>/overview) showed them on checked; verified is the Hub's badge, which several labs lack, so it is a note, not the test. Changing this list changes the briefing's config hash (pulse.py CONFIG_FILES).",
+ "checked": "2026-10-18",
+ "terms": [
+  "https://huggingface.co/terms-of-service",
+  "https://huggingface.co/docs/hub/api"
+ ],
+ "terms_read": "2026-10-18",
+ "orgs": {
+  "ai21labs": {
+   "fullname": "AI21",
+   "verified": true
+  },
+  "allenai": {
+   "fullname": "Ai2",
+   "verified": true
+  },
+  "amazon": {
+   "fullname": "Amazon",
+   "verified": true
+  },
+  "Anthropic": {
+   "fullname": "Anthropic",
+   "verified": true
+  },
+  "apple": {
+   "fullname": "Apple",
+   "verified": true
+  },
+  "baidu": {
+   "fullname": "BAIDU",
+   "verified": true
+  },
+  "black-forest-labs": {
+   "fullname": "Black Forest Labs",
+   "verified": true
+  },
+  "ByteDance-Seed": {
+   "fullname": "ByteDance Seed",
+   "verified": false
+  },
+  "CohereLabs": {
+   "fullname": "Cohere Labs",
+   "verified": true
+  },
+  "deepseek-ai": {
+   "fullname": "DeepSeek",
+   "verified": true
+  },
+  "facebook": {
+   "fullname": "AI at Meta",
+   "verified": true
+  },
+  "google": {
+   "fullname": "Google",
+   "verified": true
+  },
+  "HuggingFaceTB": {
+   "fullname": "Hugging Face Smol Models Research",
+   "verified": false
+  },
+  "ibm-granite": {
+   "fullname": "IBM Granite",
+   "verified": false
+  },
+  "inclusionAI": {
+   "fullname": "inclusionAI",
+   "verified": false
+  },
+  "internlm": {
+   "fullname": "Intern Large Models",
+   "verified": false
+  },
+  "krea": {
+   "fullname": "KREA",
+   "verified": true
+  },
+  "Kwai-Kolors": {
+   "fullname": "Kolors Team, Kuaishou Technology",
+   "verified": false
+  },
+  "Lightricks": {
+   "fullname": "LTX.io",
+   "verified": true
+  },
+  "LiquidAI": {
+   "fullname": "Liquid AI",
+   "verified": false
+  },
+  "meta-llama": {
+   "fullname": "Meta Llama",
+   "verified": true
+  },
+  "meta-models": {
+   "fullname": "Meta Inc.",
+   "verified": true
+  },
+  "microsoft": {
+   "fullname": "Microsoft",
+   "verified": true
+  },
+  "MiniMaxAI": {
+   "fullname": "MiniMax",
+   "verified": false
+  },
+  "mistralai": {
+   "fullname": "Mistral AI_",
+   "verified": true
+  },
+  "moonshotai": {
+   "fullname": "Moonshot AI",
+   "verified": false
+  },
+  "nvidia": {
+   "fullname": "NVIDIA",
+   "verified": true
+  },
+  "openai": {
+   "fullname": "OpenAI",
+   "verified": true
+  },
+  "OpenGVLab": {
+   "fullname": "OpenGVLab",
+   "verified": false
+  },
+  "OpenMOSS": {
+   "fullname": "OpenMOSS",
+   "verified": false
+  },
+  "Qwen": {
+   "fullname": "Qwen",
+   "verified": false
+  },
+  "Salesforce": {
+   "fullname": "Salesforce AI Research",
+   "verified": true
+  },
+  "stabilityai": {
+   "fullname": "Stability AI",
+   "verified": true
+  },
+  "stepfun-ai": {
+   "fullname": "StepFun",
+   "verified": false
+  },
+  "tencent": {
+   "fullname": "Tencent",
+   "verified": true
+  },
+  "Wan-AI": {
+   "fullname": "Wan-AI",
+   "verified": false
+  },
+  "xai-org": {
+   "fullname": "xAI",
+   "verified": true
+  },
+  "XiaomiMiMo": {
+   "fullname": "Xiaomi MiMo",
+   "verified": false
+  },
+  "zai-org": {
+   "fullname": "Z.ai",
+   "verified": false
+  }
+ }
+}

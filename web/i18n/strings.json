@@ -4,12 +4,12 @@
  "methods": {
   "pulse.json": {"method": "pulse-topic-map"},
   "story-aliases.json": {"method": "data-identity-stable-ids"},
-  "briefing.json": {"method.top10": "briefing", "method.records": "briefing", "method.gauges": "briefing"}
+  "briefing.json": {"method.top10": "briefing", "method.records": "briefing", "method.gauges": "briefing", "method.hub": "briefing"}
  },
  "fields": {
   "pulse.json": {
    "sources.*.status": ["status.ok", "status.partial", "status.failed", "status.not_connected", "status.unknown", "reading.not_fetched"],
-   "sources.*.detail": ["source.posts_fetched", "source.posts_fetched_unreachable", "source.posts_fetched_no_data", "source.no_credentials", "source.not_configured", "source.failed_kept", "source.read_failed", "source.tracker", "source.dossier", "source.offline_not_fetched", "source.as_of_last_live_run", "ind.detail.series", "ind.detail.threads", "ind.detail.articles", "ind.detail.failed", "ind.detail.not_fetched"],
+   "sources.*.detail": ["source.posts_fetched", "source.posts_fetched_unreachable", "source.posts_fetched_no_data", "source.no_credentials", "source.not_configured", "source.failed_kept", "source.read_failed", "source.tracker", "source.dossier", "source.offline_not_fetched", "source.as_of_last_live_run", "ind.detail.series", "ind.detail.threads", "ind.detail.articles", "ind.detail.failed", "ind.detail.not_fetched", "hub.detail.searched"],
    "coverage[]": ["coverage.feeds", "coverage.topics", "coverage.counts"],
    "projects_note": ["projects.note"],
    "nodes[].w.*.reach_label": ["reach.nm", "reach.nm_official", "reach.1m", "reach.1m_official", "reach.n1", "reach.n1_official", "reach.11", "reach.11_official"],
@@ -22,7 +22,7 @@
   },
   "briefing.json": {
    "sources.*.status": ["status.ok", "status.partial", "status.failed", "status.not_connected", "status.unknown", "reading.not_fetched"],
-   "sources.*.detail": ["source.posts_fetched", "source.posts_fetched_unreachable", "source.posts_fetched_no_data", "source.no_credentials", "source.not_configured", "source.failed_kept", "source.read_failed", "source.tracker", "source.dossier", "source.offline_not_fetched", "source.as_of_last_live_run", "ind.detail.series", "ind.detail.threads", "ind.detail.articles", "ind.detail.failed", "ind.detail.not_fetched"],
+   "sources.*.detail": ["source.posts_fetched", "source.posts_fetched_unreachable", "source.posts_fetched_no_data", "source.no_credentials", "source.not_configured", "source.failed_kept", "source.read_failed", "source.tracker", "source.dossier", "source.offline_not_fetched", "source.as_of_last_live_run", "ind.detail.series", "ind.detail.threads", "ind.detail.articles", "ind.detail.failed", "ind.detail.not_fetched", "hub.detail.searched"],
    "top10[].seen": ["seen.new_today", "seen.first_seen"],
    "records[].seen": ["seen.new_today", "seen.first_seen"],
    "records[].sources.*": ["status.ok", "status.partial", "status.failed", "status.not_connected", "status.unknown", "reading.not_fetched"],
@@ -32,10 +32,11 @@
    "records[].computed.official": ["reading.not_fetched"],
    "records[].computed.hn_points": ["reading.not_fetched"],
    "records[].substance.official": ["reading.not_fetched"],
+   "records[].substance.hub": ["reading.not_fetched", "hub.no_name"],
    "records[].substance.from": ["substance.from"],
    "records[].related_in_topic.reading": ["reading.related"],
    "gauges[].value.stories[].hype.*": ["reading.not_fetched"],
-   "gauges[].value.stories[].substance.*": ["reading.not_fetched"],
+   "gauges[].value.stories[].substance.*": ["reading.not_fetched", "hub.no_name"],
    "gauges[].name": ["gauge.output_by_area", "gauge.hype_vs_substance", "gauge.daily_movers"],
    "gauges[].status": ["gauge.status.preview"],
    "gauges[].reason": ["gauge.reason.tracker_not_read", "gauge.reason.tracker_old", "gauge.reason.no_top10", "gauge.reason.no_conversation", "gauge.reason.no_rising", "gauge.reason.stale", "stale.reason.pulse_failed"],
@@ -170,7 +171,7 @@
   "brief.out.mini": {"en": "Papers per area", "pt": "Artigos por área"},
   "brief.out.go": {"en": "Output by area", "pt": "Produção por área"},
   "brief.hvs.of": {"en": "of {n} with substance on record", "pt": "de {n} com substância registrada"},
-  "brief.hvs.sub": {"en": "Substance: an official post or the story's own repo or paper link, shown beside the spread and never divided by it.", "pt": "Substância: um post oficial ou link de repositório ou artigo da própria história, mostrada ao lado do espalhamento e nunca dividida por ele."},
+  "brief.hvs.sub": {"en": "Substance: an official post, the story's own repo or paper link, or models of its release name on the Hugging Face Hub under a listed organisation, shown beside the spread and never divided by it.", "pt": "Substância: um post oficial, link de repositório ou artigo da própria história, ou modelos com o nome do seu lançamento no Hugging Face Hub sob uma organização listada, mostrada ao lado do espalhamento e nunca dividida por ele."},
   "brief.hvs.unknown": {"en": "{n} not known: official feeds not fully fetched.", "pt": "{n} desconhecidas: feeds oficiais não buscados por completo."},
   "brief.hvs.unknown.one": {"en": "{n} not known: official feeds not fully fetched.", "pt": "{n} desconhecida: feeds oficiais não buscados por completo."},
   "brief.hvs.mini": {"en": "Voices per Top 10 story, by rank", "pt": "Vozes por história do Top 10, por posição"},
@@ -523,6 +524,14 @@
   "name.src.bls": {"en": "BLS (public API v1)", "pt": "BLS (API pública v1)"},
   "name.src.hn_hiring": {"en": "Hacker News \"Who is hiring?\" (Algolia)", "pt": "Hacker News \"Who is hiring?\" (Algolia)"},
   "name.src.wikipedia": {"en": "Wikipedia page views (Wikimedia REST)", "pt": "Visualizações de página da Wikipédia (Wikimedia REST)"},
+  "name.src.hub": {"en": "Hugging Face Hub (model search)", "pt": "Hugging Face Hub (busca de modelos)"},
+  "hub.detail.searched": {"en": "{n} of {total} release names searched", "pt": "{n} de {total} nomes de lançamento buscados"},
+  "hub.no_name": {"en": "no release name", "pt": "sem nome de lançamento"},
+  "ui.hub": {"en": "On the Hugging Face Hub", "pt": "No Hugging Face Hub"},
+  "ui.hub.n": {"en": "{n} models named {name} under a listed organisation, among the Hub's 100 most downloaded matches", "pt": "{n} modelos com o nome {name} sob uma organização listada, entre as 100 correspondências mais baixadas do Hub"},
+  "ui.hub.n.one": {"en": "1 model named {name} under a listed organisation, among the Hub's 100 most downloaded matches", "pt": "1 modelo com o nome {name} sob uma organização listada, entre as 100 correspondências mais baixadas do Hub"},
+  "ui.hub.zero": {"en": "no Hub model under a listed organisation matches \u201c{name}\u201d; this does not say a model is closed, or that the name is a model", "pt": "nenhum modelo do Hub sob uma organização listada corresponde a \u201c{name}\u201d; isso não diz que um modelo é fechado, nem que o nome é um modelo"},
+  "ui.hub.model": {"en": "{org} · created {date} · {dl} downloads in 30 days · {likes} likes", "pt": "{org} · criado em {date} · {dl} downloads em 30 dias · {likes} curtidas"},
   "panel.pageviews.feeds": {"en": "Page views on Wikipedia", "pt": "Visualizações na Wikipédia"}
  }
 }

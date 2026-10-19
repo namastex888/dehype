@@ -2,7 +2,7 @@
 
 Plain map of what exists, what runs where, and how the roadmap attaches to it. Updated 2026-10-17 for dehype S1 (wish [dehype-s1](../.genie/wishes/dehype-s1/WISH.md)): several static pages, GitHub Pages only, the ledger on Pages and the inputs on dated Releases, no Cloudflare and no object storage.
 
-Legend used below: `[LIVE]` runs today · `[S1]` added by dehype S1 · `[src1]` added by sources slice 1 (context panels) · `[PENDING]` written, waiting on the owner's approval of a workflow change · `[PLANNED]` designed, not built.
+Legend used below: `[LIVE]` runs today · `[S1]` added by dehype S1 · `[src1]` added by sources slice 1 (context panels) · `[src2]` added by sources slice 2 (Hub check) · `[PLANNED]` designed, not built.
 
 ## 1. Data flow, end to end
 
@@ -11,9 +11,10 @@ Legend used below: `[LIVE]` runs today · `[S1]` added by dehype S1 · `[src1]` 
  │  arXiv · Hugging Face papers · GitHub · Hacker News · Reddit (arctic-shift, counts)  │
  │  Mastodon · Lobsters · newsletters and official feeds (RSS) · [Bluesky*]             │
  │  context panels: BLS public API v1 · Wikipedia page views · HN "Who is hiring?"      │
+ │  Hub check: Hugging Face Hub model search (no key; HF_TOKEN optional)                │
  └──────────────────────────────────────────┬───────────────────────────────────────────┘
-                                            │  once a day, 04:45 São Paulo [PENDING]
-                                            ▼  (04:45 BRT, live since PR #44)
+                                            │  once a day, 04:45 São Paulo [LIVE]
+                                            ▼  (live since PR #44)
  ┌──────────────── .github/workflows/refresh.yml  (GitHub Actions, free) ───────────────┐
  │   Actions cache ──restore──►  history/ (trending.db, signals.sqlite)  cache/         │
  │   run.py ──► scoring.py ──► web/data.json            (papers + repos)        [LIVE]  │
@@ -22,19 +23,21 @@ Legend used below: `[LIVE]` runs today · `[S1]` added by dehype S1 · `[src1]` 
  │       Telegram as counts only; no person handle)                              [S1]   │
  │      + indicators.py: Jobs context and Wikipedia page views, no key, one 45 s        │
  │        budget, input in history/indicators.json (relink reuses it)         [src1]    │
+ │      + hub.py: Hub models of each release name under hub_orgs.json orgs,             │
+ │        one 40 s budget, input in history/hub.json (relink reuses it)       [src2]    │
  │   check_mastodon_links.mjs ──► web/checks/mastodon-links.json (render check)  [S1]   │
  │   hype_build.py --scrub ──► web/hype.json (deletion only)                     [S1]   │
  │   compose.mjs (Cordis 4.0.4) ──► web/feed{,.pt}.{xml,json}                    [S1]   │
  │   embed.mjs ──► web/search-index.json + search-vectors.bin (MiniLM-L6 q8)     [LIVE] │
  │   manifest.py + ots.mjs ──► web/ledger/ (index, day files, story-id archive,         │
- │      OpenTimestamps proofs); manifest ──► dated Release ledger-YYYY-MM-DD  [PENDING] │
+ │      OpenTimestamps proofs); manifest ──► dated Release ledger-YYYY-MM-DD  [LIVE]    │
  │   gate: unit tests + scripts/check_page.mjs                                          │
  │   commit (no secret; only the bot-written files) ──► push to dev (token, git only)   │
  └─────────────────────────────────────┬────────────────────────────────────────────────┘
                                        │ calls deploy.yml (pushes made by the job token
                                        │ do not trigger workflows, so refresh calls it)
                                        ▼          attest job: Sigstore attestation of
- ┌──────────── .github/workflows/deploy.yml ───────┐  the manifest (id-token only) [PENDING]
+ ┌──────────── .github/workflows/deploy.yml ───────┐  the manifest (id-token only) [LIVE]
  │  owner-file check → copy both METHODOLOGY files │
  │  → check_page → GitHub Pages (the only host)    │
  └─────────────────────────────────────┬───────────┘
@@ -65,7 +68,7 @@ What each piece guarantees:
 | `scoring.py` | unknown stays `null`; coverage is completeness, not confidence; thin evidence shrinks toward the prior | unit tests, `eval.py`, METHODOLOGY.md |
 | `pulse.py` | no person handle; counts-only networks; evidence records `state: proposed`, no label word; Top 10 recomputable | unit tests, `check_page.mjs` |
 | `check_page.mjs` | the pages and data keep the public-data rules; both method sources carry the licence; the one imported script is the exact-pinned transformers.js; the refresh stages exactly the bot-written files and never an owner-reviewed one | `ci.yml`, `refresh.yml`, `deploy.yml` |
-| `check_owner_files.py` | `verdicts.json`, `corrections.json`, `removals.json`, `i18n/x-org-accounts.json` and `i18n/sources-plan.json` change only by a person's merged PR; corrections are appended, never edited | `ci.yml`, `refresh.yml`, `deploy.yml` |
+| `check_owner_files.py` | `verdicts.json`, `corrections.json`, `removals.json`, `i18n/x-org-accounts.json`, `i18n/sources-plan.json` and the root `hub_orgs.json` change only by a person's merged PR; corrections are appended, never edited | `ci.yml`, `refresh.yml`, `deploy.yml` |
 
 \* Bluesky needs an app password secret (`BSKY_HANDLE`, `BSKY_APP_PASSWORD`). The official Reddit API is optional (`REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`); without it Reddit comes from the arctic-shift public archive. X is not collected: there is no free route that stays within X's terms.
 
