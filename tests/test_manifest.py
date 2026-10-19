@@ -171,6 +171,66 @@ def stamped(web, date, proof=None):
     put(L, json.dumps(E, ensure_ascii=False, separators=(',', ':')))
 
 
+class StoredInputsTest(unittest.TestCase):
+    """S5 groundwork: the stored inputs of the context panels and the Hub check go into the manifest whole when this run's live Pulse step
+    wrote them (their fetched_at is the run time history/recheck.json records); another run's file, or none, reads null, and an input that
+    breaks a public-data rule is left out alone, never the day."""
+    IND_FIX = os.path.join(ROOT, 'tests', 'fixtures', 'indicators', 'stored_2026-10-18.json')
+    HUB_FIX = os.path.join(ROOT, 'tests', 'fixtures', 'hub', 'stored_2026-10-19.json')
+
+    def run_with(self, d, ind_at, hub_at, run_at='2026-10-19T12:00:00Z', hub_edit=None, ind_edit=None):
+        with open(os.path.join(d, 'history', 'recheck.json'), 'w') as f: json.dump({'gone': {'HN:50000002': '2026-10-17'}, 'run': {'at': run_at}}, f)
+        for f, fix, at, edit in (('indicators.json', self.IND_FIX, ind_at, ind_edit), ('hub.json', self.HUB_FIX, hub_at, hub_edit)):
+            if at is None: continue
+            S = json.loads(read(fix)); S['fetched_at'] = at
+            if edit: edit(S)
+            with open(os.path.join(d, 'history', f), 'w', encoding='utf-8') as fh: json.dump(S, fh, ensure_ascii=False)
+        r = daily(d)
+        date = manifest.sp_date(json.loads(read(os.path.join(d, 'web', 'briefing.json')))['generated_at'])
+        path = os.path.join(d, 'dist', f'manifest-{date}.json.gz')
+        return r, (json.loads(gzip.decompress(read(path))) if os.path.exists(path) else None), path
+
+    def test_this_runs_inputs_are_kept_whole_and_pass_the_check(self):
+        with tempfile.TemporaryDirectory() as d:
+            scratch(d)
+            r, M, path = self.run_with(d, '2026-10-19T12:00:00Z', '2026-10-19T12:00:00Z')
+            self.assertEqual(r.returncode, 0, r.stderr)
+            si = M['stored_inputs']
+            self.assertEqual(M['version'], 2); self.assertIn(pulse.IND.BLS_NOTICE, M['notices'])
+            self.assertEqual(si['history/indicators.json']['inputs']['hn_hiring']['threads'][0]['title'], 'Ask HN: Who is hiring? (October 2026)')
+            self.assertEqual(si['history/hub.json']['inputs']['Muse Spark'][0]['id'].split('/')[0], 'meta-models')
+            self.assertEqual(run('check', path).returncode, 0)
+
+    def test_another_runs_or_a_missing_input_reads_null(self):
+        with tempfile.TemporaryDirectory() as d:
+            scratch(d)
+            r, M, _ = self.run_with(d, '2026-10-18T12:00:00Z', None)          # yesterday's indicators, no Hub file
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(M['stored_inputs'], {'history/indicators.json': None, 'history/hub.json': None})
+
+    def test_a_failed_hub_fetch_on_a_same_day_rerun_leaves_the_earlier_file_out(self):
+        with tempfile.TemporaryDirectory() as d:
+            scratch(d)
+            r, M, _ = self.run_with(d, '2026-10-19T12:00:00Z', '2026-10-19T10:30:00Z')   # the Hub file of the 10:30 run, kept by a failed fetch
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIsNone(M['stored_inputs']['history/hub.json']); self.assertIsNotNone(M['stored_inputs']['history/indicators.json'])
+
+    def test_an_input_breaking_a_rule_is_left_out_alone(self):
+        def handle(S): S['inputs']['Muse Spark'][0]['id'] = 'see @someone'
+        def prose(S): S['inputs']['wikipedia']['note'] = {'text': 'free text a source might return'}
+        with tempfile.TemporaryDirectory() as d:
+            scratch(d)
+            r, M, path = self.run_with(d, '2026-10-19T12:00:00Z', '2026-10-19T12:00:00Z', hub_edit=handle, ind_edit=prose)
+            self.assertEqual(r.returncode, 0, r.stderr)                                 # the day still gets its manifest
+            self.assertEqual(M['stored_inputs'], {'history/indicators.json': None, 'history/hub.json': None})
+            self.assertIn('history/hub.json left out', r.stderr); self.assertIn('history/indicators.json left out', r.stderr)
+            self.assertEqual(run('check', path).returncode, 0)
+
+    def test_the_check_reads_the_block_shape(self):
+        M = {'date': '2026-10-19', 'files': {}, 'records': [], 'stored_inputs': {'history/other.json': None}}
+        self.assertTrue(any('stored_inputs' in b for b in manifest.check(M)))
+
+
 class LedgerTest(unittest.TestCase):
     """The ledger part of SC-18 (C3) and the story-id archive (C32, Decision 13): the ledger's SHA256 equals the Release asset's."""
     def test_ledger_entry_day_file_archive_and_the_release_asset_hash(self):
