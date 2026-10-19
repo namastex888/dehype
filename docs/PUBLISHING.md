@@ -37,7 +37,8 @@ Every figure below is quoted from a committed file or the live JSON, with its da
    ├─ stories      pulse.py: topics, stories (events), What's new, briefing.json
    ├─ publish set  gauges + panels in briefing.json; compose.mjs (Cordis 4.0.4) writes
    │               feed.xml, feed.json, feed.pt.xml, feed.pt.json; search index
-   ├─ ledger       manifest.py: day's input manifest, web/ledger/<date>.json, story-id archive
+   ├─ ledger       manifest.py: day's input manifest (with the stored indicator and Hub inputs),
+   │               web/ledger/<date>.json, story-id archive
    ├─ timestamp    ots.mjs: OpenTimestamps proof of the manifest SHA256 (committed pending)
    ├─ release      manifest on draft Release ledger-<date>, downloaded back, hash must match
    ├─ Gate         python -m unittest discover tests && node scripts/check_page.mjs

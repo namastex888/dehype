@@ -171,6 +171,46 @@ def stamped(web, date, proof=None):
     put(L, json.dumps(E, ensure_ascii=False, separators=(',', ':')))
 
 
+class StoredInputsTest(unittest.TestCase):
+    """S5 groundwork: the stored inputs of the context panels and the Hub check go into the manifest whole when they are this run's, so a
+    recompute needs no call; another run's input (or none) reads null, and the public-data rules still apply inside them."""
+    def run_with(self, d, ind_age, hub_age):
+        gen = pulse.parse_dt(json.loads(read(os.path.join(d, 'web', 'briefing.json')))['generated_at'])
+        for f, fix, age in (('indicators.json', os.path.join(ROOT, 'tests', 'fixtures', 'indicators', 'stored_2026-10-18.json'), ind_age),
+                            ('hub.json', os.path.join(ROOT, 'tests', 'fixtures', 'hub', 'stored_2026-10-19.json'), hub_age)):
+            if age is None: continue
+            S = json.loads(read(fix)); S['fetched_at'] = pulse.iso(gen - age)
+            with open(os.path.join(d, 'history', f), 'w', encoding='utf-8') as fh: json.dump(S, fh, ensure_ascii=False)
+        r = daily(d)
+        date = manifest.sp_date(pulse.iso(gen))
+        path = os.path.join(d, 'dist', f'manifest-{date}.json.gz')
+        return r, (json.loads(gzip.decompress(read(path))) if os.path.exists(path) else None), path
+
+    def test_this_runs_inputs_are_kept_whole_and_pass_the_check(self):
+        with tempfile.TemporaryDirectory() as d:
+            scratch(d)
+            r, M, path = self.run_with(d, timedelta(minutes=12), timedelta(minutes=8))
+            self.assertEqual(r.returncode, 0, r.stderr)
+            si = M['stored_inputs']
+            self.assertEqual(set(si), {'history/indicators.json', 'history/hub.json'})
+            self.assertEqual(si['history/indicators.json']['inputs']['hn_hiring']['threads'][0]['title'], 'Ask HN: Who is hiring? (October 2026)')
+            self.assertEqual(si['history/hub.json']['inputs']['Muse Spark'][0]['id'].split('/')[0], 'meta-models')
+            self.assertEqual(run('check', path).returncode, 0)
+
+    def test_another_runs_or_a_missing_input_reads_null(self):
+        with tempfile.TemporaryDirectory() as d:
+            scratch(d)
+            r, M, _ = self.run_with(d, timedelta(hours=26), None)          # yesterday's indicators, no Hub file
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(M['stored_inputs'], {'history/indicators.json': None, 'history/hub.json': None})
+
+    def test_a_handle_inside_a_stored_input_fails_the_check(self):
+        M = {'date': '2026-10-19', 'files': {}, 'records': [], 'stored_inputs': {'history/hub.json': {'fetched_at': 'x', 'inputs': {'A': [{'id': 'see @someone'}]}}}}
+        self.assertTrue(any('handle' in b for b in manifest.check(M)))
+        M['stored_inputs'] = {'history/other.json': None}
+        self.assertTrue(any('stored_inputs' in b for b in manifest.check(M)))
+
+
 class LedgerTest(unittest.TestCase):
     """The ledger part of SC-18 (C3) and the story-id archive (C32, Decision 13): the ledger's SHA256 equals the Release asset's."""
     def test_ledger_entry_day_file_archive_and_the_release_asset_hash(self):

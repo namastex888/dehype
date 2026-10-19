@@ -22,8 +22,10 @@ were built from, minus the posts the deleted-post recheck found gone (history/re
 web/checks/dossier-gone.json name. HN, Lobsters, Newsletter and Official records carry a stable id, their handle-free URL, the observed
 score and comments and the created and fetched times; a Mastodon record carries https://mastodon.social/statuses/<id> (C25). A Reddit
 record is only {"net", "sha256"} (C16); so is a Bluesky record (its id and URL name the account) and any record whose URL would break
-a public-data rule. The manifest also carries each source's status and the SHA256 of every file the refresh publishes. No author,
-handle or title is written. Standard library only.
+a public-data rule. The manifest also carries each source's status, the SHA256 of every file the refresh publishes and, whole, the
+stored inputs of the context panels and the Hub check when they are this run's (history/indicators.json: the BLS and Wikimedia responses
+and the HN hiring threads' ids, titles and counts; history/hub.json: model ids, dates and counts), so a recompute needs no call. No author
+or handle is written, and no post title outside those stored inputs. Standard library only.
 """
 import argparse, gzip, hashlib, json, os, re, sqlite3, sys
 from datetime import datetime, timedelta, timezone
@@ -42,6 +44,9 @@ HASH_RULE = ('sha256 of the UTF-8 JSON of the stored history/signals.sqlite row 
 FILES = ('data.json', 'search-index.json', 'search-vectors.bin', 'pulse.json', 'briefing.json', 'checks/mastodon-links.json',
          'story-aliases.json', 'hype.json', 'checks/dossier-gone.json', 'feed.xml', 'feed.json', 'feed.pt.xml', 'feed.pt.json',
          'verdicts.json', 'removals.json', 'corrections.json')
+# the stored inputs the day's outputs were computed from (indicators.py, hub.py), kept whole so a recompute needs no call (S5); the one
+# a run's Pulse step wrote, so it is fetched at most STORED_HOURS before the briefing (the relink rewrites generated_at minutes later)
+STORED, STORED_HOURS = ('indicators.json', 'hub.json'), 3
 HEX64, DAY = re.compile(r'^[0-9a-f]{64}$'), re.compile(r'^\d{4}-\d{2}-\d{2}$')
 SID = re.compile(r'^s:[0-9a-f]{12}$')
 STATUS_URL = re.compile(r'^https://mastodon\.social/statuses/(\d{1,20})$')
@@ -115,6 +120,16 @@ def inputs(rows, web, recheck_path, generated_at):
     return keep
 
 
+def stored_inputs(history, generated_at):
+    """{history/<file>: the stored input, or null when missing or not this run's (fetched more than STORED_HOURS before, or after, the briefing)}."""
+    end, out = pulse.parse_dt(generated_at), {}
+    for f in STORED:
+        S = read_json(os.path.join(history, f), {})
+        at = pulse.parse_dt(S.get('fetched_at')) if isinstance(S, dict) and isinstance(S.get('fetched_at'), str) else None
+        out[f'history/{f}'] = S if at and end - timedelta(hours=STORED_HOURS) <= at <= end else None
+    return out
+
+
 def build(web, history, out):
     """-> (manifest path, its SHA256, the manifest, the briefing). Writes the day's archive file first: the manifest pins its hash."""
     B = read_json(os.path.join(web, 'briefing.json'))
@@ -131,7 +146,8 @@ def build(web, history, out):
          'window': {k: B.get('window', {}).get(k) for k in ('start', 'end')},
          'method': {k: B.get('method', {}).get(k) for k in ('version', 'config_hash')},
          'sources': {n: {'status': s.get('status'), 'detail': s.get('detail')} for n, s in (B.get('sources') or {}).items()},
-         'files': files, 'hash_rule': HASH_RULE, 'counts': counts, 'records': recs}
+         'files': files, 'hash_rule': HASH_RULE, 'counts': counts, 'records': recs,
+         'stored_inputs': stored_inputs(history, B['generated_at'])}
     bad = check(M)
     if bad: raise SystemExit('manifest check FAILED (nothing written but the archive file)\n- ' + '\n- '.join(bad))
     path = os.path.join(out, f'manifest-{date}.json.gz')
@@ -153,12 +169,16 @@ def check(M):
     if not DAY.match(str(M.get('date'))): bad.append('manifest date is not YYYY-MM-DD')
     files = M.get('files')
     if not isinstance(files, dict) or not all(v is None or HEX64.match(str(v)) for v in files.values()): bad.append('manifest files are not path -> SHA256 (or null)')
+    si = M.get('stored_inputs', {})
+    if not isinstance(si, dict) or not set(si) <= {f'history/{f}' for f in STORED} or not all(v is None or (isinstance(v, dict) and 'fetched_at' in v) for v in si.values()):
+        bad.append('manifest stored_inputs are not history/<file> -> the stored input (or null)')
     text = canonical(M).decode('utf-8')
     if REDDIT.search(text): bad.append(f'manifest holds a Reddit URL or t3_ id ({REDDIT.search(text)[0]})')
     def walk(o, at):
         if isinstance(o, dict):
             for k, v in o.items():
-                if k in ('author', 'title', 'handle', 'who', 'text'): bad.append(f'manifest carries a {k} field at {at}.{k}')
+                # a stored input keeps what its source returned (HN hiring-thread titles, BLS footnote text); the URL and handle rules still apply
+                if k in ('author', 'title', 'handle', 'who', 'text') and not at.startswith('manifest.stored_inputs'): bad.append(f'manifest carries a {k} field at {at}.{k}')
                 walk(v, f'{at}.{k}')
         elif isinstance(o, list):
             for i, v in enumerate(o): walk(v, f'{at}[{i}]')
