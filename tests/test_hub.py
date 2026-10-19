@@ -131,7 +131,10 @@ class Relink(unittest.TestCase):
             later = pulse.parse_dt(P['generated_at'])
             hubs = lambda B: {r['substance']['hub'] if isinstance(r['substance']['hub'], str) else 'searched' for r in B['records'] if r['release'] in names}
             self.assertTrue(names)                                                          # the fixture has release names
-            self.assertEqual(hubs(self.run_pulse(d, '--relink', later)), {'searched'})
+            skipped = {s['label'] for s in P['stories'] if s.get('label') and not HUB.name_rx(s['label'])}
+            B = self.run_pulse(d, '--relink', later)
+            self.assertEqual(hubs(B), {'searched'})
+            self.assertLessEqual({r['substance']['hub'] for r in B['records'] if r['release'] in skipped}, {HUB.NOT_FETCHED})   # one word, no number
             S['fetched_at'] = '2026-10-01T00:00:00Z'                                         # another run's input: not shown
             with open(os.path.join(d, 'history', 'hub.json'), 'w') as f: json.dump(S, f)
             B = self.run_pulse(d, '--relink', later)
