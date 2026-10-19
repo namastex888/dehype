@@ -4,6 +4,7 @@ Run:  python -m unittest discover tests
 All numbers below are synthetic test inputs, not data.
 """
 import copy, json, os, sys, unittest, sqlite3
+from datetime import datetime, timezone
 from unittest.mock import patch
 from urllib.parse import urlparse, parse_qs
 from contextlib import closing
@@ -325,7 +326,7 @@ class TestSourceNotes(unittest.TestCase):
         return urllib.error.HTTPError('https://api.github.com/x', code, 'Forbidden', hd, io.BytesIO(body))
 
     def test_stargazers_failure_note_has_no_response_body(self):
-        body = b'{"message":"Resource not accessible by personal access token","documentation_url":"https://docs.github.com/rest"}'
+        body = b'{"message":"Repository access blocked","documentation_url":"https://docs.github.com/rest"}'
         repos = {f'o/r{i}': {'stars': 50} for i in range(3)}
         def refuse(*a, **k): raise self.http_error(403, body)     # a fresh error per call: each one's body can be read once
         with patch.object(run.urllib.request, 'urlopen', side_effect=refuse), \
@@ -335,7 +336,7 @@ class TestSourceNotes(unittest.TestCase):
             note = run.SOURCES['GitHub stargazers API']
         self.assertEqual(note['status'], 'failed')
         self.assertIn('HTTP 403: Forbidden', note['detail'])
-        for leaked in ('message', 'Resource not accessible', '{', 'docs.github.com'):
+        for leaked in ('message', 'Repository access blocked', '{', 'docs.github.com'):
             self.assertNotIn(leaked, note['detail'])
 
     def test_rate_limit_stays_visible_without_the_body(self):
@@ -347,6 +348,64 @@ class TestSourceNotes(unittest.TestCase):
         with patch.object(run.urllib.request, 'urlopen', side_effect=self.http_error(404, b'{}', X_RateLimit_Remaining='0')):
             with self.assertRaises(run.HTTPErr) as cm: run.http_get('https://api.github.com/x')
             self.assertEqual(str(cm.exception), 'HTTP 404: Not Found')   # the last call of the budget is not a rate-limit answer
+
+
+class TestTokenNotes(unittest.TestCase):
+    """A token GitHub refuses (401, or 403 'Resource not accessible') is named as such, by kind of call, and its expiry is warned about."""
+    def setUp(self):
+        self.keep = (run.GH_TOKEN, dict(run.TOKEN), dict(run.TOKEN['refused']))
+        run.GH_TOKEN, run.TOKEN['expires'], run.TOKEN['refused'] = 't', None, {}
+
+    def tearDown(self):
+        run.GH_TOKEN = self.keep[0]; run.TOKEN.clear(); run.TOKEN.update(self.keep[1]); run.TOKEN['refused'] = self.keep[2]
+
+    def http_error(self, code, body):
+        import email.message, io, urllib.error
+        return urllib.error.HTTPError('https://api.github.com/x', code, 'x', email.message.Message(), io.BytesIO(body))
+
+    def ok(self, expiry=None):
+        import io
+        class R(io.BytesIO):
+            status, headers = 200, ({'github-authentication-token-expiration': expiry} if expiry else {})
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+        return R(b'{"resources": {"core": {"remaining": 100, "reset": 0}}}')
+
+    def test_a_stargazers_refusal_is_named_and_the_rest_still_works(self):
+        body = b'{"message":"Resource not accessible by personal access token"}'
+        def answer(req, timeout=None):
+            if '/stargazers' in req.full_url: raise self.http_error(403, body)
+            return self.ok('2026-11-16 12:00:00 UTC')
+        repos = {f'o/r{i}': {'stars': 50} for i in range(3)}
+        with patch.object(run.urllib.request, 'urlopen', side_effect=answer), patch.object(run, 'load_json', return_value={}), \
+             patch.object(run, 'save_json'), patch.object(run, 'OFFLINE', False), patch.dict(run.SOURCES, clear=True):
+            run.fetch_stargazers(repos, list(repos))
+            run.token_note(now=datetime(2026, 10, 19, tzinfo=timezone.utc))
+            star, tok = run.SOURCES['GitHub stargazers API'], run.SOURCES['GitHub token']
+        self.assertEqual(star['status'], 'failed'); self.assertIn("the GitHub token is not allowed by the token's settings", star['detail'])
+        self.assertEqual(tok['status'], 'partial')
+        self.assertEqual(tok['detail'], "/repos/<repo>/stargazers: not allowed by the token's settings (HTTP 403: resource not accessible); "
+                                        "expires 2026-11-16 (in 28 days); replace TRENDING_GH_TOKEN")
+        self.assertNotIn('Resource not accessible by personal', tok['detail'] + star['detail'])          # our words, never the body
+
+    def test_an_expired_token_fails_every_call_and_says_so(self):
+        with patch.object(run.urllib.request, 'urlopen', side_effect=lambda *a, **k: (_ for _ in ()).throw(self.http_error(401, b'{"message":"Bad credentials"}'))), \
+             patch.object(run, 'load_json', return_value={}), patch.object(run, 'save_json'), patch.object(run, 'OFFLINE', False), \
+             patch.dict(run.SOURCES, clear=True):
+            run.fetch_stargazers({'o/r': {'stars': 50}}, ['o/r'])
+            run.token_note()
+            self.assertEqual(run.SOURCES['GitHub token']['status'], 'failed')
+            self.assertIn('/rate_limit: refused (HTTP 401', run.SOURCES['GitHub token']['detail'])
+            self.assertIn('the GitHub token was refused', run.SOURCES['GitHub stargazers API']['detail'])   # not "rate limit exhausted"
+
+    def test_expiry_within_two_weeks_warns(self):
+        run.TOKEN['expires'] = '2026-11-16 12:00:00 UTC'
+        with patch.dict(run.SOURCES, clear=True), patch.object(run, 'OFFLINE', False), patch('builtins.print') as out:
+            run.token_note(now=datetime(2026, 11, 6, tzinfo=timezone.utc))
+            self.assertEqual(run.SOURCES['GitHub token'], {'status': 'partial', 'detail': 'accepted; expires 2026-11-16 (in 10 days); replace TRENDING_GH_TOKEN before then'})
+            self.assertIn('::warning::GitHub token', out.call_args[0][0])
+            run.token_note(now=datetime(2026, 10, 19, tzinfo=timezone.utc))
+            self.assertEqual(run.SOURCES['GitHub token'], {'status': 'ok', 'detail': 'accepted; expires 2026-11-16 (in 28 days)'})
 
 
 class TestMovement(unittest.TestCase):
