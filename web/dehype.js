@@ -207,6 +207,8 @@ function verdictSlot(v) {
 const nets = c => { const e = Object.entries(c.networks || {}); return e.filter(([, v]) => v !== 0).sort((a, b) => (typeof b[1] === 'number' ? b[1] : -1) - (typeof a[1] === 'number' ? a[1] : -1)).map(([k, v]) => `<span class="nw">${esc(nm(k))} ${nf(v)}</span>`).join(' · ') || '—'; };
 const rd = v => `<span class="num mono${typeof v === 'number' ? '' : ' s'}">${typeof v === 'boolean' || v === NOT_FETCHED || v == null ? esc(yesno(v)) : nf(v)}</span>`;
 const yesno = v => v === true ? t('ui.yes') : v === false ? t('ui.no') : tr(v ?? NOT_FETCHED);
+const hubEv = (h, name) => h == null || h === 'no release name' ? '' : `<h4>${esc(t('ui.hub'))}</h4>` + (typeof h !== 'object' ? `<p class="dim">${esc(tr(h))}</p>`   // models of the release name
+  : `<p>${esc(h.n ? tn('ui.hub.n', h.n, { name }) : t('ui.hub.zero', { name }))}</p>${h.models?.length ? `<ul>${h.models.map(m => `<li>${link('https://huggingface.co/' + m.id, `<span class="mono">${esc(m.id)}</span>`)} <span class="dim">· ${esc(t('ui.hub.model', { org: m.org, date: (m.created || '').slice(0, 10) || '—', dl: nf(m.downloads_30d), likes: nf(m.likes) }))}</span></li>`).join('')}</ul>` : ''}`);
 function evidence(r, s, v, i, now, brief = false) {            // a story's evidence record; brief: the briefing row (spread path in view)
   const c = r.computed || {}, sub = r.substance || {}, u = s && (s.link || s.url), fixed = rx('headline.count_only').test(r.headline || '');
   const hd = fixed ? esc(tr(r.headline, ['headline.count_only'])) : posted(r.headline, r.lang);
@@ -229,7 +231,7 @@ ${brief ? `<p class="meta">${meta}</p>` : ''}
 ${brief ? `<h4>${esc(t('ui.lab_post'))} · ${esc(t('ui.hn_points'))}</h4><p>${rd(c.official)} · ${rd(c.hn_points)}</p>` : ''}<h4>${esc(t('ui.path'))}</h4><p>${path || '—'}</p>
 <h4>${esc(t('ui.posts'))}</h4><ul>${posts.map(p => `<li><span class="mono dim">${esc(nm(p.net))}</span> ${link(p.url, posted(p.title, p.lang))}${['Newsletter', 'Official'].includes(p.net) && p.author ? ` <span class="dim">· ${esc(p.author)}</span>` : ''} <span class="mono dim">${esc(day(p.at))}</span></li>`).join('')}
 ${counted.map(([n, k]) => `<li class="dim">${esc(tn('ui.counted', k, { net: nm(n) }))}</li>`).join('')}${!posts.length && !counted.length ? `<li class="dim">${esc(t('ui.none'))}</li>` : ''}</ul>
-<h4>${esc(tr(sub.from || "the story's own links"))}</h4><ul>${refs.map(x => `<li>${link(x, `<span class="mono">${esc(x.replace(/^https:\/\/(github\.com|arxiv\.org\/abs)\//, ''))}</span>`)}</li>`).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ul>
+<h4>${esc(tr(sub.from || "the story's own links"))}</h4><ul>${refs.map(x => `<li>${link(x, `<span class="mono">${esc(x.replace(/^https:\/\/(github\.com|arxiv\.org\/abs)\//, ''))}</span>`)}</li>`).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ul>${hubEv(sub.hub, r.release)}
 <h4>${esc(tr(rel.reading || 'related in topic'))}</h4><ul>${(rel.items || []).map(x => `<li><span class="mono dim">${esc(nm(x.net))}</span> ${link(x.url, posted(x.title, x.lang))}</li>`).join('') || `<li class="dim">${esc(t('ui.none'))}</li>`}</ul>
 ${c.newsletter_names?.length ? `<h4>${esc(t('ui.newsletters'))}</h4><p>${c.newsletter_names.map(esc).join(' · ')}</p>` : ''}
 <p class="dim mono">${esc(r.id)} · ${esc(t('ui.first_last', { first: day(r.first), last: day(r.last) }))}</p></div></details></div></li>`;
@@ -495,7 +497,7 @@ const GAUGE = {
 <ul class="hb" aria-label="${esc(t('brief.out.mini'))}">${A.map(a => `<li title="${esc(nm(a.area))}: ${nf(a.papers)} · ${nf(a.repos)}"><span>${esc(nm(a.area))}</span><i style="--w:${(a.papers / hi * 100).toFixed(1)}%"></i><b class="mono">${nf(a.papers)}</b></li>`).join('')}</ul></div>`;
   },
   hype_vs_substance: v => {                                      // no story known either way: the count of unknowns leads (never an invented 0)
-    const S = v.stories || [], has = x => x.substance?.official === true || x.substance?.repos > 0 || x.substance?.papers > 0;
+    const S = v.stories || [], has = x => x.substance?.official === true || x.substance?.repos > 0 || x.substance?.papers > 0 || x.substance?.hub > 0;
     const unk = S.filter(x => !has(x) && x.substance?.official === NOT_FETCHED).length, hi = Math.max(1, ...S.map(x => x.hype?.voices || 0));
     if (unk === S.length) return `<p class="big"><span class="num">${nf(unk)}</span><span class="u">${esc(t('brief.hvs.none', { n: S.length }))}</span></p><p class="sub">${esc(t('brief.hvs.sub'))}</p>`;
     return `<div class="gb"><div><p class="big"><span class="num">${nf(S.filter(has).length)}</span><span class="u">${esc(t('brief.hvs.of', { n: S.length }))}</span></p>

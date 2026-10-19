@@ -1270,7 +1270,7 @@ class Lookups:
         raise AssertionError(url)
 
 
-def pulse_run(d, argv=(), posts=(), hype=None, removals=(), passes=(), answers=None, now=None):
+def pulse_run(d, argv=(), posts=(), hype=None, removals=(), passes=(), answers=None, now=None, hub=None):
     """pulse.py main() on a scratch web/ (the offline-rebuild data.json, the given hype.json and lists) and history DB under d, with
     every collector returning nothing and the recheck lookups stubbed -> (web dir, run log, the Lookups stub)."""
     web, hist = os.path.join(d, 'web'), os.path.join(d, 'history')
@@ -1284,7 +1284,7 @@ def pulse_run(d, argv=(), posts=(), hype=None, removals=(), passes=(), answers=N
         with open(os.path.join(web, 'checks', 'mastodon-links.json'), 'w') as f:
             json.dump({'statuses': {i: {'result': 'pass', 'checked_at': '2026-10-16T08:00:00Z', 'passed_at': '2026-10-16T08:00:00Z', 'api_status': 200}
                                     for i in passes}}, f)
-    keep = {k: getattr(pulse, k) for k in ('WEB', 'HIST', 'DB', 'CANDIDATES', 'NOW', 'GET', 'FETCH_INDICATORS') + FETCHERS}
+    keep = {k: getattr(pulse, k) for k in ('WEB', 'HIST', 'DB', 'CANDIDATES', 'NOW', 'GET', 'FETCH_INDICATORS', 'FETCH_HUB') + FETCHERS}
     argv0, sources, stub, log = sys.argv, dict(pulse.SOURCES), Lookups(answers), io.StringIO()
     try:
         pulse.WEB, pulse.HIST, pulse.DB = web, hist, os.path.join(hist, 'signals.sqlite')
@@ -1293,6 +1293,7 @@ def pulse_run(d, argv=(), posts=(), hype=None, removals=(), passes=(), answers=N
         pulse.GET = stub
         for n in FETCHERS: setattr(pulse, n, lambda: [])
         pulse.FETCH_INDICATORS = lambda now: {'fetched_at': pulse.iso(now), 'inputs': {}, 'errors': {}}     # no network in tests
+        pulse.FETCH_HUB = hub or (lambda names, now, **k: {'fetched_at': pulse.iso(now), 'inputs': {}, 'errors': {}})
         pulse.SOURCES.clear()
         if posts:
             con = pulse.db()

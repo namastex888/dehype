@@ -322,6 +322,9 @@ function briefingRules(B) {
     st[net] = s.includes('ok') ? 'ok' : s.includes('partial') ? 'partial' : NOT_FETCHED;
   }
   // a reading from one source: a positive count or true, 0 or false only when that source was fully fetched, else "not fetched"
+  let HUB_ORGS = {};                                              // hub_orgs.json (owner-reviewed): the organisations a Hub reading may name
+  try { HUB_ORGS = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'hub_orgs.json'), 'utf8')).orgs || {}; }
+  catch (e) { finding(F, `hub_orgs.json unreadable: ${e.message}`, 'hub_orgs.json'); }
   const fetched = (v, net, at, bool = false) => {
     if (v === NOT_FETCHED || (bool ? v === true : Number.isInteger(v) && v > 0)) return;
     if ((bool ? v === false : v === 0) && st[net] === 'ok') return;
@@ -352,6 +355,13 @@ function briefingRules(B) {
     fetched(sub.official, 'Official', `${at}.substance.official`, true);
     need(Array.isArray(sub.repos) && Array.isArray(sub.papers) && r.related_in_topic?.reading === 'related in topic',
       `briefing record ${r.id} lacks its own-link substance or the "related in topic" reading`);
+    const h = sub.hub, hm = h && typeof h === 'object' ? h.models : null;       // the Hub check (hub.py): models of a listed organisation only
+    if (!('hub' in sub)) need(!B.method?.hub, `briefing record ${r.id} lacks its Hub reading (the briefing carries method.hub)`);   // older briefings: the next refresh adds it
+    else if (h !== NOT_FETCHED && h !== 'no release name')
+      need(Number.isInteger(h?.n) && h.n >= 0 && Array.isArray(hm) && hm.length === Math.min(h.n, 5) && r.release
+        && hm.every(m => /^[\w.-]+\/[\w.-]+$/.test(m?.id || '') && Object.hasOwn(HUB_ORGS, m.id.split('/')[0])),
+        `briefing record ${r.id} Hub reading is not "not fetched", "no release name" or a count with at most five listed-organisation models`);
+    else need(h !== 'no release name' || !r.release, `briefing record ${r.id} has a release name but reads "no release name"`);
   });
   const top = Array.isArray(B.top10) ? B.top10 : [];
   need(Array.isArray(B.top10) && top.length <= 10, 'briefing.json top10 missing or longer than 10');
@@ -691,7 +701,7 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 // is not a cache. A producer is named by its command, so the ledger is required once the manifest step runs (the E1/E2 wiring).
 // CHECK_PAGE_REFRESH_YML points the rule at a fixture workflow (tests only).
 const OWNER_REVIEWED = ['web/verdicts.json', 'web/corrections.json', 'web/removals.json', 'web/i18n/dossier.pt.json', 'web/i18n/dossier-x-figures.json',
-  'web/i18n/dossier-sources.json', 'web/i18n/strings.json', 'web/i18n/x-org-accounts.json', 'web/i18n/sources-plan.json', 'web/POLICY.md', 'web/POLICY.pt.md'];
+  'web/i18n/dossier-sources.json', 'web/i18n/strings.json', 'web/i18n/x-org-accounts.json', 'web/i18n/sources-plan.json', 'web/POLICY.md', 'web/POLICY.pt.md', 'hub_orgs.json'];
 const PRODUCERS = [['python run.py', ['web/data.json']], ['node scripts/embed/embed.mjs web', ['web/search-index.json', 'web/search-vectors.bin']],
   ['run: python pulse.py\n', ['web/pulse.json', 'web/briefing.json', 'web/story-aliases.json', 'web/checks/dossier-gone.json']],
   ['node scripts/check_mastodon_links.mjs', ['web/checks/mastodon-links.json']], ['python hype_build.py --scrub web/hype.json', ['web/hype.json']],

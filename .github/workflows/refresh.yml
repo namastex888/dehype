@@ -70,8 +70,10 @@ jobs:
         run: python run.py
       - name: Collect conversation for the Pulse topic map
         id: pulse
-        # optional secrets enable Bluesky and the official Reddit API; arctic-shift, HN, Lobsters and Mastodon need none
+        # optional secrets enable Bluesky and the official Reddit API; arctic-shift, HN, Lobsters and Mastodon need none;
+        # HF_TOKEN (a read token) only raises the Hub check's rate limit (hub.py runs without it)
         env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
           BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
           BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}

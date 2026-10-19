@@ -24,7 +24,9 @@ from concurrent.futures import ThreadPoolExecutor
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone, timedelta
 import indicators as IND
+import hub as HUB
 FETCH_INDICATORS = IND.fetch_all                     # the context panels' only network call (tests stub it)
+FETCH_HUB = HUB.fetch                                # the Hub check's only network call (tests stub it)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 WEB, HIST = os.path.join(BASE, 'web'), os.path.join(BASE, 'history')
@@ -1449,7 +1451,7 @@ BRT = timezone(timedelta(hours=-3), 'BRT')            # America/Sao_Paulo: UTC-3
 PREVIEW, NOT_FETCHED, RELATED, NEW_TODAY, NO_SOURCE = 'preview, not yet reproducible', 'not fetched', 'related in topic', 'new today', 'no qualified source'
 TREND_DAYS = 14                                       # no trend line or day-over-day arrow before 14 ledger days (R2-4)
 AREA_DAYS, MOVERS, RELATED_MAX = 7, 5, 3
-CONFIG_FILES = ('topics_lexicon.json', 'newsletters.json', 'official_feeds.json', 'indicators.json')
+CONFIG_FILES = ('topics_lexicon.json', 'newsletters.json', 'official_feeds.json', 'indicators.json', 'hub_orgs.json')
 NET_ADAPTERS = {'HN': ('Hacker News (Algolia)',), 'Lobsters': ('Lobsters (ai tag)',), 'Mastodon': ('Mastodon (mastodon.social tags)',),
                 'Reddit': ('Reddit (arctic-shift archive)', 'Reddit (official API)'), 'Bluesky': ('Bluesky (app password)',),
                 'Newsletter': ('Newsletters (RSS)',), 'Official': ('Official feeds (RSS)',)}
@@ -1461,16 +1463,17 @@ TOP10_METHOD = ('Top 10 (new today first): the covered news stories (kind news) 
 RECORD_METHOD = ('evidence record (one per story; state proposed: the pipeline proposes no verdict and writes no label word, the owner confirms by PR): '
                  'the stable story id, the computed fields it was built from (voices, posts per network, newsletters carrying it, official post, '
                  'HN points, heat, complaint share, key words, topics), the status of each source, the method version and the config hash '
-                 '(first 16 hex of sha256 over the version, the method text and the sha256 of topics_lexicon.json, newsletters.json, official_feeds.json and indicators.json). '
+                 '(first 16 hex of sha256 over the version, the method text and the sha256 of topics_lexicon.json, newsletters.json, official_feeds.json, indicators.json and hub_orgs.json). '
                  'A network is fetched when one of its adapters read ok, partial when one read partial, else not fetched. A count reads "not fetched", '
                  'never 0 or false, when no post of it was seen and its source was not fully fetched; official reads true when a lab or vendor feed posted '
                  'the story and false only when the official feeds were fully fetched. Substance is the story\'s own links (its refs: GitHub repositories '
-                 'and arXiv papers its shown posts link to) and its official post; tracker samples of its topics read "related in topic" and never count as substance')
+                 'and arXiv papers its shown posts link to), its official post and its Hub check (method.hub); tracker samples of its topics read "related in topic" and never count as substance')
 GAUGE_METHOD = ('gauges (at most four; each reads "preview, not yet reproducible" until 14 ledger days, a green recompute verifier and the owner\'s confirm; '
                 'no trend line or arrow before 14 ledger days; no combined score). "Releases / research output by area" = papers published and repos '
                 'created on the 7 UTC dates ending with the window end\'s, per tracker area, among the papers and repos in data.json (output volume, '
                 'not capability); null when the tracker was not read in this run or its data is older than the window. "Hype vs substance" = for each '
-                'Top 10 story its spread (voices, posts per network, newsletters, HN points) beside its substance (official post, own repo and paper links), '
+                'Top 10 story its spread (voices, posts per network, newsletters, HN points) beside its substance (official post, own repo and paper links, '
+                'models on the Hub under a listed organisation), '
                 'components only, no ratio; null with no Top 10 story. "Daily movers" = the five topics whose rising ratio (conversation posts in the last '
                 'day / daily average over 7 days; it needs 4+ conversation posts in 7 days and 2+ in the last day) is highest above 1 (up) and the five '
                 'lowest below 1 (down), with all-network posts in 1 and 7 days for context; null when no topic has a reading or no conversation network '
@@ -1526,7 +1529,7 @@ def config_hash(method):
     blob = json.dumps({'version': BRIEFING_VERSION, 'method': method, 'files': files}, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode('utf-8')).hexdigest()[:16]
 
-def evidence(s, st, nodes, chash, lo):
+def evidence(s, st, nodes, chash, lo, hub=None):
     """One story's evidence record (design row 6, C7-C9)."""
     refs = s.get('refs') or {'repos': [], 'papers': []}
     off = official_reading(s, st)
@@ -1544,7 +1547,8 @@ def evidence(s, st, nodes, chash, lo):
                          'newsletters': reading(len(s['newsletters']), st['Newsletter']), 'newsletter_names': s['newsletters'],
                          'official': off, 'hn_points': reading(s['hn_points'], st['HN']), 'heat': s['heat'], 'pain': s['pain'],
                          'key': s['key'], 'tags': s['tags']},
-            'substance': {'from': "the story's own links", 'official': off, 'repos': refs['repos'], 'papers': refs['papers']},
+            'substance': {'from': "the story's own links", 'official': off, 'repos': refs['repos'], 'papers': refs['papers'],
+                          'hub': HUB.reading(hub, s['label'])},
             'related_in_topic': {'reading': RELATED, 'items': related}}
 
 def gauge(gid, name, coverage, value, reason):
@@ -1573,7 +1577,8 @@ def hype_vs_substance(top, recs, st):
     for t in top:
         c, sub = recs[t['id']]['computed'], recs[t['id']]['substance']
         rows.append({'id': t['id'], 'hype': {'voices': c['voices'], 'networks': c['networks'], 'newsletters': c['newsletters'], 'hn_points': c['hn_points']},
-                     'substance': {'official': sub['official'], 'repos': len(sub['repos']), 'papers': len(sub['papers'])}})
+                     'substance': {'official': sub['official'], 'repos': len(sub['repos']), 'papers': len(sub['papers']),
+                                   'hub': sub['hub']['n'] if isinstance(sub['hub'], dict) else sub['hub']}})
     return gauge('hype_vs_substance', 'Hype vs substance', cov, {'stories': rows}, '')
 
 def daily_movers(nodes, st):
@@ -1587,22 +1592,23 @@ def daily_movers(nodes, st):
     down = sorted((x for x in have if x['rising'] < 1), key=lambda x: (x['rising'], x['id']))[:MOVERS]
     return gauge('daily_movers', 'Daily movers', cov, {'up': [row(x) for x in up], 'down': [row(x) for x in down]}, '')
 
-def briefing(stories_, nodes, sources, D, now, method, days=0, ind=None):
+def briefing(stories_, nodes, sources, D, now, method, days=0, ind=None, hub=None):
     """web/briefing.json: one evidence record per story, the Top 10 cut and the gauge header values (design rows 6, 8, 9).
-    A pure function of the day's stories, topic nodes, source status, tracker data and the stored indicator input (indicators.py; None:
-    not fetched in this run, every context value null with its reason): the same inputs give the same bytes."""
+    A pure function of the day's stories, topic nodes, source status, tracker data, the stored indicator input (indicators.py; None:
+    not fetched in this run, every context value null with its reason) and the stored Hub input (hub.py; None: every record's Hub
+    reading "not fetched"): the same inputs give the same bytes."""
     ctx, views = IND.panels(ind)
     lo = now - timedelta(days=1)
     st = net_status(sources)
-    chash = config_hash(' '.join((method, TOP10_METHOD, RECORD_METHOD, GAUGE_METHOD)))
+    chash = config_hash(' '.join((method, TOP10_METHOD, RECORD_METHOD, GAUGE_METHOD, HUB.METHOD)))
     by_node = {x['id']: x for x in nodes}
-    recs = [evidence(s, st, by_node, chash, lo) for s in stories_]
+    recs = [evidence(s, st, by_node, chash, lo, hub) for s in stories_]
     top = top10(stories_, now)
     by_id = {r['id']: r for r in recs}
     return {'generated_at': iso(now),
             'window': {'start': iso(lo), 'end': iso(now), 'end_brt': now.astimezone(BRT).strftime('%Y-%m-%d %H:%M BRT'), 'hours': 24},
             'method': {'version': BRIEFING_VERSION, 'config_hash': chash, 'config_files': list(CONFIG_FILES),
-                       'top10': TOP10_METHOD, 'records': RECORD_METHOD, 'gauges': GAUGE_METHOD},
+                       'top10': TOP10_METHOD, 'records': RECORD_METHOD, 'gauges': GAUGE_METHOD, 'hub': HUB.METHOD},
             'ledger_days': days, 'sources': sources, 'top10': top, 'records': recs,
             'gauges': [output_by_area(D, sources, now), hype_vs_substance(top, by_id, st), daily_movers(nodes, st)],
             'panels': [{'id': 'risk', 'name': 'Risk', 'form': 'dated, sourced event log; no dial', 'events': [], 'reading': NO_SOURCE},
@@ -1730,9 +1736,23 @@ def main():
            'stories': extras['stories'], 'nodes': nodes, 'edges': edges, 'projects': projects,
            'citations': {w: {'domains': c['domains']} for w, c in extras['citations'].items()},     # handles stay private (below)
            'official_feeds': official_meta()}
+    hub = None
+    if not offline:                                          # the Hub check needs the day's release names, so it runs after the stories
+        try:
+            hub = FETCH_HUB([s['label'] for s in sorted(extras['stories'], key=lambda s: (-s['heat'], s['id'])) if s.get('label')], NOW,
+                            token=os.environ.get('HF_TOKEN') or None)                            # hottest first: a spent budget cuts the coldest
+            HUB.save(hub, os.path.join(HIST, 'hub.json')); SOURCES.update(HUB.source_status(hub))
+        except Exception as e:                               # a failed check: every record reads "not fetched", the briefing still builds
+            hub = None; SOURCES[HUB.NAME] = {'status': 'failed', 'detail': f'{type(e).__name__} (not fetched; no earlier value shown)'}
+        print(HUB.NAME, SOURCES[HUB.NAME], flush=True)
+    elif relink:                                             # this run's own stored input; no call
+        hub = HUB.load(os.path.join(HIST, 'hub.json'))
+        if hub and hub.get('fetched_at') != (prev_pulse or {}).get('generated_at'): hub = None    # only the same run's input
+    if offline and not hub and not (relink and (SOURCES.get(HUB.NAME) or {}).get('status') == 'failed'):   # relink keeps the run's own failure
+        SOURCES[HUB.NAME] = {'status': 'unknown', 'detail': 'not fetched in this offline rebuild'}
     try: D = json.load(open(os.path.join(WEB, 'data.json')))
     except (OSError, ValueError): D = None
-    brief = briefing(extras['stories'], nodes, SOURCES, D, NOW, out['method'], ledger_days(), ind)
+    brief = briefing(extras['stories'], nodes, SOURCES, D, NOW, out['method'], ledger_days(), ind, hub)
     for name, data in (('pulse.json', out), ('briefing.json', brief)):        # written together, so the pair always comes from one run
         with open(os.path.join(WEB, name), 'w') as f:
             json.dump(data, f, separators=(',', ':'), ensure_ascii=False)
