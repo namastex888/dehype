@@ -21,10 +21,10 @@ Every figure below is quoted from a committed file or the live JSON, with its da
 
 ## 2. How it updates itself
 
-`.github/workflows/refresh.yml`, cron `45 7 * * *` = 04:45 BRT (São Paulo is UTC-3 all year). The target is a live briefing by 06:00. That has not been observed yet: the new cron landed on 2026-10-18, so one scheduled run is on record (2026-10-18 13:18 UTC). The cron gets re-fitted after 7-10 scheduled runs.
+`.github/workflows/refresh.yml`, cron `17 5 * * *` = 02:17 BRT (São Paulo is UTC-3 all year). The target is a live briefing by 06:00. Scheduled runs have fired hours late (2026-10-17 12:58 UTC and 2026-10-18 13:18 UTC) or not at all (2026-10-19), so the cron moved from 04:45 to 02:17 (ROADMAP D8). The cron gets re-fitted after 7 scheduled runs; a missed day is refreshed by hand.
 
 ```
- 04:45 BRT  cron ─► refresh.yml (GitHub Actions)
+ 02:17 BRT  cron ─► refresh.yml (GitHub Actions)
    │
    ├─ restore pipeline state (Actions cache: history/, cache/)
    ├─ collect      run.py (arXiv, HF papers, HN, GitHub) + pulse.py (HN, Lobsters, Mastodon,

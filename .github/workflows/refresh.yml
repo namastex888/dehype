@@ -25,7 +25,7 @@ name: refresh
 # ledger entry that day), committed pending; each later run upgrades every earlier proof no entry records anchored, commits the upgraded
 # file in place, runs verify --ignore-bitcoin-node (block headers from https://blockstream.info/api) and records each accepted proof's
 # date and Bitcoin block in its own entry only. `git add web/ledger` stages the proofs.
-# Ready time (design row 20; C12, C34): scheduled at 04:45 America/Sao_Paulo (UTC-3, no daylight saving) so the day's briefing, gauges and
+# Ready time (design row 20; C12, C34): scheduled at 02:17 America/Sao_Paulo (was 04:45; ROADMAP D8) (UTC-3, no daylight saving) so the day's briefing, gauges and
 # feeds are live on Pages before 06:00; the cron is re-fitted after 7-10 scheduled runs and the deploy times are recorded in the wish.
 # Push (C42, M2): the data commit is made and replayed onto dev in a step with no secret (dehype is a public repository, so the replay
 # fetches over the public URL); PUSH_TOKEN is only in the next step, which runs git (hooks, credential helper, fsmonitor off), no npm,
@@ -34,7 +34,7 @@ name: refresh
 # The full fix (future work) is a separate push job on a fresh runner that receives the commit as a git bundle.
 on:
   schedule:
-    - cron: '45 7 * * *'   # 04:45 America/Sao_Paulo
+    - cron: '17 5 * * *'   # 02:17 America/Sao_Paulo (ROADMAP D8: scheduled runs fire hours late; off the hour)
   workflow_dispatch:
 permissions:
   contents: write
