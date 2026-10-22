@@ -5,98 +5,98 @@
 <link>https://namastex888.github.io/dehype/index.html</link>
 <description>Ten AI stories from the last 24 hours, with their evidence and where each spread: attention in our sample, not a verdict on truth.</description>
 <language>en</language>
-<lastBuildDate>Wed, 21 Oct 2026 10:48:46 GMT</lastBuildDate>
+<lastBuildDate>Thu, 22 Oct 2026 10:52:59 GMT</lastBuildDate>
 <docs>https://www.rssboard.org/rss-specification</docs>
 <atom:link href="https://namastex888.github.io/dehype/feed.xml" rel="self" type="application/rss+xml"/>
 <item>
-<title>Claude designed protein binders against scorpion neurotoxins</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:64f0c1482fd8</link>
-<guid isPermaLink="false">s:64f0c1482fd8</guid>
-<pubDate>Wed, 21 Oct 2026 10:48:46 GMT</pubDate>
+<title>Claude Duet</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:2a417f17ec3d</link>
+<guid isPermaLink="false">s:2a417f17ec3d</guid>
+<pubDate>Thu, 22 Oct 2026 10:52:59 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
 <dc:language>und</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 3 · Networks: HN 1 · Mastodon 2&lt;/p&gt;&lt;p&gt;Newsletters: 2 · Lab post: not fetched · HN points: 106&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50170021&quot; lang=&quot;und&quot;&gt;Claude designed protein binders against scorpion neurotoxins&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 2 posts counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.anthropic.com/research/claude-scorpion-toxin-binder-design&quot;&gt;https://www.anthropic.com/research/claude-scorpion-toxin-binder-design&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:64f0c1482fd8&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;new today · news · Claude Duet&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 28 · Networks: HN 2 · Mastodon 22 · Reddit 3 · Bluesky 3&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: not fetched · HN points: 395&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50186037&quot; lang=&quot;und&quot;&gt;Claude Duet&lt;/a&gt;&lt;/li&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50186455&quot; lang=&quot;und&quot;&gt;Claude Duet&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Newsletter: &lt;a href=&quot;https://www.theneurondaily.com/p/new-claude-duet-works-while-your-phone-s-off&quot; lang=&quot;en-US&quot;&gt;😺 New Claude Duet works while your phone&amp;apos;s off&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 22 posts counted, not shown&lt;/li&gt;&lt;li&gt;Reddit: 3 posts counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://claude.com/product/claude-duet&quot;&gt;https://claude.com/product/claude-duet&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:2a417f17ec3d&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Using Claude to reduce the attack surface of code</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:867ca172301d</link>
-<guid isPermaLink="false">s:867ca172301d</guid>
-<pubDate>Wed, 21 Oct 2026 10:48:46 GMT</pubDate>
+<title>Achieving AI-style reasoning without an LLM</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:de351467c1a1</link>
+<guid isPermaLink="false">s:de351467c1a1</guid>
+<pubDate>Thu, 22 Oct 2026 10:52:59 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
 <dc:language>und</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: HN 1 · Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: not fetched · HN points: 53&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50175779&quot; lang=&quot;und&quot;&gt;Using Claude to reduce the attack surface of code&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.anthropic.com/research/attack-surface-reduction&quot;&gt;https://www.anthropic.com/research/attack-surface-reduction&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:867ca172301d&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 3 · Networks: HN 1 · Mastodon 2&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: not fetched · HN points: 30&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50192868&quot; lang=&quot;und&quot;&gt;Achieving AI-style reasoning without an LLM&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 2 posts counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://fleetingswallow.com/minotaur-ai-deep-dive-achieving-reasoning-without-a-language-model/&quot;&gt;https://fleetingswallow.com/minotaur-ai-deep-dive-achieving-reasoning-without-a-language-model/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:de351467c1a1&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Publish fake stats, get cited in LLMs</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:edfa40a96384</link>
-<guid isPermaLink="false">s:edfa40a96384</guid>
-<pubDate>Wed, 21 Oct 2026 10:48:46 GMT</pubDate>
+<title>Claude Now Works with Google Docs, Sheets, and Slides</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:13d0f11f8da3</link>
+<guid isPermaLink="false">s:13d0f11f8da3</guid>
+<pubDate>Thu, 22 Oct 2026 10:52:59 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
 <dc:language>und</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: HN 1 · Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: not fetched · HN points: 343&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50165801&quot; lang=&quot;und&quot;&gt;Publish fake stats, get cited in LLMs&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://peec.ai/blog/publish-stats-get-cited-the-tactic-that-put-my-data-all-over-the-web&quot;&gt;https://peec.ai/blog/publish-stats-get-cited-the-tactic-that-put-my-data-all-over-the-web&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:edfa40a96384&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: HN 1 · Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: not fetched · HN points: 46&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50190357&quot; lang=&quot;und&quot;&gt;Claude Now Works with Google Docs, Sheets, and Slides&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://claude.com/resources/articles/claude-now-works-in-google-docs-sheets-and-slides&quot;&gt;https://claude.com/resources/articles/claude-now-works-in-google-docs-sheets-and-slides&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:13d0f11f8da3&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Show HN: Penmentor – Claude marks up your handwritten math like a teacher</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:992960b1fcfd</link>
-<guid isPermaLink="false">s:992960b1fcfd</guid>
-<pubDate>Wed, 21 Oct 2026 10:48:46 GMT</pubDate>
+<title>Show HN: Omnara – Open-source alternative to Claude Managed Agents</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:0bc97294f9f2</link>
+<guid isPermaLink="false">s:0bc97294f9f2</guid>
+<pubDate>Thu, 22 Oct 2026 10:52:59 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
 <dc:language>und</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: HN 1 · Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: not fetched · HN points: 61&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50167604&quot; lang=&quot;und&quot;&gt;Show HN: Penmentor – Claude marks up your handwritten math like a teacher&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://github.com/AbdullahAlhariri/penmentor&quot;&gt;https://github.com/AbdullahAlhariri/penmentor&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:992960b1fcfd&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: HN 1 · Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: not fetched · HN points: 82&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50183892&quot; lang=&quot;und&quot;&gt;Show HN: Omnara – Open-source alternative to Claude Managed Agents&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://github.com/omnara-ai/omnara&quot;&gt;https://github.com/omnara-ai/omnara&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:0bc97294f9f2&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>OpenAI says two agents, one GPT-6.1 Sol and one GPT-6 Astra, weakened misalignment monitoring while making requested changes during two internal coding tasks (OpenAI)</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:2e4bd8c026da</link>
-<guid isPermaLink="false">s:2e4bd8c026da</guid>
-<pubDate>Wed, 21 Oct 2026 10:48:46 GMT</pubDate>
+<title>LLM agents play Pokemon showdown</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:ab0e7329e04d</link>
+<guid isPermaLink="false">s:ab0e7329e04d</guid>
+<pubDate>Thu, 22 Oct 2026 10:52:59 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: Bluesky 1&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: not fetched · HN points: 0&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261020/p60#a261020p60&quot;&gt;https://www.techmeme.com/261020/p60#a261020p60&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:2e4bd8c026da&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<dc:language>und</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: HN 1 · Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: not fetched · HN points: 28&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50190334&quot; lang=&quot;und&quot;&gt;LLM agents play Pokemon showdown&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://olivergrabner.com/research/pokemon/&quot;&gt;https://olivergrabner.com/research/pokemon/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:ab0e7329e04d&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>OpenAI says GPT-6 is much better with legacy programming languages such as COBOL and Fortran</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:2ec5628a1d0b</link>
-<guid isPermaLink="false">s:2ec5628a1d0b</guid>
-<pubDate>Wed, 21 Oct 2026 10:48:46 GMT</pubDate>
+<title>Google staff resign in backlash over its AI contracts with military</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:b75aa75d9715</link>
+<guid isPermaLink="false">s:b75aa75d9715</guid>
+<pubDate>Thu, 22 Oct 2026 10:52:59 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 2 · Lab post: not fetched · HN points: 0&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://the-decoder.com/openai-says-gpt-6-is-much-better-with-legacy-programming-languages-such-as-cobol-and-fortran/&quot;&gt;https://the-decoder.com/openai-says-gpt-6-is-much-better-with-legacy-programming-languages-such-as-cobol-and-fortran/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:2ec5628a1d0b&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<dc:language>und</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: HN 1 · Reddit 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: not fetched · HN points: 124&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50186043&quot; lang=&quot;und&quot;&gt;Google staff resign in backlash over its AI contracts with military&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Reddit: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.bbc.com/news/articles/cmreyvepnv0po&quot;&gt;https://www.bbc.com/news/articles/cmreyvepnv0po&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:b75aa75d9715&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>FairStress: A deeper evaluation of fairness in LLM decision-making</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:ca293d8533a3</link>
-<guid isPermaLink="false">s:ca293d8533a3</guid>
-<pubDate>Wed, 21 Oct 2026 10:48:46 GMT</pubDate>
+<title>Barclays plans to cut 5,000 jobs, or ~5% of its workforce, by the end of 2026 as part of AI-driven cost cutting, with ~60% coming from support and developers (William Shaw/Bloomberg)</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:6242e324dff2</link>
+<guid isPermaLink="false">s:6242e324dff2</guid>
+<pubDate>Thu, 22 Oct 2026 10:52:59 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
 <dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: Reddit 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: yes · HN points: 0&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Reddit: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://huggingface.co/blog/allenai/fairstress&quot;&gt;https://huggingface.co/blog/allenai/fairstress&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:ca293d8533a3&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: not fetched · HN points: 0&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Mastodon: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261022/p11#a261022p11&quot;&gt;https://www.techmeme.com/261022/p11#a261022p11&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:6242e324dff2&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Dario Amodei says Anthropic&apos;s &quot;race to the top&quot; makes AI safer, cites nine safety decisions with &quot;substantial costs&quot;, and admits mishandling a draft AI bill (Dario Amodei/@darioamodei)</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:2da695f45cac</link>
-<guid isPermaLink="false">s:2da695f45cac</guid>
-<pubDate>Wed, 21 Oct 2026 10:48:46 GMT</pubDate>
+<title>Qwen3-Coder writes less secure code when told it&apos;s for a US persona</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:e66c0e2e7493</link>
+<guid isPermaLink="false">s:e66c0e2e7493</guid>
+<pubDate>Thu, 22 Oct 2026 10:52:59 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: not fetched · HN points: 0&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261021/p13#a261021p13&quot;&gt;https://www.techmeme.com/261021/p13#a261021p13&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:2da695f45cac&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<dc:language>und</dc:language>
+<description>&lt;p&gt;new today · news · Qwen 3 Coder&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: HN 1 · Reddit 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: not fetched · HN points: 241&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50179706&quot; lang=&quot;und&quot;&gt;Qwen3-Coder writes less secure code when told it&amp;apos;s for a US persona&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Reddit: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.hirundo.io/blog/qwen3-coder-vulnerabilities&quot;&gt;https://www.hirundo.io/blog/qwen3-coder-vulnerabilities&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:e66c0e2e7493&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Nvidia unveils the DSX POD, a modular containerized version of its Vera Rubin reference architecture to cut data center deployment from six months to 14 days (Charlotte Trueman/DatacenterDynamics)</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:157edb1414e8</link>
-<guid isPermaLink="false">s:157edb1414e8</guid>
-<pubDate>Wed, 21 Oct 2026 10:48:46 GMT</pubDate>
+<title>Anthropic takes on ChatGPT Dots and Meta Muse with Claude Duet</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:fcaae5b06473</link>
+<guid isPermaLink="false">s:fcaae5b06473</guid>
+<pubDate>Thu, 22 Oct 2026 10:52:59 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: not fetched · HN points: 0&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261021/p12#a261021p12&quot;&gt;https://www.techmeme.com/261021/p12#a261021p12&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:157edb1414e8&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<dc:language>und</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: Bluesky 1&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: not fetched · HN points: 0&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Newsletter: &lt;a href=&quot;https://the-decoder.com/anthropic-takes-on-grok-bot-metas-muse-and-openais-dots-with-its-always-on-agent-claude-duet/&quot; lang=&quot;en-US&quot;&gt;Anthropic takes on Grok Bot, Meta&amp;apos;s Muse, and OpenAI&amp;apos;s Dots with its always-on agent &amp;quot;Claude Duet&amp;quot;&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://9to5mac.com/2026/10/21/anthropic-takes-on-chatgpt-dots-and-meta-muse-with-claude-duet/?utm_source=dlvr.it&amp;amp;utm_medium=bluesky&quot;&gt;https://9to5mac.com/2026/10/21/anthropic-takes-on-chatgpt-dots-and-meta-muse-with-claude-duet/?utm_source=dlvr.it&amp;amp;utm_medium=bluesky&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:fcaae5b06473&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>China criticizes the US DHS&apos;s DeepSeek ban, vowing &quot;resolute countermeasures&quot; while rejecting allegations from the FBI and AI labs of illicit distillation (Ephrat Livni/New York Times)</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:90b97b433190</link>
-<guid isPermaLink="false">s:90b97b433190</guid>
-<pubDate>Wed, 21 Oct 2026 10:48:46 GMT</pubDate>
+<title>How AI is an inherently imperial technology, and how the US and China are building rival &quot;AI empires&quot; with different approaches to extend their power (Foreign Affairs)</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:f8daff8fe5d8</link>
+<guid isPermaLink="false">s:f8daff8fe5d8</guid>
+<pubDate>Thu, 22 Oct 2026 10:52:59 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
 <dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: not fetched · HN points: 0&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261021/p11#a261021p11&quot;&gt;https://www.techmeme.com/261021/p11#a261021p11&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:90b97b433190&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: not fetched · HN points: 0&lt;/p&gt;&lt;p&gt;5 of 7 sources fetched in full · Newsletter partial · Official partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Mastodon: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261022/p9#a261022p9&quot;&gt;https://www.techmeme.com/261022/p9#a261022p9&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:f8daff8fe5d8&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 </channel>
 </rss>
