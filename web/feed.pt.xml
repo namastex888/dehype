@@ -5,98 +5,98 @@
 <link>https://namastex888.github.io/dehype/index.html?lang=pt</link>
 <description>Dez histórias de IA das últimas 24 horas, com as evidências e por onde cada uma se espalhou: atenção na nossa amostra, não um veredito sobre a verdade.</description>
 <language>pt-BR</language>
-<lastBuildDate>Fri, 23 Oct 2026 10:43:11 GMT</lastBuildDate>
+<lastBuildDate>Tue, 03 Nov 2026 13:40:18 GMT</lastBuildDate>
 <docs>https://www.rssboard.org/rss-specification</docs>
 <atom:link href="https://namastex888.github.io/dehype/feed.pt.xml" rel="self" type="application/rss+xml"/>
 <item>
-<title>LLMs are making formal software verification feasible at a much larger scale</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:ca664c9883d6</link>
-<guid isPermaLink="false">s:ca664c9883d6</guid>
-<pubDate>Fri, 23 Oct 2026 10:43:11 GMT</pubDate>
+<title>Sparks of Weight-Space Programming: LLMs can natively read &amp; write neural network weights</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:cf0ceff712eb</link>
+<guid isPermaLink="false">s:cf0ceff712eb</guid>
+<pubDate>Tue, 03 Nov 2026 13:40:18 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>und</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: HN 1 · Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: não · Pontos no HN: 350&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50202217&quot; lang=&quot;und&quot;&gt;LLMs are making formal software verification feasible at a much larger scale&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 1 post contado, não mostrado&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.anthropic.com/research/formal-verification&quot;&gt;https://www.anthropic.com/research/formal-verification&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:ca664c9883d6&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 7 · Redes: Lobsters 1 · Reddit 6&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;5 de 7 fontes obtidas por completo · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Lobsters: &lt;a href=&quot;https://lobste.rs/s/u7wdqj/sparks_weight_space_programming_llms_can&quot; lang=&quot;und&quot;&gt;Sparks of Weight-Space Programming: LLMs can natively read &amp;amp; write neural network weights&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Reddit: 6 posts contados, não mostrados&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://rikiyat.github.io/blog/weight-space-programming/&quot;&gt;https://rikiyat.github.io/blog/weight-space-programming/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:cf0ceff712eb&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>OpenShell – A safe, private runtime for fleets of autonomous AI agents</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:59d1be1fc8d5</link>
-<guid isPermaLink="false">s:59d1be1fc8d5</guid>
-<pubDate>Fri, 23 Oct 2026 10:43:11 GMT</pubDate>
+<title>Anthropic&apos;s internal AI use, at retail prices, now exceeds its employee pay</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:221f22cf99c7</link>
+<guid isPermaLink="false">s:221f22cf99c7</guid>
+<pubDate>Tue, 03 Nov 2026 13:40:18 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>und</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: HN 1 · Reddit 1&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: não · Pontos no HN: 402&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50198675&quot; lang=&quot;und&quot;&gt;OpenShell – A safe, private runtime for fleets of autonomous AI agents&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Reddit: 1 post contado, não mostrado&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://github.com/NVIDIA/OpenShell&quot;&gt;https://github.com/NVIDIA/OpenShell&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:59d1be1fc8d5&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: HN 1 · Reddit 1&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: não obtido · Pontos no HN: 334&lt;/p&gt;&lt;p&gt;5 de 7 fontes obtidas por completo · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50339494&quot; lang=&quot;und&quot;&gt;Anthropic&amp;apos;s internal AI use, at retail prices, now exceeds its employee pay&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Reddit: 1 post contado, não mostrado&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.businessinsider.com/anthropic-claude-internal-ai-use-exceeds-employee-pay-tokens-2026-11&quot;&gt;https://www.businessinsider.com/anthropic-claude-internal-ai-use-exceeds-employee-pay-tokens-2026-11&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:221f22cf99c7&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Every AI model has the same &quot;controversial&quot; take on humans</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:ab26d40a7dbf</link>
-<guid isPermaLink="false">s:ab26d40a7dbf</guid>
-<pubDate>Fri, 23 Oct 2026 10:43:11 GMT</pubDate>
+<title>Goldman Sachs pulls AI coding tools from traders and bankers</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:ba3b27d66bf1</link>
+<guid isPermaLink="false">s:ba3b27d66bf1</guid>
+<pubDate>Tue, 03 Nov 2026 13:40:18 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: HN 1&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 27&lt;/p&gt;&lt;p&gt;5 de 7 fontes obtidas por completo · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50341065&quot; lang=&quot;und&quot;&gt;Goldman Restricts Traders and Bankers from Using Some AI Tools&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://the-decoder.com/goldman-sachs-pulls-ai-coding-tools-from-traders-and-bankers/&quot;&gt;https://the-decoder.com/goldman-sachs-pulls-ai-coding-tools-from-traders-and-bankers/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:ba3b27d66bf1&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>Anthropic reveals $900B AI spending commitments ahead of IPO</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:501af74bcfd8</link>
+<guid isPermaLink="false">s:501af74bcfd8</guid>
+<pubDate>Tue, 03 Nov 2026 13:40:18 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>und</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: HN 1 · Reddit 1&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: não · Pontos no HN: 431&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50197313&quot; lang=&quot;und&quot;&gt;Every AI model has the same &amp;quot;controversial&amp;quot; take on humans&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Reddit: 1 post contado, não mostrado&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.modelcompare.ai/blog/ai-models-controversial-take-on-humans&quot;&gt;https://www.modelcompare.ai/blog/ai-models-controversial-take-on-humans&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:ab26d40a7dbf&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: HN 1 · Bluesky 1&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: não obtido · Pontos no HN: 73&lt;/p&gt;&lt;p&gt;5 de 7 fontes obtidas por completo · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50342424&quot; lang=&quot;und&quot;&gt;Anthropic reveals $900B AI spending commitments ahead of IPO&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.ft.com/content/4d91dbab-6fe4-45ab-beee-d77e091cb37f&quot;&gt;https://www.ft.com/content/4d91dbab-6fe4-45ab-beee-d77e091cb37f&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:501af74bcfd8&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Show HN: agent-usage-guard – a Claude Code mod to protect your usage window</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:8ab6978a9917</link>
-<guid isPermaLink="false">s:8ab6978a9917</guid>
-<pubDate>Fri, 23 Oct 2026 10:43:11 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
-<dc:language>und</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: HN 1 · Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: não · Pontos no HN: 23&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50198936&quot; lang=&quot;und&quot;&gt;Show HN: agent-usage-guard – a Claude Code mod to protect your usage window&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 1 post contado, não mostrado&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://github.com/rbartoli/agent-usage-guard&quot;&gt;https://github.com/rbartoli/agent-usage-guard&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:8ab6978a9917&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>[AINews] Black October</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:d118e2133ee5</link>
-<guid isPermaLink="false">s:d118e2133ee5</guid>
-<pubDate>Fri, 23 Oct 2026 10:43:11 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
-<dc:language>en</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://latent.space/p/ainews-black-october/&quot;&gt;https://latent.space/p/ainews-black-october/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:d118e2133ee5&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>U.S. banks catch AI agents going off-script</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:ead02df4d05b</link>
-<guid isPermaLink="false">s:ead02df4d05b</guid>
-<pubDate>Fri, 23 Oct 2026 10:43:11 GMT</pubDate>
+<title>Heimstaden is changing residential real estate management with AI</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:08b710f1e780</link>
+<guid isPermaLink="false">s:08b710f1e780</guid>
+<pubDate>Tue, 03 Nov 2026 13:40:18 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://therundownai.beehiiv.com/p/us-banks-catch-ai-agents-going-off-script&quot;&gt;https://therundownai.beehiiv.com/p/us-banks-catch-ai-agents-going-off-script&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:ead02df4d05b&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: sim · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;5 de 7 fontes obtidas por completo · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Mastodon: 1 post contado, não mostrado&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://openai.com/index/heimstaden&quot;&gt;https://openai.com/index/heimstaden&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:08b710f1e780&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Greece&apos;s parliament passes a bill to ban social media platforms for children under 15 from 2027 and gives companies two months to verify users&apos; ages (Angeliki Koutantou/Reuters)</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:757f227f6789</link>
-<guid isPermaLink="false">s:757f227f6789</guid>
-<pubDate>Fri, 23 Oct 2026 10:43:11 GMT</pubDate>
+<title>Introducing the Grid Protectors Program</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:19244c7aa206</link>
+<guid isPermaLink="false">s:19244c7aa206</guid>
+<pubDate>Tue, 03 Nov 2026 13:40:18 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261023/p6#a261023p6&quot;&gt;https://www.techmeme.com/261023/p6#a261023p6&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:757f227f6789&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: Mastodon 2&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: sim · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;5 de 7 fontes obtidas por completo · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Mastodon: 2 posts contados, não mostrados&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://openai.com/index/grid-protectors-program&quot;&gt;https://openai.com/index/grid-protectors-program&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:19244c7aa206&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>OpenAI lowers valuation target, raises up to $30 billion</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:e8b962d9c077</link>
-<guid isPermaLink="false">s:e8b962d9c077</guid>
-<pubDate>Fri, 23 Oct 2026 10:43:11 GMT</pubDate>
+<title>Shopify reports Q3 revenue up 32% YoY to $3.74B, vs. $3.75B est., GMV up 29% to $119.1B, net income up 75% to $462M, and adjusted EPS of $0.49; SHOP falls 15%+ (Adriano Marchese/Wall Street Journal)</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:f04be5f9d51d</link>
+<guid isPermaLink="false">s:f04be5f9d51d</guid>
+<pubDate>Tue, 03 Nov 2026 13:40:18 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://the-decoder.com/openai-lowers-valuation-target-raises-up-to-30-billion/&quot;&gt;https://the-decoder.com/openai-lowers-valuation-target-raises-up-to-30-billion/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:e8b962d9c077&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;5 de 7 fontes obtidas por completo · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261103/p13#a261103p13&quot;&gt;https://www.techmeme.com/261103/p13#a261103p13&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:f04be5f9d51d&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>😺 Microsoft AI scored 83% where doctors got 36%</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:fb5164f7730d</link>
-<guid isPermaLink="false">s:fb5164f7730d</guid>
-<pubDate>Fri, 23 Oct 2026 10:43:11 GMT</pubDate>
+<title>Anthropic&apos;s Message Threads cut time to first token by 35 percent for long conversations</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:71d2bc7001c1</link>
+<guid isPermaLink="false">s:71d2bc7001c1</guid>
+<pubDate>Tue, 03 Nov 2026 13:40:18 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.theneurondaily.com/p/microsoft-ai-scored-83-where-doctors-got-36&quot;&gt;https://www.theneurondaily.com/p/microsoft-ai-scored-83-where-doctors-got-36&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:fb5164f7730d&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;5 de 7 fontes obtidas por completo · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://the-decoder.com/anthropics-message-threads-cut-time-to-first-token-by-35-percent-for-long-conversations/&quot;&gt;https://the-decoder.com/anthropics-message-threads-cut-time-to-first-token-by-35-percent-for-long-conversations/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:71d2bc7001c1&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Anthropic says it partnered with Theorem to use Claude to formally prove security properties at the assembly level across 100+ real-world open-source libraries (Anthropic)</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:a1319175cece</link>
-<guid isPermaLink="false">s:a1319175cece</guid>
-<pubDate>Fri, 23 Oct 2026 10:43:11 GMT</pubDate>
+<title>Nvidia pushes cloud customers to cut back on China business</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:a17315a0f2a4</link>
+<guid isPermaLink="false">s:a17315a0f2a4</guid>
+<pubDate>Tue, 03 Nov 2026 13:40:18 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261023/p5#a261023p5&quot;&gt;https://www.techmeme.com/261023/p5#a261023p5&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:a1319175cece&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;5 de 7 fontes obtidas por completo · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://the-decoder.com/nvidia-pushes-cloud-customers-to-cut-back-on-china-business/&quot;&gt;https://the-decoder.com/nvidia-pushes-cloud-customers-to-cut-back-on-china-business/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:a17315a0f2a4&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>US data center operators and power developers are repurposing jet engines to secure power in as little as two years, bypassing multi-year grid-connection delays (New York Times)</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:c0a15c3820e8</link>
+<guid isPermaLink="false">s:c0a15c3820e8</guid>
+<pubDate>Tue, 03 Nov 2026 13:40:18 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;5 de 7 fontes obtidas por completo · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261103/p12#a261103p12&quot;&gt;https://www.techmeme.com/261103/p12#a261103p12&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:c0a15c3820e8&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 </channel>
 </rss>
