@@ -5,98 +5,98 @@
 <link>https://namastex888.github.io/dehype/index.html</link>
 <description>Ten AI stories from the last 24 hours, with their evidence and where each spread: attention in our sample, not a verdict on truth.</description>
 <language>en</language>
-<lastBuildDate>Wed, 25 Nov 2026 15:52:14 GMT</lastBuildDate>
+<lastBuildDate>Thu, 26 Nov 2026 15:28:36 GMT</lastBuildDate>
 <docs>https://www.rssboard.org/rss-specification</docs>
 <atom:link href="https://namastex888.github.io/dehype/feed.xml" rel="self" type="application/rss+xml"/>
 <item>
-<title>Gemini refused to give me the lyrics to Twinkle Twinkle Little Star</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:4ee6a256edff</link>
-<guid isPermaLink="false">s:4ee6a256edff</guid>
-<pubDate>Wed, 25 Nov 2026 15:52:14 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>und</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: HN 1 · Reddit 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: no · HN points: 199&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50638320&quot; lang=&quot;und&quot;&gt;Gemini refused to give me the lyrics to Twinkle Twinkle Little Star&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Reddit: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.comentr.com/technology/01M88DWQ0R4NCMYR17AFEWRG1F&quot;&gt;https://www.comentr.com/technology/01M88DWQ0R4NCMYR17AFEWRG1F&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:4ee6a256edff&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>GPT 6.2 Astra Solves a Historical Mystery</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:c808d58c8ec4</link>
-<guid isPermaLink="false">s:c808d58c8ec4</guid>
-<pubDate>Wed, 25 Nov 2026 15:52:14 GMT</pubDate>
+<title>Verifiable Social Reasoning for LLM Assistants</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:040b9138c790</link>
+<guid isPermaLink="false">s:040b9138c790</guid>
+<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
 <dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news · GPT 6.2&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 3 · Networks: Mastodon 2&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Mastodon: 2 posts counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://simonwillison.net/2026/Nov/24/astra-historical-mystery/&quot;&gt;https://simonwillison.net/2026/Nov/24/astra-historical-mystery/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:c808d58c8ec4&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: Mastodon 1 · Bluesky 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: yes · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Mastodon: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://research.google/blog/verifiable-social-reasoning-for-llm-assistants/&quot;&gt;https://research.google/blog/verifiable-social-reasoning-for-llm-assistants/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:040b9138c790&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Matrix Multiplication is Θ(n^2.25)</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:febe97f2c8c1</link>
-<guid isPermaLink="false">s:febe97f2c8c1</guid>
-<pubDate>Wed, 25 Nov 2026 15:52:14 GMT</pubDate>
+<title>Introducing the llama.cpp benchmark dashboard for AMD Ryzen and Radeon</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:02a088434703</link>
+<guid isPermaLink="false">s:02a088434703</guid>
+<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>und</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 3 · Networks: Lobsters 1 · Mastodon 2&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Lobsters: &lt;a href=&quot;https://lobste.rs/s/kn0pmh/matrix_multiplication_is_n_2_25&quot; lang=&quot;und&quot;&gt;Matrix Multiplication is Θ(n^2.25)&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 2 posts counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://raw.githubusercontent.com/openai/math/main/preprints/The-matrix-multiplication-exponent-is-nine-fourths-November-24-2026/paper.pdf&quot;&gt;https://raw.githubusercontent.com/openai/math/main/preprints/The-matrix-multiplication-exponent-is-nine-fourths-November-24-2026/paper.pdf&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:febe97f2c8c1&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: not fetched · Lab post: yes · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Mastodon: 1 post counted, not shown&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://huggingface.co/blog/ggml-org/llamacpp-amd-bench&quot;&gt;https://huggingface.co/blog/ggml-org/llamacpp-amd-bench&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:02a088434703&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Anthropic Turns Claude Artifacts Into Real Desktop Apps With One Click</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:6acc1efa37b4</link>
-<guid isPermaLink="false">s:6acc1efa37b4</guid>
-<pubDate>Wed, 25 Nov 2026 15:52:14 GMT</pubDate>
+<title>Quoting Jack Despain Zhou</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:316e60a88e0f</link>
+<guid isPermaLink="false">s:316e60a88e0f</guid>
+<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://simonwillison.net/2026/Nov/26/jack-despain-zhou/&quot;&gt;https://simonwillison.net/2026/Nov/26/jack-despain-zhou/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:316e60a88e0f&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>Texas resumes data center permitting, approving permits for SpaceX&apos;s $24B gas power plant, ahead of Democratic Governor Gina Hinojosa taking office in January (Stephanie Findlay/Financial Times)</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:624677e32c85</link>
+<guid isPermaLink="false">s:624677e32c85</guid>
+<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261126/p19#a261126p19&quot;&gt;https://www.techmeme.com/261126/p19#a261126p19&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:624677e32c85&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>FCC clears SpaceX to deploy up to 1 million Starmind satellites for orbital AI data centers by 2040</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:a6eb08723d8f</link>
+<guid isPermaLink="false">s:a6eb08723d8f</guid>
+<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://the-decoder.com/fcc-clears-spacex-to-deploy-up-to-1-million-starmind-satellites-for-orbital-ai-data-centers-by-2040/&quot;&gt;https://the-decoder.com/fcc-clears-spacex-to-deploy-up-to-1-million-starmind-satellites-for-orbital-ai-data-centers-by-2040/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:a6eb08723d8f&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>TrustedRouter, which raised $6M to offer E2EE and confidential computing for enterprise AI queries, says it processes 6B+ tokens per day, up from 1B in August (Davey Alba/Bloomberg)</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:0d9946bf0279</link>
+<guid isPermaLink="false">s:0d9946bf0279</guid>
+<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261126/p18#a261126p18&quot;&gt;https://www.techmeme.com/261126/p18#a261126p18&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:0d9946bf0279&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>The UK FCA says it plans to require DeFi platforms to obtain authorization, adopting a stricter stance than the US and the EU after the $6.3B Binance hack (Financial Times)</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:935aba248ef5</link>
+<guid isPermaLink="false">s:935aba248ef5</guid>
+<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261126/p17#a261126p17&quot;&gt;https://www.techmeme.com/261126/p17#a261126p17&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:935aba248ef5&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>The Dutch government says it will resist the US&apos; planned Match Act, which aims to restrict ASML&apos;s sales to China, calling the proposal a threat to the company (Bloomberg)</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:3ad073762630</link>
+<guid isPermaLink="false">s:3ad073762630</guid>
+<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261126/p15#a261126p15&quot;&gt;https://www.techmeme.com/261126/p15#a261126p15&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:3ad073762630&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>Analysis: institutional investors are selling stakes in older VC funds from the 2021 investment boom peak at steep discounts and rushing to back new AI funds (Financial Times)</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:361bfb829696</link>
+<guid isPermaLink="false">s:361bfb829696</guid>
+<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261126/p14#a261126p14&quot;&gt;https://www.techmeme.com/261126/p14#a261126p14&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:361bfb829696&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>Tencent Open-Sources DFly2, Hitting 4.2x Speed on Long-Context AI</title>
+<link>https://namastex888.github.io/dehype/stories.html#s:02a66f34c2af</link>
+<guid isPermaLink="false">s:02a66f34c2af</guid>
+<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
 <dc:language>en</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 2 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 2 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;Posts shown:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Newsletter: &lt;a href=&quot;https://the-decoder.com/anthropic-turns-claude-artifacts-into-standalone-desktop-apps-for-macos-and-windows/&quot; lang=&quot;en-US&quot;&gt;Anthropic turns Claude Artifacts into standalone desktop apps for macOS and Windows&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://alphasignal.ai/news/anthropic-turns-claude-artifacts-into-real-desktop-apps-with-one-click?utm_source=rss&amp;amp;utm_medium=feed&quot;&gt;https://alphasignal.ai/news/anthropic-turns-claude-artifacts-into-real-desktop-apps-with-one-click?utm_source=rss&amp;amp;utm_medium=feed&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:6acc1efa37b4&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>US tech stocks fall, pushing the Nasdaq 100 down 4%+, as the AI trade continues to unwind; Nvidia and Anthropic fall 9%+, Broadcom drops 7%, and Micron 11% (Financial Times)</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:2ead36a65780</link>
-<guid isPermaLink="false">s:2ead36a65780</guid>
-<pubDate>Wed, 25 Nov 2026 15:52:14 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261125/p24#a261125p24&quot;&gt;https://www.techmeme.com/261125/p24#a261125p24&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:2ead36a65780&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>Source: President Trump is scheduled to lead a December 4 groundbreaking ceremony for TSMC&apos;s Phoenix plant expansion, deepening his chip sector involvement (Bloomberg)</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:0d80628cee00</link>
-<guid isPermaLink="false">s:0d80628cee00</guid>
-<pubDate>Wed, 25 Nov 2026 15:52:14 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261125/p23#a261125p23&quot;&gt;https://www.techmeme.com/261125/p23#a261125p23&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:0d80628cee00&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>Tether and Circle freezing $2B+ in crypto after Binance&apos;s $6.3B hack shows their centralized control and a shift from Circle&apos;s reliance on slow court orders (Bloomberg)</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:8445a60ad7a3</link>
-<guid isPermaLink="false">s:8445a60ad7a3</guid>
-<pubDate>Wed, 25 Nov 2026 15:52:14 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261125/p22#a261125p22&quot;&gt;https://www.techmeme.com/261125/p22#a261125p22&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:8445a60ad7a3&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>AI agents now control part of Deepmind&apos;s compute for Gemini experiments, but recursive self-improvement remains distant</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:7354ff43a60c</link>
-<guid isPermaLink="false">s:7354ff43a60c</guid>
-<pubDate>Wed, 25 Nov 2026 15:52:14 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://the-decoder.com/ai-agents-now-control-part-of-deepminds-compute-for-gemini-experiments-but-recursive-self-improvement-remains-distant/&quot;&gt;https://the-decoder.com/ai-agents-now-control-part-of-deepminds-compute-for-gemini-experiments-but-recursive-self-improvement-remains-distant/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:7354ff43a60c&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>OpenAI publishes a preprint that claims to prove that the matrix multiplication exponent (ω) is exactly 9/4, addressing a major open problem in mathematics (alphaXiv)</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:e0a04d251047</link>
-<guid isPermaLink="false">s:e0a04d251047</guid>
-<pubDate>Wed, 25 Nov 2026 15:52:14 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261125/p21#a261125p21&quot;&gt;https://www.techmeme.com/261125/p21#a261125p21&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:e0a04d251047&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>Anthropic study shows the hardest part of adopting AI at work has little to do with learning the tools</title>
-<link>https://namastex888.github.io/dehype/stories.html#s:1578fa0fd76b</link>
-<guid isPermaLink="false">s:1578fa0fd76b</guid>
-<pubDate>Wed, 25 Nov 2026 15:52:14 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html">proposed by the pipeline, not reviewed</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://the-decoder.com/anthropic-study-shows-the-hardest-part-of-adopting-ai-at-work-has-little-to-do-with-learning-the-tools/&quot;&gt;https://the-decoder.com/anthropic-study-shows-the-hardest-part-of-adopting-ai-at-work-has-little-to-do-with-learning-the-tools/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:1578fa0fd76b&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;new today · news&lt;/p&gt;&lt;p&gt;Verdict: proposed by the pipeline, not reviewed&lt;/p&gt;&lt;p&gt;Voices: 1 · Networks: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Lab post: no · HN points: 0&lt;/p&gt;&lt;p&gt;6 of 7 sources fetched in full · Newsletter partial&lt;/p&gt;&lt;p&gt;the story&amp;apos;s own links:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://alphasignal.ai/news/tencent-open-sources-dfly2-hitting-4-2x-speed-on-long-context-ai?utm_source=rss&amp;amp;utm_medium=feed&quot;&gt;https://alphasignal.ai/news/tencent-open-sources-dfly2-hitting-4-2x-speed-on-long-context-ai?utm_source=rss&amp;amp;utm_medium=feed&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html#s:02a66f34c2af&quot;&gt;Evidence record&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 </channel>
 </rss>
