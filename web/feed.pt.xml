@@ -5,98 +5,98 @@
 <link>https://namastex888.github.io/dehype/index.html?lang=pt</link>
 <description>Dez histórias de IA das últimas 24 horas, com as evidências e por onde cada uma se espalhou: atenção na nossa amostra, não um veredito sobre a verdade.</description>
 <language>pt-BR</language>
-<lastBuildDate>Thu, 26 Nov 2026 15:28:36 GMT</lastBuildDate>
+<lastBuildDate>Fri, 27 Nov 2026 15:20:50 GMT</lastBuildDate>
 <docs>https://www.rssboard.org/rss-specification</docs>
 <atom:link href="https://namastex888.github.io/dehype/feed.pt.xml" rel="self" type="application/rss+xml"/>
 <item>
-<title>Verifiable Social Reasoning for LLM Assistants</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:040b9138c790</link>
-<guid isPermaLink="false">s:040b9138c790</guid>
-<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<title>The group chat where your AI talks behind your back</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:22b8adbdb460</link>
+<guid isPermaLink="false">s:22b8adbdb460</guid>
+<pubDate>Fri, 27 Nov 2026 15:20:50 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: Mastodon 1 · Bluesky 1&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: sim · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Mastodon: 1 post contado, não mostrado&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://research.google/blog/verifiable-social-reasoning-for-llm-assistants/&quot;&gt;https://research.google/blog/verifiable-social-reasoning-for-llm-assistants/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:040b9138c790&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<dc:language>und</dc:language>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: HN 1 · Lobsters 1 · Reddit não obtido&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: não obtido · Pontos no HN: 483&lt;/p&gt;&lt;p&gt;4 de 7 fontes obtidas por completo · Reddit parcial · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50663595&quot; lang=&quot;und&quot;&gt;The group chat where your AI talks behind your back&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Lobsters: &lt;a href=&quot;https://lobste.rs/s/nag8vt/group_chat_where_your_ai_talks_behind_your&quot; lang=&quot;und&quot;&gt;The group chat where your AI talks behind your back&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://construct22.com/&quot;&gt;https://construct22.com/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:22b8adbdb460&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Introducing the llama.cpp benchmark dashboard for AMD Ryzen and Radeon</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:02a088434703</link>
-<guid isPermaLink="false">s:02a088434703</guid>
-<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<title>AI made self-hosting fun again</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:b39aca2571fd</link>
+<guid isPermaLink="false">s:b39aca2571fd</guid>
+<pubDate>Fri, 27 Nov 2026 15:20:50 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: Mastodon 1&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: sim · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Mastodon: 1 post contado, não mostrado&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://huggingface.co/blog/ggml-org/llamacpp-amd-bench&quot;&gt;https://huggingface.co/blog/ggml-org/llamacpp-amd-bench&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:02a088434703&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<dc:language>und</dc:language>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: HN 1 · Lobsters 1 · Reddit não obtido&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: não obtido · Pontos no HN: 894&lt;/p&gt;&lt;p&gt;4 de 7 fontes obtidas por completo · Reddit parcial · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50660180&quot; lang=&quot;und&quot;&gt;AI made self-hosting fun again&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Lobsters: &lt;a href=&quot;https://lobste.rs/s/xsjwvi/ai_made_self_hosting_fun_again&quot; lang=&quot;und&quot;&gt;AI made self-hosting fun again&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://janlukas.blog/posts/ai-self-hosting&quot;&gt;https://janlukas.blog/posts/ai-self-hosting&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:b39aca2571fd&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Quoting Jack Despain Zhou</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:316e60a88e0f</link>
-<guid isPermaLink="false">s:316e60a88e0f</guid>
-<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<title>&quot;What&apos;s Claude&apos;s Fursona?&quot; and Other Questions</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:dd57d49e5746</link>
+<guid isPermaLink="false">s:dd57d49e5746</guid>
+<pubDate>Fri, 27 Nov 2026 15:20:50 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://simonwillison.net/2026/Nov/26/jack-despain-zhou/&quot;&gt;https://simonwillison.net/2026/Nov/26/jack-despain-zhou/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:316e60a88e0f&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<dc:language>und</dc:language>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 2 · Redes: HN 1 · Mastodon 1 · Reddit não obtido&lt;/p&gt;&lt;p&gt;Newsletters: não obtido · Post do laboratório: não obtido · Pontos no HN: 102&lt;/p&gt;&lt;p&gt;4 de 7 fontes obtidas por completo · Reddit parcial · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;Posts mostrados:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;HN: &lt;a href=&quot;https://news.ycombinator.com/item?id=50662933&quot; lang=&quot;und&quot;&gt;&amp;quot;What&amp;apos;s Claude&amp;apos;s Fursona?&amp;quot; and Other Questions&lt;/a&gt;&lt;/li&gt;&lt;li&gt;Mastodon: 1 post contado, não mostrado&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://herecomesthemoon.net/2026/11/whats-claudes-fursona/&quot;&gt;https://herecomesthemoon.net/2026/11/whats-claudes-fursona/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:dd57d49e5746&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>Texas resumes data center permitting, approving permits for SpaceX&apos;s $24B gas power plant, ahead of Democratic Governor Gina Hinojosa taking office in January (Stephanie Findlay/Financial Times)</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:624677e32c85</link>
-<guid isPermaLink="false">s:624677e32c85</guid>
-<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<title>SAP plans to cut at least 10,000 jobs as it pivots to AI</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:880d4f99a3d4</link>
+<guid isPermaLink="false">s:880d4f99a3d4</guid>
+<pubDate>Fri, 27 Nov 2026 15:20:50 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261126/p19#a261126p19&quot;&gt;https://www.techmeme.com/261126/p19#a261126p19&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:624677e32c85&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: Reddit não obtido&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;4 de 7 fontes obtidas por completo · Reddit parcial · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://the-decoder.com/sap-plans-to-cut-at-least-10000-jobs-as-it-pivots-to-ai/&quot;&gt;https://the-decoder.com/sap-plans-to-cut-at-least-10000-jobs-as-it-pivots-to-ai/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:880d4f99a3d4&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>FCC clears SpaceX to deploy up to 1 million Starmind satellites for orbital AI data centers by 2040</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:a6eb08723d8f</link>
-<guid isPermaLink="false">s:a6eb08723d8f</guid>
-<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<title>Interviews with Huawei CEO Ren Zhengfei and others on how Trump&apos;s restrictions pushed Huawei toward self-reliance, making it central to China&apos;s AI ambitions (New York Times)</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:ed4046eafe8e</link>
+<guid isPermaLink="false">s:ed4046eafe8e</guid>
+<pubDate>Fri, 27 Nov 2026 15:20:50 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://the-decoder.com/fcc-clears-spacex-to-deploy-up-to-1-million-starmind-satellites-for-orbital-ai-data-centers-by-2040/&quot;&gt;https://the-decoder.com/fcc-clears-spacex-to-deploy-up-to-1-million-starmind-satellites-for-orbital-ai-data-centers-by-2040/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:a6eb08723d8f&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: Reddit não obtido&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;4 de 7 fontes obtidas por completo · Reddit parcial · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261127/p7#a261127p7&quot;&gt;https://www.techmeme.com/261127/p7#a261127p7&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:ed4046eafe8e&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 <item>
-<title>TrustedRouter, which raised $6M to offer E2EE and confidential computing for enterprise AI queries, says it processes 6B+ tokens per day, up from 1B in August (Davey Alba/Bloomberg)</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:0d9946bf0279</link>
-<guid isPermaLink="false">s:0d9946bf0279</guid>
-<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261126/p18#a261126p18&quot;&gt;https://www.techmeme.com/261126/p18#a261126p18&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:0d9946bf0279&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>The UK FCA says it plans to require DeFi platforms to obtain authorization, adopting a stricter stance than the US and the EU after the $6.3B Binance hack (Financial Times)</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:935aba248ef5</link>
-<guid isPermaLink="false">s:935aba248ef5</guid>
-<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261126/p17#a261126p17&quot;&gt;https://www.techmeme.com/261126/p17#a261126p17&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:935aba248ef5&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>The Dutch government says it will resist the US&apos; planned Match Act, which aims to restrict ASML&apos;s sales to China, calling the proposal a threat to the company (Bloomberg)</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:3ad073762630</link>
-<guid isPermaLink="false">s:3ad073762630</guid>
-<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261126/p15#a261126p15&quot;&gt;https://www.techmeme.com/261126/p15#a261126p15&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:3ad073762630&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>Analysis: institutional investors are selling stakes in older VC funds from the 2021 investment boom peak at steep discounts and rushing to back new AI funds (Financial Times)</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:361bfb829696</link>
-<guid isPermaLink="false">s:361bfb829696</guid>
-<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
-<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
-<dc:language>en-US</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261126/p14#a261126p14&quot;&gt;https://www.techmeme.com/261126/p14#a261126p14&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:361bfb829696&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
-</item>
-<item>
-<title>Tencent Open-Sources DFly2, Hitting 4.2x Speed on Long-Context AI</title>
-<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:02a66f34c2af</link>
-<guid isPermaLink="false">s:02a66f34c2af</guid>
-<pubDate>Thu, 26 Nov 2026 15:28:36 GMT</pubDate>
+<title>Astra 6.2’s Brain Gets Smart But Its Head Gets Dumb</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:11c5c0d3c0cc</link>
+<guid isPermaLink="false">s:11c5c0d3c0cc</guid>
+<pubDate>Fri, 27 Nov 2026 15:20:50 GMT</pubDate>
 <category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
 <dc:language>en</dc:language>
-<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: —&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;6 de 7 fontes obtidas por completo · Newsletter parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://alphasignal.ai/news/tencent-open-sources-dfly2-hitting-4-2x-speed-on-long-context-ai?utm_source=rss&amp;amp;utm_medium=feed&quot;&gt;https://alphasignal.ai/news/tencent-open-sources-dfly2-hitting-4-2x-speed-on-long-context-ai?utm_source=rss&amp;amp;utm_medium=feed&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:02a66f34c2af&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: Reddit não obtido&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;4 de 7 fontes obtidas por completo · Reddit parcial · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://thezvi.wordpress.com/2026/11/27/astra-6-2s-brain-gets-smart-but-its-head-gets-dumb/&quot;&gt;https://thezvi.wordpress.com/2026/11/27/astra-6-2s-brain-gets-smart-but-its-head-gets-dumb/&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:11c5c0d3c0cc&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>Serial numbers in Chinese filings reveal that Nvidia&apos;s restricted Blackwell chips were installed at a Shanghai data center linked to Alice Huang and Megaspeed (Bloomberg)</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:7e04475a5ff6</link>
+<guid isPermaLink="false">s:7e04475a5ff6</guid>
+<pubDate>Fri, 27 Nov 2026 15:20:50 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: Reddit não obtido&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;4 de 7 fontes obtidas por completo · Reddit parcial · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261127/p6#a261127p6&quot;&gt;https://www.techmeme.com/261127/p6#a261127p6&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:7e04475a5ff6&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>Meituan reports Q3 revenue up 21.6% YoY to ~$17.3B, above est., and an adjusted net profit of ~$285.1M, up from a ~$2.4B adjusted net loss (Ben Jiang/South China Morning Post)</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:ab4b824bea90</link>
+<guid isPermaLink="false">s:ab4b824bea90</guid>
+<pubDate>Fri, 27 Nov 2026 15:20:50 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: Reddit não obtido&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;4 de 7 fontes obtidas por completo · Reddit parcial · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261127/p5#a261127p5&quot;&gt;https://www.techmeme.com/261127/p5#a261127p5&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:ab4b824bea90&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>Sources: the US Air Force recently discovered a breach of Cloud One, which combines Microsoft, Amazon, Oracle, and Google clouds to power Air Force applications (Reuters)</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:d31a74ee7f9b</link>
+<guid isPermaLink="false">s:d31a74ee7f9b</guid>
+<pubDate>Fri, 27 Nov 2026 15:20:50 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
+<dc:language>en-US</dc:language>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: Reddit não obtido&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;4 de 7 fontes obtidas por completo · Reddit parcial · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://www.techmeme.com/261127/p4#a261127p4&quot;&gt;https://www.techmeme.com/261127/p4#a261127p4&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:d31a74ee7f9b&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
+</item>
+<item>
+<title>Unitree&apos;s Guardian V3.0 Claims 80ms Humanoid Robot Control at 99.8% Sync</title>
+<link>https://namastex888.github.io/dehype/stories.html?lang=pt#s:710831360d52</link>
+<guid isPermaLink="false">s:710831360d52</guid>
+<pubDate>Fri, 27 Nov 2026 15:20:50 GMT</pubDate>
+<category domain="https://namastex888.github.io/dehype/method.html?lang=pt">proposto pelo pipeline, não revisado</category>
+<dc:language>en</dc:language>
+<description>&lt;p&gt;novo hoje · notícia&lt;/p&gt;&lt;p&gt;Veredito: proposto pelo pipeline, não revisado&lt;/p&gt;&lt;p&gt;Vozes: 1 · Redes: Reddit não obtido&lt;/p&gt;&lt;p&gt;Newsletters: 1 · Post do laboratório: não obtido · Pontos no HN: 0&lt;/p&gt;&lt;p&gt;4 de 7 fontes obtidas por completo · Reddit parcial · Newsletter parcial · Oficial parcial&lt;/p&gt;&lt;p&gt;os próprios links da história:&lt;/p&gt;&lt;ul&gt;&lt;li&gt;&lt;a href=&quot;https://alphasignal.ai/news/unitree-s-guardian-v3-0-claims-80ms-humanoid-robot-control-at-99-8-sync?utm_source=rss&amp;amp;utm_medium=feed&quot;&gt;https://alphasignal.ai/news/unitree-s-guardian-v3-0-claims-80ms-humanoid-robot-control-at-99-8-sync?utm_source=rss&amp;amp;utm_medium=feed&lt;/a&gt;&lt;/li&gt;&lt;/ul&gt;&lt;p&gt;&lt;a href=&quot;https://namastex888.github.io/dehype/stories.html?lang=pt#s:710831360d52&quot;&gt;Registro de evidências&lt;/a&gt;&lt;/p&gt;</description>
 </item>
 </channel>
 </rss>
